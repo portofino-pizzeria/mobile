@@ -1,0 +1,16 @@
+# .qontinui/config.yml — qontinui PR-merge policy (edit to override dashboard settings)
+version: 1
+framework: expo
+merge:
+  confidence_threshold: 0.8
+  escalate_paths:
+  - app.json
+  - app.config.*
+  - eas.json
+  - package.json
+  - '**/ios/**'
+  - '**/android/**'
+  auto_merge_categories:
+  - docs
+  - test
+  - chore
