@@ -99,29 +99,39 @@ export default function MenuScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Portofino&nbsp;Pizzeria
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {CATEGORY_ORDER.filter((c) => grouped.has(c)).map((category) => (
+          <View key={category} style={styles.section}>
+            <ThemedText type="subtitle">{CATEGORY_LABELS[category]}</ThemedText>
+            {grouped.get(category)!.map((item) => (
+              <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.thumb} contentFit="cover" />
+                ) : null}
+                <View style={styles.cardBody}>
+                  <ThemedText type="smallBold">{item.name}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+                    {item.description}
+                  </ThemedText>
+                  <View style={styles.cardFooter}>
+                    <ThemedText type="smallBold">{formatEUR(item.price)}</ThemedText>
+                    <BridgeButton
+                      uiId={`menu-add-${item.id}`}
+                      uiLabel={`Add ${item.name} to cart`}
+                      style={[styles.addBtn, { backgroundColor: theme.text }]}
+                      onPress={() => cart.add(item)}>
+                      <ThemedText type="smallBold" style={{ color: theme.background }}>
+                        Add
+                      </ThemedText>
+                    </BridgeButton>
+                  </View>
+                </View>
+              </ThemedView>
+            ))}
+          </View>
+        ))}
+        <View style={{ height: cart.count > 0 ? 96 : Spacing.four }} />
+      </ScrollView>
 
       {cart.count > 0 ? (
         <SafeAreaView edges={['bottom']} style={styles.cartBarWrap}>
