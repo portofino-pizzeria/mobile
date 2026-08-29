@@ -1,17 +1,63 @@
 // Mirrors the backend domain types (../../backend/src/types.ts).
 // Money is always an integer number of cents.
+//
+// German is authoritative throughout: `label` / `name` / `description` hold the
+// text as Portofino prints it, and the `*En` fields are optional additions. A
+// missing translation renders the German, never a gap.
 
-export type MenuCategory = 'pizza' | 'sides' | 'drinks' | 'desserts';
+/** A menu category. Data, not a closed union — the owner adds and reorders
+ *  these, and the API returns them in the order they should be rendered. */
+export interface MenuCategory {
+  id: string;
+  label: string;
+  labelEn?: string;
+  sortOrder: number;
+}
+
+/** One real purchasable thing: a size ("klein"/"groß"/"Blech") or a meat
+ *  choice ("Schwein"/"Pute"). An item with a single price has exactly one
+ *  variant. `price` is always present — a variant without a price cannot
+ *  exist. */
+export interface MenuVariant {
+  id: string;
+  label: string;
+  sortOrder: number;
+  price: number;
+}
 
 export interface MenuItem {
   id: string;
+  /** The number printed on the menu ("1", "76a"). Absent if the menu does not
+   *  number this item — never invented. */
+  number?: string;
   name: string;
+  nameEn?: string;
   description: string;
-  category: MenuCategory;
-  price: number;
+  descriptionEn?: string;
+  categoryId: string;
+  /** At least one, in render order. Prices live here, never on the item. */
+  variants: MenuVariant[];
+  /** Verbatim as printed. Resolve against `Menu.allergenLegend`; every code
+   *  here has an entry there, possibly an unresolved one. */
+  allergenCodes: string[];
   imageUrl?: string;
-  vegetarian?: boolean;
-  spicy?: boolean;
+}
+
+/** A legend entry for one allergen code. `resolved: false` means Portofino
+ *  prints this code but we have no label for it — the entry is still returned,
+ *  carrying the explicit "unbekannt" label. Codes are never dropped. */
+export interface AllergenLegendEntry {
+  code: string;
+  label: string;
+  labelEn?: string;
+  resolved: boolean;
+}
+
+/** The GET /api/menu payload. */
+export interface Menu {
+  categories: MenuCategory[];
+  items: MenuItem[];
+  allergenLegend: AllergenLegendEntry[];
 }
 
 export type PaymentProvider = 'stripe' | 'paypal' | 'mock';
@@ -23,9 +69,13 @@ export type OrderStatus =
   | 'ready'
   | 'cancelled';
 
+/** Snapshotted at order time, so a historical order still reads
+ *  "Margherita, groß" at the price that was charged. */
 export interface OrderLine {
   menuItemId: string;
+  variantId: string;
   name: string;
+  variantLabel: string;
   unitPrice: number;
   quantity: number;
 }
