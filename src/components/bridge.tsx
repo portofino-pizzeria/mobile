@@ -43,13 +43,28 @@ type BridgeInputProps = TextInputProps & {
   uiLabel: string;
 };
 
-export function BridgeInput({ uiId, uiLabel, value, ...rest }: BridgeInputProps) {
+export function BridgeInput({ uiId, uiLabel, value, onChangeText, ...rest }: BridgeInputProps) {
   const { ref, onLayout, bridgeProps } = useUIElement({
     id: uiId,
     type: 'input',
     label: uiLabel,
     // Thread the controlled value so a bridge read reflects what the user sees.
     value: typeof value === 'string' ? value : undefined,
+    // Register the text-change handler so the bridge's `type` / `setValue`
+    // actions run exactly the code a real keystroke runs. Without it the
+    // element still ADVERTISES those actions and then fails them with "No text
+    // change handler found on element" — the field reads but cannot be driven,
+    // which silently takes every form in the app off the UI Bridge path.
+    handlers: { onChangeText: (next: string) => onChangeText?.(next) },
   });
-  return <TextInput ref={ref} onLayout={onLayout} {...bridgeProps} value={value} {...rest} />;
+  return (
+    <TextInput
+      ref={ref}
+      onLayout={onLayout}
+      {...bridgeProps}
+      value={value}
+      onChangeText={onChangeText}
+      {...rest}
+    />
+  );
 }
