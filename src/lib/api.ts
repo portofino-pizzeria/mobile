@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config';
-import type { CustomerInfo, MenuItem, Order, PaymentProvider } from './types';
+import type { CustomerInfo, Menu, Order, PaymentProvider } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -25,14 +25,26 @@ export interface PaymentProviders {
   mockFallback: boolean;
 }
 
+/** One line of a new order. The price lives on the variant, so a line that does
+ *  not name one cannot be priced — the API rejects it at the door rather than
+ *  guessing which size the diner meant. */
+export interface OrderLineRequest {
+  menuItemId: string;
+  variantId: string;
+  quantity: number;
+}
+
 export const api = {
-  async getMenu(): Promise<MenuItem[]> {
-    const { items } = await request<{ items: MenuItem[] }>('/api/menu');
-    return items;
+  /** The whole menu payload — categories (in render order), items with their
+   *  variants and allergen codes, and the legend those codes resolve against.
+   *  All three are needed to render one item honestly, so none of them is
+   *  dropped here. */
+  async getMenu(): Promise<Menu> {
+    return request<Menu>('/api/menu');
   },
 
   async createOrder(
-    items: { menuItemId: string; quantity: number }[],
+    items: OrderLineRequest[],
     customer?: CustomerInfo,
   ): Promise<Order> {
     const { order } = await request<{ order: Order }>('/api/orders', {

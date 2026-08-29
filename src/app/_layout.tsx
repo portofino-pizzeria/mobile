@@ -33,9 +33,9 @@ export default function RootLayout() {
             <AnimatedSplashOverlay />
             <Stack>
               <Stack.Screen name="index" options={{ title: 'Portofino Pizzeria' }} />
-              <Stack.Screen name="cart" options={{ title: 'Your Cart' }} />
-              <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />
-              <Stack.Screen name="order/[id]" options={{ title: 'Your Order' }} />
+              <Stack.Screen name="cart" options={{ title: 'Warenkorb' }} />
+              <Stack.Screen name="checkout" options={{ title: 'Kasse' }} />
+              <Stack.Screen name="order/[id]" options={{ title: 'Deine Bestellung' }} />
               <Stack.Screen name="kitchen" options={{ title: 'Kitchen' }} />
             </Stack>
           </CartProvider>
