@@ -91,7 +91,7 @@ export default function CheckoutScreen() {
         <Field label="Telefon">
           <BridgeInput
             uiId="checkout-phone"
-            uiLabel="Phone"
+            uiLabel="Telefon"
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -103,7 +103,7 @@ export default function CheckoutScreen() {
         <Field label="Adresse">
           <BridgeInput
             uiId="checkout-address"
-            uiLabel="Address"
+            uiLabel="Adresse"
             value={address}
             onChangeText={setAddress}
             placeholder="Straße, Hausnummer, Ort"
@@ -136,7 +136,7 @@ export default function CheckoutScreen() {
         </View>
         <BridgeButton
           uiId="pay-stripe"
-          uiLabel="Pay with card (Stripe)"
+          uiLabel="Mit Karte bezahlen (Stripe)"
           disabled={!!busy || cart.count === 0}
           style={[styles.payBtn, { backgroundColor: '#635bff', opacity: busy && busy !== 'stripe' ? 0.5 : 1 }]}
           onPress={() => pay('stripe')}>
@@ -150,7 +150,7 @@ export default function CheckoutScreen() {
         </BridgeButton>
         <BridgeButton
           uiId="pay-paypal"
-          uiLabel="Pay with PayPal"
+          uiLabel="Mit PayPal bezahlen"
           disabled={!!busy || cart.count === 0}
           style={[styles.payBtn, { backgroundColor: '#ffc439', opacity: busy && busy !== 'paypal' ? 0.5 : 1 }]}
           onPress={() => pay('paypal')}>

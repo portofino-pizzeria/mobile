@@ -33,7 +33,7 @@ export default function CartScreen() {
         <ThemedText type="subtitle">Dein Warenkorb ist leer</ThemedText>
         <BridgeButton
           uiId="cart-back-to-menu"
-          uiLabel="Back to menu"
+          uiLabel="Zurück zur Speisekarte"
           style={[styles.primaryBtn, { backgroundColor: theme.text }]}
           onPress={() => router.replace('/')}>
           <ThemedText type="smallBold" style={{ color: theme.background }}>
@@ -68,7 +68,7 @@ export default function CartScreen() {
                   lines, not one ambiguous id the bridge cannot resolve. */}
               <BridgeButton
                 uiId={`cart-dec-${item.id}-${variant.id}`}
-                uiLabel={`Decrease ${item.name} (${variant.label})`}
+                uiLabel={`${item.name} (${variant.label}) verringern`}
                 style={[styles.stepBtn, { borderColor: theme.textSecondary }]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
                 <ThemedText type="smallBold">−</ThemedText>
@@ -78,7 +78,7 @@ export default function CartScreen() {
               </ThemedText>
               <BridgeButton
                 uiId={`cart-inc-${item.id}-${variant.id}`}
-                uiLabel={`Increase ${item.name} (${variant.label})`}
+                uiLabel={`${item.name} (${variant.label}) erhöhen`}
                 style={[styles.stepBtn, { borderColor: theme.textSecondary }]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
                 <ThemedText type="smallBold">+</ThemedText>
@@ -100,7 +100,7 @@ export default function CartScreen() {
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <BridgeButton
           uiId="cart-checkout"
-          uiLabel="Proceed to checkout"
+          uiLabel="Zur Kasse"
           style={[styles.primaryBtn, { backgroundColor: theme.text }]}
           onPress={() => router.push('/checkout')}>
           <ThemedText type="smallBold" style={{ color: theme.background }}>
