@@ -8,7 +8,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton, BridgeInput } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
@@ -17,7 +16,6 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
 import {
-  getKitchenToken,
   KitchenApiError,
   kitchenApi,
   setKitchenToken,
@@ -73,13 +71,16 @@ export default function KitchenScreen() {
     }
   }, []);
 
-  // Poll while the screen is open.
+  // Poll while the screen is open. `load` only ever sets state after an await,
+  // but the lint rule cannot see past the async boundary — so the first poll is
+  // scheduled rather than called straight out of the effect body.
   useEffect(() => {
     mounted.current = true;
-    load();
+    const first = setTimeout(load, 0);
     const timer = setInterval(load, POLL_MS);
     return () => {
       mounted.current = false;
+      clearTimeout(first);
       clearInterval(timer);
     };
   }, [load]);
