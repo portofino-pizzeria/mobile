@@ -9,7 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
-import { useCart } from '@/state/cart';
+import { cartLineKey, useCart } from '@/state/cart';
 
 const DELIVERY_FEE = 299; // must match backend DELIVERY_FEE_CENTS
 
@@ -30,14 +30,14 @@ export default function CartScreen() {
   if (cart.count === 0) {
     return (
       <ThemedView style={styles.center}>
-        <ThemedText type="subtitle">Your cart is empty</ThemedText>
+        <ThemedText type="subtitle">Dein Warenkorb ist leer</ThemedText>
         <BridgeButton
           uiId="cart-back-to-menu"
           uiLabel="Back to menu"
           style={[styles.primaryBtn, { backgroundColor: theme.text }]}
           onPress={() => router.replace('/')}>
           <ThemedText type="smallBold" style={{ color: theme.background }}>
-            Browse the menu
+            Zur Speisekarte
           </ThemedText>
         </BridgeButton>
       </ThemedView>
@@ -49,43 +49,51 @@ export default function CartScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {cart.lines.map(({ item, quantity }) => (
-          <ThemedView key={item.id} type="backgroundElement" style={styles.row}>
+        {cart.lines.map(({ item, variant, quantity }) => (
+          <ThemedView
+            key={cartLineKey(item.id, variant.id)}
+            type="backgroundElement"
+            style={styles.row}>
             <View style={styles.rowInfo}>
-              <ThemedText type="smallBold">{item.name}</ThemedText>
+              <ThemedText type="smallBold">
+                {item.number ? `${item.number}  ` : ''}
+                {item.name}, {variant.label}
+              </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {formatEUR(item.price)} each
+                {formatEUR(variant.price)} pro Stück
               </ThemedText>
             </View>
             <View style={styles.stepper}>
+              {/* Variant-keyed: two sizes of one pizza are two addressable
+                  lines, not one ambiguous id the bridge cannot resolve. */}
               <BridgeButton
-                uiId={`cart-dec-${item.id}`}
-                uiLabel={`Decrease ${item.name}`}
+                uiId={`cart-dec-${item.id}-${variant.id}`}
+                uiLabel={`Decrease ${item.name} (${variant.label})`}
                 style={[styles.stepBtn, { borderColor: theme.textSecondary }]}
-                onPress={() => cart.setQuantity(item.id, quantity - 1)}>
+                onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
                 <ThemedText type="smallBold">−</ThemedText>
               </BridgeButton>
               <ThemedText type="smallBold" style={styles.qty}>
                 {quantity}
               </ThemedText>
               <BridgeButton
-                uiId={`cart-inc-${item.id}`}
-                uiLabel={`Increase ${item.name}`}
+                uiId={`cart-inc-${item.id}-${variant.id}`}
+                uiLabel={`Increase ${item.name} (${variant.label})`}
                 style={[styles.stepBtn, { borderColor: theme.textSecondary }]}
-                onPress={() => cart.setQuantity(item.id, quantity + 1)}>
+                onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
                 <ThemedText type="smallBold">+</ThemedText>
               </BridgeButton>
             </View>
             <ThemedText type="smallBold" style={styles.lineTotal}>
-              {formatEUR(item.price * quantity)}
+              {formatEUR(variant.price * quantity)}
             </ThemedText>
           </ThemedView>
         ))}
 
         <View style={styles.summary}>
-          <SummaryRow label="Subtotal" value={formatEUR(cart.subtotal)} />
-          <SummaryRow label="Delivery" value={formatEUR(DELIVERY_FEE)} />
-          <SummaryRow label="Total" value={formatEUR(total)} bold />
+          <SummaryRow label="Zwischensumme" value={formatEUR(cart.subtotal)} />
+          <SummaryRow label="Lieferung" value={formatEUR(DELIVERY_FEE)} />
+          <SummaryRow label="Gesamt" value={formatEUR(total)} bold />
         </View>
       </ScrollView>
 
@@ -96,7 +104,7 @@ export default function CartScreen() {
           style={[styles.primaryBtn, { backgroundColor: theme.text }]}
           onPress={() => router.push('/checkout')}>
           <ThemedText type="smallBold" style={{ color: theme.background }}>
-            Checkout · {formatEUR(total)}
+            Zur Kasse · {formatEUR(total)}
           </ThemedText>
         </BridgeButton>
       </SafeAreaView>

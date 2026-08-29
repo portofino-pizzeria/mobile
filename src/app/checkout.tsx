@@ -39,7 +39,13 @@ export default function CheckoutScreen() {
     setBusy(provider);
     try {
       const order = await api.createOrder(
-        cart.lines.map((l) => ({ menuItemId: l.item.id, quantity: l.quantity })),
+        // The variant carries the price, so every line names one. The API
+        // rejects a line without it rather than pricing a guess.
+        cart.lines.map((l) => ({
+          menuItemId: l.item.id,
+          variantId: l.variant.id,
+          quantity: l.quantity,
+        })),
         { name, phone, address },
       );
       const { url } = await api.startCheckout(order.id, provider);
@@ -69,7 +75,7 @@ export default function CheckoutScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <ThemedText type="subtitle">Delivery details</ThemedText>
+        <ThemedText type="subtitle">Lieferdaten</ThemedText>
 
         <Field label="Name">
           <BridgeInput
@@ -82,7 +88,7 @@ export default function CheckoutScreen() {
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
         </Field>
-        <Field label="Phone">
+        <Field label="Telefon">
           <BridgeInput
             uiId="checkout-phone"
             uiLabel="Phone"
@@ -94,13 +100,13 @@ export default function CheckoutScreen() {
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
         </Field>
-        <Field label="Address">
+        <Field label="Adresse">
           <BridgeInput
             uiId="checkout-address"
             uiLabel="Address"
             value={address}
             onChangeText={setAddress}
-            placeholder="Street, number, city"
+            placeholder="Straße, Hausnummer, Ort"
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
@@ -108,11 +114,11 @@ export default function CheckoutScreen() {
 
         {providers && (!providers.stripe || !providers.paypal) ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Note: {[!providers.stripe ? 'Stripe' : null, !providers.paypal ? 'PayPal' : null]
+            Hinweis: {[!providers.stripe ? 'Stripe' : null, !providers.paypal ? 'PayPal' : null]
               .filter(Boolean)
-              .join(' and ')}{' '}
-            {(!providers.stripe && !providers.paypal) ? 'are' : 'is'} in mock mode (no API keys set) —
-            checkout still completes for testing.
+              .join(' und ')}{' '}
+            {!providers.stripe && !providers.paypal ? 'laufen' : 'läuft'} im Testmodus (keine
+            API-Schlüssel hinterlegt) — die Bestellung wird trotzdem abgeschlossen.
           </ThemedText>
         ) : null}
 
@@ -125,7 +131,7 @@ export default function CheckoutScreen() {
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <View style={styles.totalRow}>
-          <ThemedText type="smallBold">Total</ThemedText>
+          <ThemedText type="smallBold">Gesamt</ThemedText>
           <ThemedText type="smallBold">{formatEUR(total)}</ThemedText>
         </View>
         <BridgeButton
@@ -138,7 +144,7 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
-              Pay with card (Stripe)
+              Mit Karte bezahlen (Stripe)
             </ThemedText>
           )}
         </BridgeButton>
@@ -152,7 +158,7 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#003087" />
           ) : (
             <ThemedText type="smallBold" style={{ color: '#003087' }}>
-              Pay with PayPal
+              Mit PayPal bezahlen
             </ThemedText>
           )}
         </BridgeButton>

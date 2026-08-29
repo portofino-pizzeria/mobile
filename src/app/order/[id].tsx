@@ -12,11 +12,11 @@ import { formatEUR } from '@/lib/format';
 import type { Order } from '@/lib/types';
 
 const STATUS_COPY: Record<Order['status'], { emoji: string; title: string; sub: string }> = {
-  pending_payment: { emoji: '⏳', title: 'Waiting for payment', sub: 'Complete payment to confirm your order.' },
-  paid: { emoji: '✅', title: 'Payment received', sub: 'Your order is confirmed and heading to the kitchen.' },
-  preparing: { emoji: '👨‍🍳', title: 'Preparing', sub: 'Our pizzaiolo is on it.' },
-  ready: { emoji: '🛵', title: 'Out for delivery', sub: 'Your order is on its way!' },
-  cancelled: { emoji: '❌', title: 'Cancelled', sub: 'This order was cancelled.' },
+  pending_payment: { emoji: '⏳', title: 'Warten auf Zahlung', sub: 'Schließe die Zahlung ab, um deine Bestellung zu bestätigen.' },
+  paid: { emoji: '✅', title: 'Zahlung erhalten', sub: 'Deine Bestellung ist bestätigt und geht in die Küche.' },
+  preparing: { emoji: '👨‍🍳', title: 'In Zubereitung', sub: 'Unser Pizzabäcker ist dran.' },
+  ready: { emoji: '🛵', title: 'Unterwegs', sub: 'Deine Bestellung ist auf dem Weg!' },
+  cancelled: { emoji: '❌', title: 'Storniert', sub: 'Diese Bestellung wurde storniert.' },
 };
 
 export default function OrderScreen() {
@@ -55,7 +55,7 @@ export default function OrderScreen() {
   if (error) {
     return (
       <ThemedView style={styles.center}>
-        <ThemedText type="subtitle">Couldn’t load your order</ThemedText>
+        <ThemedText type="subtitle">Bestellung konnte nicht geladen werden</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           {error}
         </ThemedText>
@@ -90,18 +90,20 @@ export default function OrderScreen() {
 
       <ThemedView type="backgroundElement" style={styles.summary}>
         <ThemedText type="small" themeColor="textSecondary">
-          Order #{order.id.slice(0, 8)}
+          Bestellung #{order.id.slice(0, 8)}
         </ThemedText>
+        {/* Snapshotted lines are (item, variant) pairs — keyed on both, so two
+            sizes of one dish stay two rows. */}
         {order.lines.map((line) => (
-          <View key={line.menuItemId} style={styles.summaryRow}>
+          <View key={`${line.menuItemId}::${line.variantId}`} style={styles.summaryRow}>
             <ThemedText type="small">
-              {line.quantity}× {line.name}
+              {line.quantity}× {line.name}, {line.variantLabel}
             </ThemedText>
             <ThemedText type="small">{formatEUR(line.unitPrice * line.quantity)}</ThemedText>
           </View>
         ))}
         <View style={[styles.summaryRow, styles.totalRow]}>
-          <ThemedText type="smallBold">Total</ThemedText>
+          <ThemedText type="smallBold">Gesamt</ThemedText>
           <ThemedText type="smallBold">{formatEUR(order.total)}</ThemedText>
         </View>
       </ThemedView>
@@ -112,7 +114,7 @@ export default function OrderScreen() {
         style={[styles.btn, { backgroundColor: theme.text }]}
         onPress={() => router.replace('/')}>
         <ThemedText type="smallBold" style={{ color: theme.background }}>
-          Back to menu
+          Zur Speisekarte
         </ThemedText>
       </BridgeButton>
     </ThemedView>
