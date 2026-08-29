@@ -110,7 +110,7 @@ export default function OrderScreen() {
 
       <BridgeButton
         uiId="order-back-to-menu"
-        uiLabel="Back to menu"
+        uiLabel="Zurück zur Speisekarte"
         style={[styles.btn, { backgroundColor: theme.text }]}
         onPress={() => router.replace('/')}>
         <ThemedText type="smallBold" style={{ color: theme.background }}>

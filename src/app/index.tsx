@@ -300,7 +300,7 @@ export default function MenuScreen() {
                         <BridgeButton
                           key={variant.id}
                           uiId={addButtonUiId(item.id, variant.id)}
-                          uiLabel={`Add ${item.name} (${variant.label}) to cart`}
+                          uiLabel={`${item.name} (${variant.label}) in den Warenkorb legen`}
                           style={[styles.addBtn, { backgroundColor: theme.text }]}
                           onPress={() => cart.add(item, variant)}>
                           <ThemedText type="smallBold" style={{ color: theme.background }}>
@@ -340,7 +340,7 @@ export default function MenuScreen() {
         <SafeAreaView edges={['bottom']} style={styles.cartBarWrap}>
           <BridgeButton
             uiId="go-to-cart"
-            uiLabel="View cart"
+            uiLabel="Warenkorb ansehen"
             style={[styles.cartBar, { backgroundColor: theme.text }]}
             onPress={() => router.push('/cart')}>
             <ThemedText type="smallBold" style={{ color: theme.background }}>
