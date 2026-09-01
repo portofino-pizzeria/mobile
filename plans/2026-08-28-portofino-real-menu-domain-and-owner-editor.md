@@ -23,6 +23,73 @@
 > History: DRAFT 2026-08-28; VETTED 2026-08-29 (4 defects, 4 auto-fixed); that
 > vet audited the code citations only — the intent-corpus citations remain
 > unverified against coord, and this run did not clear that either.
+> Resolved-Divergence: 2026-08-31 — folded 1 superseded copy at rung R1 (lineage). This body is `origin/main` blob `575310c0cdea9c00f150eea17d883de24a6c9bb7` at commit `6ad68deb`.
+> Superseded bodies: `1374534e32924c9c1d3bf6b27a1993a608fc0d4a` (introduced 10d558e9; held by 28 checkouts).
+> Recover any of them with `git cat-file -p <blob-sha>` in `qontinui-dev-notes`.
+> Decided by: `git merge-base --is-ancestor <introducing-commit> 6ad68deb` holds for every superseded copy — same lineage, this body is the descendant. No content was read or weighed.
+
+>
+> ---
+> **The `qontinui-dev-notes` copy of this stem is a RECONSTRUCTION, and its own
+> stamp and provenance record are preserved below and in the section that
+> follows this block.** It was re-derived on 2026-08-29 because the authoring
+> session could not find this document — the very file you are reading. That
+> makes it independent corroboration of
+> `[[2026-08-21-consolidate-the-two-plan-corpora]]`'s thesis rather than a
+> competing account, so it is kept rather than merged away. The body below is
+> the original and is SHIPPED; the reconstruction's re-derived body is not
+> reproduced, because a reconstruction of a document is superseded by the
+> document.
+>
+> **Status: DRAFT (RECONSTRUCTED) 2026-08-29.** This document is a
+> reconstruction, not the original. Coord holds work unit
+> `2efc80ab-5604-4b3e-8de3-8bd4f7ec96c9` (slug
+> `2026-08-28-portofino-real-menu-domain-and-owner-editor`, title "Portofino -
+> Real Menu Domain and Owner Editor", created 2026-08-28T21:46Z, status
+> `vetted_unattested` as of 22:39Z) — but **the plan body it refers to exists
+> nowhere**. It was re-derived on 2026-08-29 from the operator-ratified
+> Portofino intent corpus in `qontinui-dev-notes/prompts/` and from the actual
+> `portofino-pizzeria/mobile` source. **Do not treat this body as vetted**: the
+> vet that produced `vetted_unattested` was performed against a document no
+> longer readable, so this text has not been reviewed by anyone. It needs a
+> real `/vet-plan` pass by a peer session before implementation. See
+> "Provenance — why this document is a reconstruction" below.
+> **Phase 0 is a blocker and is unresolved.**
+
+## Provenance — why this document is a reconstruction
+
+`/implement-plan D:/qontinui-root/plans/2026-08-28-portofino-real-menu-domain-and-owner-editor.md`
+was invoked on 2026-08-29 and the file did not exist. It exists in no readable
+durable store:
+
+| Store | Probe | Result |
+|---|---|---|
+| `$QONTINUI_PLANS_DIR` | env | **unset** |
+| `<workspace-root>/plans` (the documented fallback) | `ls /d/qontinui-root/plans` | **directory does not exist** |
+| `qontinui-dev-notes/plans/` | working tree + `git ls-tree -r origin/main` + `git log --all` | absent (only the three 2026-06 portofino plans) |
+| Plan library (production, via runner `GET :9876/plan-library/search`) | `?kind=plan` | **2 artifacts total**, neither portofino — the body sync is off and the write door reports `writeEnabled: false` |
+| Local plan cache `C:/claude/plan-corpus-cache/` | `ls` | only `PLANS-CACHE.state.json`; no index, no bodies → **UNKNOWN, not empty** |
+| coord | `coord_work_unit_list`, `coord_work_unit_list_citations` | work unit present, 0 citations; coord never stores plan bodies |
+| disk | `find` over `D:/qontinui-root`, `D:/pizzeria`, `D:/claude`, `D:/tmp`, `D:/qontinui_parent`, `D:/qontinui-worktrees`, `C:/Users/jspin/Documents` | no match |
+
+**The defect this exposes.** A plan can reach `vetted` in coord with its body
+persisted nowhere, silently. Both durable sinks were unavailable at the same
+time and neither failure was surfaced to the authoring session:
+
+1. `$QONTINUI_PLANS_DIR` is unset **and** the documented `<workspace-root>/plans`
+   fallback directory does not exist on this machine, so a filesystem write had
+   no target.
+2. The runner's plan-library write door is disabled — `QONTINUI_PLAN_LIBRARY_WRITE`
+   is not set, so `POST :9876/plan-library/artifacts` 403s. This is precisely
+   the plan-capture protocol the session briefing instructs every session to
+   use.
+
+Coord's work-unit row survived because it goes over a different transport. The
+result is a *bodyless vetted plan*: the operational layer says work is ready to
+dispatch, and the document layer holds nothing. This should be fixed
+independently of Portofino — see "Follow-up: close the durability hole".
+
+---
 
 ## What did NOT ship (read before trusting the stamp)
 
