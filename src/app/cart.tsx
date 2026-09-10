@@ -34,9 +34,9 @@ export default function CartScreen() {
         <BridgeButton
           uiId="cart-back-to-menu"
           uiLabel="Zurück zur Speisekarte"
-          style={[styles.primaryBtn, { backgroundColor: theme.text }]}
+          style={[styles.primaryBtn, { backgroundColor: theme.brand }]}
           onPress={() => router.replace('/')}>
-          <ThemedText type="smallBold" style={{ color: theme.background }}>
+          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
             Zur Speisekarte
           </ThemedText>
         </BridgeButton>
@@ -55,7 +55,7 @@ export default function CartScreen() {
             type="backgroundElement"
             style={styles.row}>
             <View style={styles.rowInfo}>
-              <ThemedText type="smallBold">
+              <ThemedText type="heading">
                 {item.number ? `${item.number}  ` : ''}
                 {item.name}, {variant.label}
               </ThemedText>
@@ -69,9 +69,9 @@ export default function CartScreen() {
               <BridgeButton
                 uiId={`cart-dec-${item.id}-${variant.id}`}
                 uiLabel={`${item.name} (${variant.label}) verringern`}
-                style={[styles.stepBtn, { borderColor: theme.textSecondary }]}
+                style={[styles.stepBtn, { borderColor: theme.brand }]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
-                <ThemedText type="smallBold">−</ThemedText>
+                <ThemedText type="smallBold" themeColor="brand">−</ThemedText>
               </BridgeButton>
               <ThemedText type="smallBold" style={styles.qty}>
                 {quantity}
@@ -79,12 +79,12 @@ export default function CartScreen() {
               <BridgeButton
                 uiId={`cart-inc-${item.id}-${variant.id}`}
                 uiLabel={`${item.name} (${variant.label}) erhöhen`}
-                style={[styles.stepBtn, { borderColor: theme.textSecondary }]}
+                style={[styles.stepBtn, { borderColor: theme.brand }]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
-                <ThemedText type="smallBold">+</ThemedText>
+                <ThemedText type="smallBold" themeColor="brand">+</ThemedText>
               </BridgeButton>
             </View>
-            <ThemedText type="smallBold" style={styles.lineTotal}>
+            <ThemedText type="price" style={styles.lineTotal}>
               {formatEUR(variant.price * quantity)}
             </ThemedText>
           </ThemedView>
@@ -101,9 +101,9 @@ export default function CartScreen() {
         <BridgeButton
           uiId="cart-checkout"
           uiLabel="Zur Kasse"
-          style={[styles.primaryBtn, { backgroundColor: theme.text }]}
+          style={[styles.primaryBtn, { backgroundColor: theme.brand }]}
           onPress={() => router.push('/checkout')}>
-          <ThemedText type="smallBold" style={{ color: theme.background }}>
+          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
             Zur Kasse · {formatEUR(total)}
           </ThemedText>
         </BridgeButton>
@@ -118,7 +118,11 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
       <ThemedText type={bold ? 'smallBold' : 'small'} themeColor={bold ? 'text' : 'textSecondary'}>
         {label}
       </ThemedText>
-      <ThemedText type={bold ? 'smallBold' : 'small'}>{value}</ThemedText>
+      {/* Every figure in this column is a price, so every one carries the
+          brand red; weight — not hue — is what marks the total. */}
+      <ThemedText type={bold ? 'price' : 'small'} themeColor="brand">
+        {value}
+      </ThemedText>
     </View>
   );
 }

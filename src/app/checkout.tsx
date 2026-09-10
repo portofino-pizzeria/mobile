@@ -123,7 +123,7 @@ export default function CheckoutScreen() {
         ) : null}
 
         {error ? (
-          <ThemedText type="small" style={{ color: '#e5484d' }}>
+          <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
             {error}
           </ThemedText>
         ) : null}
@@ -132,7 +132,7 @@ export default function CheckoutScreen() {
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <View style={styles.totalRow}>
           <ThemedText type="smallBold">Gesamt</ThemedText>
-          <ThemedText type="smallBold">{formatEUR(total)}</ThemedText>
+          <ThemedText type="price">{formatEUR(total)}</ThemedText>
         </View>
         <BridgeButton
           uiId="pay-stripe"
@@ -141,9 +141,9 @@ export default function CheckoutScreen() {
           style={[styles.payBtn, { backgroundColor: '#635bff', opacity: busy && busy !== 'stripe' ? 0.5 : 1 }]}
           onPress={() => pay('stripe')}>
           {busy === 'stripe' ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.onBrand} />
           ) : (
-            <ThemedText type="smallBold" style={{ color: '#fff' }}>
+            <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
               Mit Karte bezahlen (Stripe)
             </ThemedText>
           )}

@@ -1,9 +1,41 @@
+/*
+ * Web-only. The NATIVE faces come from `expo-font` in `_layout.tsx` and the
+ * family names in `constants/theme.ts`; expo-font injects the matching
+ * @font-face rules on web, so those same family names resolve here and the
+ * stacks below are what shows while they load.
+ *
+ * Stacks per `domain_spec/visual-system` (tenant `pizzeria`), including its
+ * declared fallback: `Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif`.
+ *
+ * The retired `Open Sans Condensed` name the reference site still requests is
+ * deliberately absent — the spec calls that out: the family was folded into
+ * Open Sans's width axis and no longer exists standalone.
+ *
+ * `--font-mono` is consumed by `Fonts.mono` (the `code` text role). The other
+ * `Fonts.*` slots have no consumer, so no variable is declared for them: a
+ * variable that reads like the heading stack but changes nothing when edited
+ * is worse than no variable. Headings come from the family names above.
+ */
 :root {
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
+  /* Geometric sans — anything a guest has to read carefully. Also the page
+     default, so untyped web text does not fall back to the platform face. */
+  --font-text: Jost_400Regular, Jost, Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+/* The page ground. `visual-system`: "The reference's `body` rule is
+   `background:#fff` — the page ground is white, not cream."
+   The dark rule is not a second palette: it matches `Colors.dark.background`,
+   which the app already shipped, so the overscroll area behind the app root
+   stops flashing white under a black page. */
+body {
+  background: #ffffff;
+  font-family: var(--font-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000000;
+  }
 }

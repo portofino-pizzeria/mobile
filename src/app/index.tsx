@@ -275,7 +275,7 @@ export default function MenuScreen() {
                   <Image source={{ uri: item.imageUrl }} style={styles.thumb} contentFit="cover" />
                 ) : null}
                 <View style={styles.cardBody}>
-                  <ThemedText type="smallBold">
+                  <ThemedText type="heading">
                     {item.number ? `${item.number}  ` : ''}
                     {item.name}
                   </ThemedText>
@@ -301,9 +301,9 @@ export default function MenuScreen() {
                           key={variant.id}
                           uiId={addButtonUiId(item.id, variant.id)}
                           uiLabel={`${item.name} (${variant.label}) in den Warenkorb legen`}
-                          style={[styles.addBtn, { backgroundColor: theme.text }]}
+                          style={[styles.addBtn, { borderColor: theme.brand }]}
                           onPress={() => cart.add(item, variant)}>
-                          <ThemedText type="smallBold" style={{ color: theme.background }}>
+                          <ThemedText type="price">
                             + {variant.label} · {formatEUR(variant.price)}
                           </ThemedText>
                         </BridgeButton>
@@ -341,12 +341,12 @@ export default function MenuScreen() {
           <BridgeButton
             uiId="go-to-cart"
             uiLabel="Warenkorb ansehen"
-            style={[styles.cartBar, { backgroundColor: theme.text }]}
+            style={[styles.cartBar, { backgroundColor: theme.brand }]}
             onPress={() => router.push('/cart')}>
-            <ThemedText type="smallBold" style={{ color: theme.background }}>
+            <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
               Warenkorb ansehen · {cart.count} Artikel
             </ThemedText>
-            <ThemedText type="smallBold" style={{ color: theme.background }}>
+            <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
               {formatEUR(cart.subtotal)}
             </ThemedText>
           </BridgeButton>
@@ -367,7 +367,31 @@ const styles = StyleSheet.create({
   thumb: { width: 96, height: 96 },
   cardBody: { flex: 1, paddingVertical: Spacing.two, paddingRight: Spacing.three, gap: Spacing.half, justifyContent: 'center' },
   variants: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.one },
-  addBtn: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: 999 },
+  // Outlined, not filled: the brand red is a foreground colour, and a menu
+  // shows dozens of these. `visual-system` -> "A design that turns it into a
+  // background wash is not this palette used differently."
+  addBtn: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    minHeight: 44,
+    justifyContent: 'center',
+    // Both lines are load-bearing, and they fix two halves of one defect: a
+    // price a guest cannot read is the one thing this row exists to show.
+    //
+    // `flexShrink: 0` — without it flexbox compresses two pills onto one row
+    // and React Native clips the label with no ellipsis, which ate the price
+    // off the end of "+ klein 22cm · 4,90 €".
+    //
+    // `maxWidth: '100%'` — with the shrink off, a pill wider than the column
+    // instead overflowed and was cut by the card's `overflow: 'hidden'`: the
+    // same clipping, relocated to a long variant label. Bounded to the column,
+    // the label wraps inside the pill instead.
+    flexShrink: 0,
+    maxWidth: '100%',
+  },
   cartBarWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.three },
   cartBar: {
     flexDirection: 'row',

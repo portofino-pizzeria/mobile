@@ -99,21 +99,21 @@ export default function OrderScreen() {
             <ThemedText type="small">
               {line.quantity}× {line.name}, {line.variantLabel}
             </ThemedText>
-            <ThemedText type="small">{formatEUR(line.unitPrice * line.quantity)}</ThemedText>
+            <ThemedText type="price">{formatEUR(line.unitPrice * line.quantity)}</ThemedText>
           </View>
         ))}
         <View style={[styles.summaryRow, styles.totalRow]}>
           <ThemedText type="smallBold">Gesamt</ThemedText>
-          <ThemedText type="smallBold">{formatEUR(order.total)}</ThemedText>
+          <ThemedText type="price">{formatEUR(order.total)}</ThemedText>
         </View>
       </ThemedView>
 
       <BridgeButton
         uiId="order-back-to-menu"
         uiLabel="Zurück zur Speisekarte"
-        style={[styles.btn, { backgroundColor: theme.text }]}
+        style={[styles.btn, { backgroundColor: theme.brand }]}
         onPress={() => router.replace('/')}>
-        <ThemedText type="smallBold" style={{ color: theme.background }}>
+        <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
           Zur Speisekarte
         </ThemedText>
       </BridgeButton>

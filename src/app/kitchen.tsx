@@ -25,20 +25,50 @@ import type { Order, OrderStatus } from '@/lib/types';
 
 const POLL_MS = 5000;
 
+// A RED FILL DOES NOT APPEAR ON THIS SCREEN, and the omission is the rule
+// rather than an oversight — see `constants/theme.ts`, "Where a red FILL is
+// allowed". A cook's red must stay available to mean "careful"; the brand red
+// is here in the headings and the prices, which is where the spec puts it.
+//
 // The three lanes the kitchen works through, left to right.
+//
+// These three accents are UNDECLARED by `domain_spec/visual-system` — that
+// document's semantic-colour contract exists but names no status set, and its
+// `Declared UNKNOWN` list is where an alert treatment still sits. They are
+// carried forward as shipped rather than re-chosen here: picking a status
+// palette in code would be authoring intent. They do discriminate their three
+// values, which is the one property the contract does require.
 const LANES: { status: Extract<OrderStatus, 'paid' | 'preparing' | 'ready'>; title: string; accent: string }[] = [
-  { status: 'paid', title: 'New', accent: '#f5a524' },
-  { status: 'preparing', title: 'Preparing', accent: '#635bff' },
-  { status: 'ready', title: 'Ready', accent: '#17c964' },
+  { status: 'paid', title: 'Neu', accent: '#f5a524' },
+  { status: 'preparing', title: 'In Zubereitung', accent: '#635bff' },
+  { status: 'ready', title: 'Fertig', accent: '#17c964' },
 ];
 
 function minutesAgo(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 1) return 'just now';
-  if (mins === 1) return '1 min ago';
-  if (mins < 60) return `${mins} mins ago`;
+  if (mins < 1) return 'gerade eben';
+  if (mins === 1) return 'vor 1 Minute';
+  if (mins < 60) return `vor ${mins} Minuten`;
   const h = Math.floor(mins / 60);
-  return `${h}h ${mins % 60}m ago`;
+  const rest = mins % 60;
+  // Past a day the elapsed figure gets noisy ("vor 290 Std."), so the UNIT is
+  // capped — but the elapsed reading itself is kept, deliberately.
+  //
+  // This board only ever loads ACTIVE orders (`kitchenApi.list('active')`), so
+  // an order still sitting in a lane after a day IS a stuck order, and the
+  // elapsed figure is the alarm. A wall-clock stamp ("Di., 14:32") reads as an
+  // ordinary timestamp and hides exactly the case a cook needs to catch — and
+  // without a date it cannot even tell last Tuesday from this one.
+  //
+  // Formatted by hand rather than through `toLocaleString` with options:
+  // Intl option support on Android Hermes is partial, and a silently ignored
+  // options object returns a full date string that would wrap this cell.
+  if (h >= 24) {
+    const days = Math.floor(h / 24);
+    return days === 1 ? 'vor 1 Tag' : `vor ${days} Tagen`;
+  }
+  if (rest === 0) return h === 1 ? 'vor 1 Std.' : `vor ${h} Std.`;
+  return `vor ${h} Std. ${rest} Min.`;
 }
 
 export default function KitchenScreen() {
@@ -131,27 +161,27 @@ export default function KitchenScreen() {
     return (
       <ThemedView style={styles.center}>
         <View style={styles.tokenCard}>
-          <ThemedText type="subtitle">Kitchen access</ThemedText>
+          <ThemedText type="subtitle">Küchen-Zugang</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Enter the kitchen access token to view live orders.
+            Bitte das Küchen-Kennwort eingeben, um die laufenden Bestellungen zu sehen.
           </ThemedText>
           <BridgeInput
             uiId="kitchen-token"
-            uiLabel="Kitchen token"
+            uiLabel="Küchen-Kennwort"
             value={tokenInput}
             onChangeText={setTokenInput}
-            placeholder="token…"
+            placeholder="Kennwort…"
             placeholderTextColor={theme.textSecondary}
             secureTextEntry
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
           <BridgeButton
             uiId="kitchen-token-submit"
-            uiLabel="Unlock kitchen"
+            uiLabel="Küche freischalten"
             style={[styles.primaryBtn, { backgroundColor: theme.text }]}
             onPress={submitToken}>
             <ThemedText type="smallBold" style={{ color: theme.background }}>
-              Unlock
+              Freischalten
             </ThemedText>
           </BridgeButton>
         </View>
@@ -184,14 +214,16 @@ export default function KitchenScreen() {
           />
         }>
         <View style={styles.header}>
-          <ThemedText type="subtitle">Kitchen</ThemedText>
+          <ThemedText type="subtitle">Küche</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {(orders ?? []).length} active {(orders ?? []).length === 1 ? 'order' : 'orders'} · auto-refreshing
+            {(orders ?? []).length}{' '}
+            {(orders ?? []).length === 1 ? 'laufende Bestellung' : 'laufende Bestellungen'} ·
+            wird automatisch aktualisiert
           </ThemedText>
         </View>
 
         {error ? (
-          <ThemedText type="small" style={{ color: '#e5484d' }}>
+          <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
             {error}
           </ThemedText>
         ) : null}
@@ -211,7 +243,7 @@ export default function KitchenScreen() {
 
                 {laneOrders.length === 0 ? (
                   <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                    Nothing here.
+                    Nichts vorhanden.
                   </ThemedText>
                 ) : (
                   laneOrders.map((order) => (
@@ -248,7 +280,11 @@ function OrderCard({
 }) {
   const theme = useTheme();
   const nextLabel =
-    order.status === 'paid' ? 'Start preparing' : order.status === 'preparing' ? 'Mark ready' : null;
+    order.status === 'paid'
+      ? 'Zubereitung starten'
+      : order.status === 'preparing'
+        ? 'Als fertig markieren'
+        : null;
   const nextStatus: KitchenStatus | null =
     order.status === 'paid' ? 'preparing' : order.status === 'preparing' ? 'ready' : null;
 
@@ -272,6 +308,17 @@ function OrderCard({
           {order.customer.address}
         </ThemedText>
       ) : null}
+      {/* An order with no contact details rendered as BLANK space, which a cook
+          reads as "pickup, nothing to deliver" — the surface inventing a fact.
+          `ux-priorities`: honesty, never fabricate state.
+          The wording states only what is known. An earlier draft said "nicht
+          lieferbar", which asserts a second fact the payload does not carry
+          either: an order with no contact block may be a walk-in. */}
+      {!order.customer?.name && !order.customer?.phone && !order.customer?.address ? (
+        <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
+          Keine Kontaktdaten hinterlegt
+        </ThemedText>
+      ) : null}
 
       <View style={styles.lines}>
         {order.lines.map((l) => (
@@ -287,14 +334,14 @@ function OrderCard({
       </View>
 
       <View style={styles.cardFooter}>
-        <ThemedText type="smallBold">{formatEUR(order.total)}</ThemedText>
+        <ThemedText type="price">{formatEUR(order.total)}</ThemedText>
       </View>
 
       <View style={styles.actions}>
         {nextStatus && nextLabel ? (
           <BridgeButton
             uiId={`kitchen-advance-${order.id}`}
-            uiLabel={`${nextLabel} for order ${order.id.slice(0, 8)}`}
+            uiLabel={`${nextLabel} für Bestellung ${order.id.slice(0, 8)}`}
             disabled={busy}
             style={[styles.primaryBtn, { backgroundColor: theme.text, opacity: busy ? 0.5 : 1, flex: 1 }]}
             onPress={() => onAdvance(order, nextStatus)}>
@@ -308,17 +355,17 @@ function OrderCard({
           </BridgeButton>
         ) : (
           <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-            Ready for pickup / delivery.
+            Bereit zur Abholung / Lieferung.
           </ThemedText>
         )}
         <BridgeButton
           uiId={`kitchen-cancel-${order.id}`}
-          uiLabel={`Cancel order ${order.id.slice(0, 8)}`}
+          uiLabel={`Bestellung ${order.id.slice(0, 8)} stornieren`}
           disabled={busy}
           style={[styles.cancelBtn, { borderColor: theme.backgroundSelected }]}
           onPress={() => onAdvance(order, 'cancelled')}>
           <ThemedText type="small" themeColor="textSecondary">
-            Cancel
+            Stornieren
           </ThemedText>
         </BridgeButton>
       </View>

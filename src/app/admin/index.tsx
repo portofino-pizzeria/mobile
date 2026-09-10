@@ -24,6 +24,7 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { AdminApiError, adminApi, loadOwnerToken, setOwnerToken } from '@/lib/admin';
 import { formatEUR } from '@/lib/format';
 import type { AdminMenu, AdminMenuItem } from '@/lib/types';
@@ -37,6 +38,7 @@ function priceSummary(item: AdminMenuItem): string {
 
 export default function AdminMenuScreen() {
   const router = useRouter();
+  const theme = useTheme();
 
   const [menu, setMenu] = useState<AdminMenu | null>(null);
   const [needsToken, setNeedsToken] = useState(false);
@@ -195,7 +197,7 @@ export default function AdminMenuScreen() {
       <ThemedView style={styles.center}>
         <ActivityIndicator />
         {error ? (
-          <ThemedText type="small" style={{ color: '#e5484d' }}>
+          <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
             {error}
           </ThemedText>
         ) : null}

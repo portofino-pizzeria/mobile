@@ -7,7 +7,7 @@ import { type PropsWithChildren } from 'react';
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
-    <html lang="en">
+    <html lang="de">
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -16,7 +16,7 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
         <title>Portofino Pizzeria</title>
-        <meta name="description" content="Order authentic wood-fired pizza from Portofino Pizzeria." />
+        <meta name="description" content="Pizza, Pasta und mehr — direkt bei Portofino in Essen bestellen." />
         {/* Disable body scrolling on web so ScrollView layouts behave like native. */}
         <ScrollViewStyleReset />
       </head>

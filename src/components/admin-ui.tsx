@@ -16,10 +16,25 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { BridgeButton, BridgeInput } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export const DANGER = '#e5484d';
+// All three are UNDECLARED by `domain_spec/visual-system`, which says of the
+// alert treatment: "Until then, alerts are UNDECLARED, not 'use the brand
+// red'." They are the values this editor already shipped; DANGER is now
+// single-sourced from the token file so the gap has one address.
+//
+// Note what this means for THIS screen, and why the primary button here is
+// deliberately NOT brand red: an owner surface already spends a red on
+// "careful". Adding a second, adjacent red for "save" would collapse the one
+// distinction the spec's semantic contract insists on — "a hue is chosen from
+// what it OBLIGES A READER TO DO". Red stays danger here.
+// DANGER is a FILL, and fills on this screen do not switch per scheme, so
+// reading the light palette at module scope is correct here rather than
+// incidental. Text that needs the same colour reads `theme.alertUndeclared`.
+// WARNING and OK stay literal: hoisting them would put two more undeclared
+// values in the token file and read as the tenant having chosen them.
+export const DANGER = Colors.light.alertUndeclared;
 export const WARNING = '#b25e00';
 export const OK = '#177245';
 
@@ -46,7 +61,7 @@ export function AdminButton({
   const background =
     tone === 'primary' ? theme.text : tone === 'danger' ? DANGER : 'transparent';
   const color =
-    tone === 'primary' ? theme.background : tone === 'danger' ? '#ffffff' : theme.text;
+    tone === 'primary' ? theme.background : tone === 'danger' ? theme.onBrand : theme.text;
 
   return (
     <BridgeButton
