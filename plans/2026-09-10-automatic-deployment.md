@@ -1,214 +1,290 @@
 # Portofino — automatic deployment (2026-09-10)
 
-> **Status:** DRAFT
+> **Status:** VETTED 2026-09-10
 >
-> **Repos:** `portofino-pizzeria/infra` (leads), `portofino-pizzeria/mobile`,
-> `portofino-pizzeria/backend`. Filed here because `mobile/plans/` is this
-> tenant's one plan home (`bc49e37 docs(plans): adopt the Portofino plans into
-> the mobile repo`); splitting a three-repo plan across three plan directories
-> is the divergent-corpus problem, not organisation.
+> **Vet outcome:** NEEDS-REWORK on the first draft — 2 critical, 4 high,
+> 4 medium defects, 3 factual claims wrong, 4 ordering errors. All are resolved
+> below; the "Vet record" section at the end keeps the ones worth remembering.
+> The core split (Terraform provisions, CI deploys) and the verify-by-reading
+> rule survived vetting unchanged; almost everything else moved.
 >
-> **Trigger:** PR `portofino-pizzeria/mobile#5` merged to `main` on 2026-09-10
-> and changed nothing a customer can see. That is not a defect in the PR — it
-> is the system working as built, and this plan is about that.
+> **Repos:** `portofino-pizzeria/infra` (leads), `.../mobile`, `.../backend`.
+> Filed in `mobile/plans/` — this tenant's one plan home.
+>
+> ⚠️ **`portofino-pizzeria/mobile` is a PUBLIC repo.** `backend` and `infra` are
+> private. This governs the whole design and is the first thing to check before
+> changing any trigger below.
 
 ---
 
 ## The measurement this starts from
 
-Taken 2026-09-10, after `#5` landed:
+PR `mobile#5` merged 2026-09-10 and changed nothing a customer can see:
 
 ```
-$ curl --resolve portofino-essen.com:443:18.66.122.124 https://portofino-essen.com/ -D -
-Last-Modified: Thu, 03 Sep 2026 05:12:28 GMT
-Server: AmazonS3      Via: CloudFront
-<html lang="en">      <meta name="description" content="Order authentic wood-fired pizza…">
+$ curl https://portofino-essen.com/ -D -
+Last-Modified: Thu, 03 Sep 2026 05:12:28 GMT    Age: 3472    X-Cache: Hit from cloudfront
+<html lang="en">
 ```
 
-`lang="en"` is the pre-`#5` marker; the new build emits `lang="de"`. The live
-site is a **seven-day-old build**, and `main` has had exactly one commit since
-2026-08-29 — so everything merged in that window is either already in the
-3 September bundle or has never shipped, **and nothing in the system can tell
-you which.** That ambiguity is itself part of what this plan closes.
+`lang="en"` is the pre-`#5` marker. The live site is a seven-day-old build.
 
 ## Why nothing happened
 
-There is exactly one workflow in all three repos — `mobile/.github/workflows/
-qontinui-ci.yml` — and it runs typecheck, lint, build, test. **No deploy step
-exists anywhere.** Publishing today is:
+One workflow exists across all three repos — `mobile/.github/workflows/
+qontinui-ci.yml` — and it has **no deploy step**. Publishing today is
+`terraform apply` on an operator's Windows box, driven by two `null_resource`s
+running PowerShell:
 
-| Surface | Mechanism | Trigger |
+| Surface | Script | Trigger hash |
 |---|---|---|
-| Web app | `infra/scripts/deploy-web.ps1` — `expo export --platform web --clear` → `aws s3 sync --delete` → CloudFront invalidation | `null_resource.deploy_web` in `infra/web.tf`, on `terraform apply` |
-| Backend | `infra/scripts/push-backend.ps1` → ECR `:latest`; App Runner has `auto_deployments_enabled = true` | `null_resource.push_image` in `infra/backend-service.tf`, on `terraform apply` |
+| Web | `deploy-web.ps1` — `expo export` → `s3 sync --delete` → invalidation | `web.tf:106`, over `../mobile/src/**` |
+| Backend | `push-backend.ps1` → ECR `:latest`; App Runner `auto_deployments_enabled = true` | `backend-service.tf:42-43`, over `../backend/src/**` + `Dockerfile` |
 
-So a deploy requires an operator, on a Windows box, with the `portofino` AWS
-profile and access to the S3 remote state, running `terraform apply` by hand.
-Merging is not connected to publishing at all.
+### Four properties, each independently a problem
 
-### Four properties of that arrangement, each independently a problem
-
-1. **Merge ≠ ship, silently.** No signal anywhere says the live site is behind
-   `main`. The only way to find out is to fetch the site and read a marker out
-   of the HTML, which is how this was found.
-2. **The trigger is content-hashed over the wrong set.** Both `null_resource`s
-   hash `../mobile/src/**` and `../backend/src/**` respectively.
-   `mobile/package.json` is **not** covered — so a change that only touches
-   dependencies (a font package bump; a security patch) produces **no
-   redeploy** even under `terraform apply`. `#5` happened to touch `src/`, so
-   this did not bite; it is a live trap, not a hypothetical one.
-3. **It is Windows-bound.** All three scripts are `.ps1` invoked as
-   `interpreter = ["powershell", …]` — `powershell`, not `pwsh`. Deployment is
-   therefore a property of one operator's machine.
-4. **Provisioning and deploying are the same action.** `terraform apply`
-   both reconciles infrastructure and ships application code. Shipping a
-   one-line copy fix means running a plan that could also alter the database,
-   the DNS or the budget alarm.
+1. **Merge ≠ ship, with nothing surfacing the gap.** No build marker exists, so
+   "is the site current?" is answerable only by fetching HTML and inferring.
+2. **The trigger hashes the wrong set — wider than first thought.** Uncovered:
+   `mobile/package.json`, `app.json`, `assets/`, `tsconfig.json`, and on the
+   backend side `package*.json`, `data/`, **and `drizzle/`** — the migrations,
+   which are applied on container boot. A migrations-only change ships nothing.
+3. **Windows-bound.** `interpreter = ["powershell", …]` — not `pwsh`.
+4. **Provisioning and deploying are the same action.** `terraform apply` ships
+   application code as a side effect of reconciling infrastructure.
 
 ---
 
-## What this plan builds
+## The design
 
-**One rule: Terraform provisions; CI deploys.** After this, `terraform apply`
-never ships application code, and no human ever needs to in the steady state.
+**Terraform provisions; CI deploys; every deploy proves the artifact is live.**
 
-### Phase 1 — GitHub OIDC and two least-privilege roles (`infra`)
+### Phase 1 — Build markers first
 
-New `infra/github-oidc.tf`. Today `identity.tf` contains only a billing-viewer
-IAM user; there is **no** OIDC provider and no CI role.
+Both markers, before anything consumes them:
+
+- **Web** — a `<meta name="build-sha" content="…">` in `mobile/src/app/+html.tsx`,
+  fed from an env var at export time.
+- **Backend** — a `commit` field on `/api/health`
+  (`backend/src/app.ts:45`; the route is `/api/health`, **not** `/health` —
+  the first draft had this wrong, and App Runner's own `health_check` already
+  points at `/api/health`, `backend-service.tf:174`).
+
+This is Phase 1 because the verification steps in Phases 3 and 4 assert on
+these. The first draft had it last, which made its own headline property
+unbuildable.
+
+### Phase 2 — Config channel, then OIDC and two roles (`infra`)
+
+**Config first.** CI must not hardcode the bucket, distribution id or API URL:
+the bucket name embeds the AWS account id (`web.tf:5`), the distribution id is
+a Terraform output, and `EXPO_PUBLIC_API_URL` is derived from `domain_name`
+(`locals.tf:16`). A workflow copy of any of them is a silent drift channel — and
+`deploy-web.ps1`'s bundle guard, ported as-is, would happily pass while shipping
+the wrong host. Terraform writes all three to **SSM parameters**; the workflows
+read them after assuming the role.
+
+**Then `infra/github-oidc.tf`** — today `identity.tf` has only a billing user;
+there is no OIDC provider and no CI role.
 
 - `aws_iam_openid_connect_provider` for `token.actions.githubusercontent.com`.
-- `portofino-ci-web` — `s3:PutObject`/`DeleteObject`/`ListBucket` on the web
-  bucket only, plus `cloudfront:CreateInvalidation` on that one distribution.
-- `portofino-ci-backend` — ECR auth + push to the `backend` repository only.
+- `portofino-ci-web` — `s3:PutObject`, `DeleteObject`, **`GetObject`** (sync
+  does HEAD comparisons), `ListBucket` on the web bucket; `cloudfront:
+  CreateInvalidation` **and `GetInvalidation`** (the wait needs it) on that one
+  distribution; `ssm:GetParameter` on the three parameters.
+- `portofino-ci-backend` — `ecr:GetAuthorizationToken` in its **own statement
+  with `Resource: "*"`** (it cannot be resource-scoped), the push actions scoped
+  to the `backend` repository, plus `apprunner:DescribeService` and
+  `ListOperations`.
 
-Both trust policies **pin `sub` to the specific repo and to `ref:refs/heads/
-<default-branch>`**, so a pull request from a fork cannot assume them. Note the
-branches differ per repo — `mobile` is `main`, `backend` and `infra` are
-`master`; a policy written for `main` everywhere silently fails closed on two
-of three, which reads like an auth bug rather than a typo.
+Both trust policies pin `aud = sts.amazonaws.com` and pin `sub` to the specific
+repo **and** `ref:refs/heads/<that repo's default branch>` — `main` for
+`mobile`, `master` for `backend`.
 
-No long-lived access keys, and no AWS credentials in any repo's secrets.
+> **Phase 2 must be APPLIED, not merely merged, before Phases 3–4 can
+> authenticate — and applying it is dangerous while Phase 5 has not run.** With
+> both `null_resource`s still present, a plain `terraform apply` ships whatever
+> is in `mobile/src` and `backend/src` at that moment: the "provisioning and
+> deploying are the same action" defect biting during this plan's own execution.
+> **Apply Phase 2 with `-target` on the OIDC and SSM resources only.**
 
-### Phase 2 — Web deploy workflow (`mobile`)
+### Phase 3 — Web deploy (`mobile`)
 
-`.github/workflows/deploy-web.yml`, on push to `main`, **gated on the existing
-CI job passing** — never in parallel with it.
+**One workflow, `on: push: branches: [main]`, with the deploy job in
+`needs: [build]`. NOT `workflow_run`.**
 
-1. `npm ci`
-2. `npx expo export --platform web --clear`, with `EXPO_PUBLIC_API_URL` set to
-   the production API. `--clear` is not optional: the URL is inlined at build
-   time and a stale Metro cache bakes in the wrong one. `deploy-web.ps1`
-   already carries this warning and its reasoning ("Verified 2026-07-18");
-   port the guard, do not re-derive it.
-3. **Keep the existing bundle guard** — fail the deploy if the intended API
-   host is absent from `dist/_expo/static/js/web/*.js`.
-4. Assume `portofino-ci-web` via OIDC; `aws s3 sync dist/ --delete`;
-   `cloudfront create-invalidation --paths "/*"`.
-5. **Verify by reading back.** See "The verification rule" below.
+> ⛔ **This is the plan's most important constraint and the first draft got it
+> wrong.** `mobile` is public and its CI runs `on: [push, pull_request]`, so a
+> fork PR produces a completed run. A `workflow_run`-triggered job runs on the
+> default branch with full OIDC access, and its `sub` is
+> `repo:portofino-pizzeria/mobile:ref:refs/heads/main` — exactly what the trust
+> policy pins. Checking out `event.workflow_run.head_sha`, or merely running
+> `npm ci` against the attacker's `package.json` (lifecycle scripts), executes
+> fork code holding the S3 + CloudFront role. The first draft asserted "a pull
+> request from a fork cannot assume them", which is **false for the trigger it
+> chose**. A `push`-triggered job in the same workflow never runs for a fork.
 
-### Phase 3 — Backend deploy workflow (`backend`)
+Also on the workflow: `permissions: { id-token: write, contents: read }`, and a
+`concurrency` group so two quick merges cannot interleave two syncs.
 
-`.github/workflows/deploy-backend.yml`, on push to `master`, gated on tests.
+Steps: `npm ci` → `expo export --platform web --clear` with
+`EXPO_PUBLIC_API_URL` from SSM and the build SHA from Phase 1 → keep the
+existing bundle guard on `dist/_expo/static/js/web/*.js` → assume role → **the
+safe publish sequence below** → wait for the invalidation → fetch
+`https://portofino-essen.com/` and assert the just-built SHA.
 
-1. Build the image from `backend/Dockerfile`.
-2. Push **two** tags: `:latest` (App Runner's `auto_deployments_enabled` watches
-   it) and `:<git-sha>` — immutable, so a rollback names a specific artifact
-   rather than hoping `:latest` still means what it did.
-3. Poll the App Runner service to `RUNNING` **and** smoke-check the deployed
-   API. A push to `:latest` returning success says the image is in ECR, not
-   that the service took it.
+#### The safe publish sequence — this is not a detail
 
-### Phase 4 — Retire the double path (`infra`)
+`aws s3 sync --delete` against this distribution can **white-screen live
+diners for up to an hour**, silently:
 
-Delete `null_resource.deploy_web` and `null_resource.push_image`, and with them
-the `src_hash` triggers whose coverage gap is problem 2 above.
+- The export is stable-path HTML plus one content-hashed bundle.
+- `--delete` removes the OLD bundle while edge- and browser-cached HTML still
+  references it (`default_ttl` 3600; `Age: 3472` measured on the live site).
+- That request 403s — and `web.tf:56-61` rewrites 403 to `/index.html` with
+  **HTTP 200**, so the browser parses HTML as JavaScript. Blank page, no error
+  anyone sees, and `forwarded_values.query_string = false` (`web.tf:43`) means
+  cache-busting cannot rescue it.
 
-**Bootstrap is the one thing that must survive this.** `backend-service.tf`
-notes that App Runner needs an image present before the service can start, so a
-green-field `terraform apply` cannot simply have no image path. Keep the push
-script as an explicitly operator-run bootstrap step documented in
-`infra/README.md` — invoked by hand on first stand-up, never by `apply`. If
-that proves impossible to separate cleanly, the fallback is a `count`/variable
-guard defaulting to off, and the plan should say which was chosen rather than
-leaving both in the tree.
+So: **upload `_expo/` and `assets/` FIRST without `--delete`; upload HTML
+LAST; never prune in the same run.** Old builds are pruned by an S3 lifecycle
+rule. Set `Cache-Control: public,max-age=31536000,immutable` on hashed assets
+and `no-cache` on `*.html`. Separately, consider making `/_expo/*` return a
+real 404 rather than a 200 — the rewrite is there for SPA routing and should
+not apply to asset paths.
 
-### Phase 5 — Make "is the site current?" answerable
+#### Also fix the gate this phase leans on
 
-Stamp the built commit into the web bundle (a `<meta name="build-sha">` in
-`+html.tsx`, or an emitted `dist/build-info.json`) so the question this plan
-opened with is answerable in one request by anyone, forever, without reading
-`Last-Modified` and guessing.
+`mobile/package.json` has **no `build` and no `test` script**, so CI's `--if-present`
+steps are silent no-ops: today's CI is typecheck + lint only, and it never runs
+`expo export`. "A red build never reaches customers" currently means "a type
+error never reaches customers". **Add `expo export --platform web` to the PR
+job**, or the principal safety claim for a live ordering system is weaker than
+it reads.
+
+### Phase 4 — Backend CI, then backend deploy (`backend`)
+
+Two sub-phases, because `backend` has **no workflow at all** today and its tests
+need a live Postgres (`vitest.config.ts` `globalSetup` fails loudly without one).
+
+- **4a** — a CI workflow with a `services: postgres` container and a migrated
+  test DB.
+- **4b** — deploy on push to `master`, gated on 4a: build, push `:latest` **and
+  `:<sha>`**, then verify.
+
+**Verify by operation, not by state.** The service is already `RUNNING` before
+the push, and auto-deploy is asynchronous — polling for `RUNNING` observes the
+old service and passes. An identical digest fires no deployment at all and the
+poll still passes. So: poll `apprunner:ListOperations` for an operation
+**started after the push**, wait for it to succeed, then assert the `commit`
+field Phase 1 added to `/api/health`.
+
+> ⚠️ **Backend deploys are not symmetric with web deploys, and this plan does
+> not treat them as if they were.** Migrations run on container boot from
+> `drizzle/` (`Dockerfile:21`, `src/index.ts:11`). An automatic backend deploy
+> therefore applies schema changes to production Aurora with no gate and no way
+> back once data is written under the new schema. **4b runs through a GitHub
+> Environment with a required reviewer.** Automatic to the door, human through
+> it. This is the one place in this plan where a person stays in the loop, and
+> it is deliberate.
+
+### Phase 5 — Retire the Terraform deploy path (`infra`)
+
+Delete both `null_resource`s and their triggers. Three things must move with
+them, only one of which the first draft saw:
+
+1. `aws_apprunner_service.backend` has `depends_on = [null_resource.push_image, …]`
+   (`backend-service.tf:182-186`) — that reference goes too.
+2. Because `aws_ecr_repository.backend` is created by this same Terraform, an
+   operator cannot push the bootstrap image before `apply`. Green-field bootstrap
+   becomes **three steps**: `terraform apply -target=aws_ecr_repository.backend`
+   → run `push-backend.ps1` by hand → `terraform apply`. That invalidates the
+   two-phase flow in `deploy.ps1` and `infra/README.md:56-62`.
+3. **The web side needs the same treatment and had none.** With `deploy_web`
+   gone, a green-field apply leaves an EMPTY bucket, and the 403→200 rewrite
+   means a fresh stand-up serves HTTP 200 with no content. Document the first
+   publish as an operator-run `deploy-web.ps1`, or a `workflow_dispatch` on the
+   Phase 3 workflow.
+
+The `infra/README.md` rewrite belongs to **this** phase, not Phase 4 — this is
+what removes the flow that README documents.
 
 ---
 
-## The verification rule
+## Rollback
 
-**A deploy step must prove the artifact is live, not that the command exited
-zero.** This whole plan exists because a green merge sat on top of a stale
-bundle for a week.
+**Re-running a workflow replays the same commit, so that is not a rollback.**
+Both deploy workflows take a `workflow_dispatch` with a ref/sha input.
 
-So the web workflow's last step fetches `https://portofino-essen.com/` after the
-invalidation and asserts the just-built commit SHA appears in the response,
-failing the job otherwise. `s3 sync` exiting 0 proves bytes reached a bucket;
-CloudFront can still serve the old object, and an invalidation is asynchronous.
-Same for the backend: the job passes when the deployed `/health` answers, not
-when `docker push` returns.
+For the web, note that after a `--delete` prune the previous build's objects are
+gone, so rollback means a **rebuild at that SHA** — which requires the
+dependency tree at that SHA to still resolve. For the backend, rollback is
+retagging a known-good `:<sha>` to `:latest`; a rollback across a migration is
+**not** a rollback and must be treated as a forward fix.
 
-This mirrors the rule that governed the UI work in `#5` — an action's own
-success is not evidence it had an effect — and it is the property that makes
-this plan self-checking rather than one more thing to trust.
+**Both paths are executed once, on purpose, before this plan is done.** An
+untested rollback is a claim, not a capability.
 
----
+## Decisions taken during vetting
 
-## Risks, and what they change
+- **Deploy during service hours: allowed for web, gated for backend.** Blocking
+  a web deploy by clock delays a fix for a bug a diner is hitting now, and the
+  safe publish sequence above removes the reason to fear it. The backend's real
+  risk is migrations, and that is gated by a required reviewer rather than by
+  the time of day.
+- **Failure notification is in scope.** Open question 3 was the difference
+  between fixing the problem and moving it: today a stale site is invisible;
+  after this, a **failed deploy** would be invisible too. Every deploy workflow
+  gets an `if: failure()` notification step.
+- **`infra` CI stays out of scope.** `terraform plan` on PR needs state access
+  this plan deliberately does not grant CI.
 
-**This ships to a live restaurant on every merge.** There is no staging
-environment. Two consequences the plan accepts deliberately:
+## Cross-repo ordering — unresolved, and named
 
-- Deployment is gated on CI passing, so a red build never reaches customers.
-  This is why Phase 2 is `workflow_run`-gated rather than a parallel job.
-- Rollback must be one documented command, written in `infra/README.md` as part
-  of Phase 3 — not discovered during an incident. For the web that is
-  re-running the workflow at an earlier SHA; for the backend it is retagging a
-  known-good `:<sha>` to `:latest`. **The rollback path is tested once, on
-  purpose, before this is considered done** — an untested rollback is a claim,
-  not a capability.
-- Kitchen service hours are Mo, Wed–Fri 12:00–22:00 and Sat–Sun 13:00–22:00
-  (`audience_profile/owner-operator`). A deploy during service is a deploy
-  while orders are in flight. Whether to add a time guard is an open question
-  below rather than a decision this plan makes alone.
-
-**`portofino-essen.de` is not ours and is untouched by any of this.** It is the
-restaurant's live WordPress site, run by the current operator. Nothing in this
-plan points at it.
-
-## Open questions
-
-1. **Deploy during service hours — block, or allow?** A time-window guard costs
-   little; it also delays a fix for a bug a diner is hitting right now. The
-   owner's tolerance is the deciding input and it is not recorded anywhere.
-2. **Does `infra` get CI at all?** `terraform plan` on PR is the obvious win,
-   but it needs read access to state and this plan does not otherwise give CI a
-   terraform role. Out of scope here; worth its own plan.
-3. **Who is told when a deploy fails?** Today: nobody, because there are no
-   deploys. A failed workflow is a red mark nobody is watching.
+A wire-contract change spans `mobile` and `backend`. Two independent pipelines
+will ship the web calling an endpoint the API does not have yet, or the reverse.
+On a live ordering system that is a broken checkout, not a cosmetic bug. This
+plan does not solve it; it records it, because pretending two pipelines are one
+is worse. Candidate: expand-migrate-contract discipline plus a documented rule
+that backend ships first.
 
 ## Out of scope
 
-- Anything touching `portofino-essen.de`.
-- The `web` repo (the eventual site replacement) — it has no backend wiring yet.
-- EAS / app-store builds for the native app. `initiative/current-initiative`
-  records that the app has no `eas.json` and has never been on a phone; that is
-  a separate and larger piece of work.
+`portofino-essen.de` (not ours). The `web` repo. EAS / app-store builds.
 
 ## Verification of this plan's own work
 
-- After Phase 2 lands, a trivial commit to `mobile/main` must move
-  `Last-Modified` **and** the `lang="de"` marker on the live site, observed by
-  fetching it.
-- After Phase 3, a trivial commit to `backend/master` must appear in the
-  deployed `/health`.
-- Both rollbacks executed once and observed.
-- `terraform plan` shows no drift after Phase 4 — i.e. the `null_resource`
-  removal is a clean removal, not a resource waiting to be re-created.
+1. A trivial commit to `mobile/main` moves the live `build-sha` marker — checked
+   by fetching the site, not by reading a job's exit code.
+2. A trivial commit to `backend/master` moves `commit` on `/api/health`, and the
+   App Runner operation that carried it is identified in the job log.
+3. **A deploy is observed mid-flight from a second browser session with a warm
+   cache**, confirming the white-screen window is closed. This is the one that
+   proves the sequencing, and it cannot be checked from CI.
+4. Both rollbacks executed.
+5. After Phase 5, `terraform apply` **then** `terraform plan` is clean — plan
+   alone will show "2 to destroy" until the apply runs, so apply-then-plan is
+   the check. Confirm the App Runner service was not tainted by the dropped
+   `depends_on`.
+
+---
+
+## Vet record — what the first draft got wrong
+
+Kept because these are the failure modes to watch for on the next revision.
+
+| Severity | Defect |
+|---|---|
+| CRITICAL | `workflow_run` gating on a **public** repo — fork-PR privilege escalation to a production-capable role. The draft asserted forks were excluded; for its own chosen trigger, false. |
+| CRITICAL | Phase 4 (now 5) bootstrap: missed `depends_on` on the App Runner service, missed that ECR is created by the same apply, and never considered the empty-bucket case at all. |
+| HIGH | `s3 sync --delete` + the 403→200 rewrite + a 1-hour TTL = a silent white-screen window on every deploy. |
+| HIGH | Both liveness checks passed without proving anything — the exact rule the plan itself was written to enforce. |
+| HIGH | Phase 2's verification asserted a build marker that Phase 5 created. |
+| MEDIUM | IAM policies under-scoped (`s3:GetObject`, `cloudfront:GetInvalidation`, `ecr:GetAuthorizationToken` resource, `apprunner:*` reads, `aud` condition). |
+| MEDIUM | No channel for bucket / distribution / API URL; hardcoding them creates silent drift a ported guard would not catch. |
+| MEDIUM | Backend "gated on tests" — backend had no CI, and its tests need Postgres. |
+| MEDIUM | The gate Phase 3 leans on is nearly vacuous: `build` and `test` are `--if-present` no-ops. |
+| WRONG | "CI runs typecheck, lint, build, test" — the last two are no-ops. |
+| WRONG | Backend smoke-check on `/health` — the route is `/api/health`. |
+| WRONG | "nothing in the system can tell you which [commits shipped]" — `git log origin/main --since` answers it. The build-marker argument stands; the framing overstated. |
+| ORDERING | Phase 5→1; Phase 2 must be `-target`-applied before 3–4; README rewrite belongs to Phase 5; "plan shows no drift" is apply-then-plan. |
