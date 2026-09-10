@@ -8,13 +8,20 @@ name: Deploy web
 # so a pull request from a fork produces a completed workflow run. A
 # `workflow_run`-triggered job runs on the default branch with full OIDC access
 # and its `sub` claim is `repo:portofino-pizzeria/mobile:ref:refs/heads/main` —
-# exactly what the deploy role's trust policy pins. Checking out
-# `event.workflow_run.head_sha`, or merely running `npm ci` against the
-# attacker's `package.json` (lifecycle scripts run as part of install), would
-# execute fork-authored code while holding the production S3 + CloudFront role.
-# A `push`-triggered job never runs for a fork. The build gate therefore lives
-# in THIS workflow as a `needs:` job rather than being imported from another
-# workflow's run.
+# exactly what the deploy role's trust policy pins (infra/github-oidc.tf).
+# Checking out `event.workflow_run.head_sha`, or merely running `npm ci` against
+# the attacker's `package.json` (lifecycle scripts run as part of install),
+# would execute fork-authored code while holding the production S3 + CloudFront
+# role. A `push`-triggered job never runs for a fork. The build gate therefore
+# lives in THIS workflow as a `needs:` job rather than being imported from
+# another workflow's run.
+#
+# The `workflow_dispatch` below is the same door by another route: its OIDC
+# subject is derived from the branch it is dispatched ON (main), not from
+# `inputs.ref`, and `refs/pull/<n>/merge` IS a ref in this repository. So the
+# build job refuses any commit that is not already an ancestor of origin/main,
+# and the deploy job publishes the SHA the build job resolved — never a ref it
+# re-resolves for itself.
 
 on:
   push:
@@ -24,7 +31,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch, tag or commit SHA to build and publish (default: main)'
+        description: 'Branch, tag or commit SHA to build and publish. Must be an ancestor of main.'
         required: false
         default: main
 
@@ -40,15 +47,19 @@ concurrency:
 
 env:
   AWS_REGION: eu-central-1
-  # Written by Terraform (infra). CI must not carry copies of these values: the
-  # bucket name embeds the AWS account id, the distribution id is a Terraform
-  # output, and the API URL is derived from `domain_name`. A workflow-local copy
-  # is a silent drift channel that the bundle guard below would not catch.
+  # Written by Terraform (infra/github-oidc.tf). CI must not carry copies of
+  # these values: the bucket name embeds the AWS account id, the distribution id
+  # is generated, and the API URL is derived from `domain_name`. A workflow-local
+  # copy is a silent drift channel that the bundle guard below would not catch.
+  # All three are plain `String` parameters, so no --with-decryption is needed;
+  # a SecureString would come back as ciphertext here.
   SSM_WEB_BUCKET_PARAM: /portofino/production/web/bucket
   SSM_WEB_DISTRIBUTION_PARAM: /portofino/production/web/distribution_id
   SSM_API_URL_PARAM: /portofino/production/api_url
-  # Verification target only — nothing is shipped from this value. A wrong one
-  # fails the run loudly instead of publishing the wrong content.
+  # Verification target only — nothing is shipped from this value, and a wrong
+  # one reds the run after a successful publish rather than shipping anything
+  # wrong. Terraform derives it from `domain_name` (locals.tf), so a domain
+  # change means editing this line.
   SITE_URL: https://portofino-essen.com
 
 jobs:
@@ -59,20 +70,51 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      # The one commit this whole run is about. Resolved ONCE, here, so the
+      # deploy job cannot publish a different commit than the one gated — which
+      # is what re-evaluating a moving ref like `main` in both jobs would allow.
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-node@v4
+          fetch-depth: 0
+
+      - name: Refuse to publish a commit that is not on main
+        # A dispatch may name any ref in this repo, including refs/pull/<n>/merge,
+        # which carries fork-authored code. The deploy job runs the export while
+        # holding the production role, so the commit must be one that already
+        # passed review and landed. Rollback targets are always ancestors of
+        # main, so this does not restrict the rollback path.
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          HEAD_SHA="$(git rev-parse HEAD)"
+          if ! git merge-base --is-ancestor "$HEAD_SHA" origin/main; then
+            echo "::error::$HEAD_SHA is not an ancestor of origin/main — refusing to publish it."
+            exit 1
+          fi
+          echo "$HEAD_SHA is on main."
+
+      - name: Resolve the commit being published
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
+
       - name: Install dependencies
         run: npm ci
+
       - name: Type check
         run: npx tsc --noEmit
+
       - name: Lint
         run: npm run lint
+
       - name: Export web build
         # No API URL here — this run proves the bundle builds, not what it points
         # at. The deploy job re-exports with the real value and guards it.
@@ -84,16 +126,15 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      BUILD_SHA: ${{ needs.build.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          # The exact commit the build job gated, never a re-resolved ref.
+          ref: ${{ needs.build.outputs.sha }}
 
-      - name: Resolve the commit being published
-        id: sha
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -112,7 +153,7 @@ jobs:
           fi
 
       - name: Assume the deploy role (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -135,6 +176,10 @@ jobs:
           API_URL="$(read_param "$SSM_API_URL_PARAM")"
           BUCKET="$(read_param "$SSM_WEB_BUCKET_PARAM")"
           DISTRIBUTION_ID="$(read_param "$SSM_WEB_DISTRIBUTION_PARAM")"
+          # This repo is PUBLIC and so are its Actions logs. The bucket name
+          # embeds the AWS account id and every `aws s3` line would print it.
+          echo "::add-mask::$BUCKET"
+          echo "::add-mask::$DISTRIBUTION_ID"
           {
             echo "api_url=$API_URL"
             echo "bucket=$BUCKET"
@@ -148,7 +193,7 @@ jobs:
           # and a stale Metro cache silently bakes in the previous value (e.g.
           # localhost, or the previous commit's SHA). Verified 2026-07-18.
           EXPO_PUBLIC_API_URL: ${{ steps.config.outputs.api_url }}
-          EXPO_PUBLIC_BUILD_SHA: ${{ steps.sha.outputs.sha }}
+          EXPO_PUBLIC_BUILD_SHA: ${{ needs.build.outputs.sha }}
         run: npx expo export --platform web --clear
 
       - name: Guard — the intended API host is in the shipped bundle
@@ -170,8 +215,6 @@ jobs:
           echo "API host '$API_HOST' found in the bundle."
 
       - name: Guard — the build marker is in the exported HTML
-        env:
-          BUILD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
           set -euo pipefail
           if ! grep -qF "<meta name=\"build-sha\" content=\"$BUILD_SHA\"" dist/index.html; then
@@ -188,15 +231,35 @@ jobs:
         # rewrites 403 to /index.html with HTTP 200 — so the browser parses HTML
         # as JavaScript and the page goes blank, silently, for up to an hour.
         # `query_string = false` means cache-busting cannot rescue a diner from
-        # it. Old objects are pruned by an S3 lifecycle rule instead.
+        # it.
+        #
+        # ⚠️ Nothing prunes the old objects yet. The plan calls for an S3
+        # lifecycle rule; infra has none today (no lifecycle configuration on the
+        # web bucket), so the bucket accumulates every build's bundle until one
+        # exists. Do NOT close that gap with a blanket age-based expiry: a site
+        # that goes un-deployed for longer than the horizon would have its LIVE
+        # bundle deleted, recreating exactly the white screen this ordering
+        # prevents. Prune only keys the live index.html does not reference.
         env:
           BUCKET: ${{ steps.config.outputs.bucket }}
         run: |
           set -euo pipefail
 
+          # Everything in dist/ must be covered by one of the rules below. A new
+          # export artifact (robots.txt, a manifest, anything dropped in by a
+          # public/ dir) would otherwise be silently left unpublished.
+          UNCOVERED="$(find dist -type f \
+            ! -path 'dist/_expo/*' ! -path 'dist/assets/*' \
+            ! -name '*.html' ! -name 'favicon.ico')"
+          if [ -n "$UNCOVERED" ]; then
+            echo "::error::files in dist/ that no publish rule covers:"
+            echo "$UNCOVERED"
+            exit 1
+          fi
+
           # 1. Content-hashed JS/CSS. New paths, so no live page can break.
-          # The exclude pattern is matched against the whole source path, so it
-          # is written with a leading wildcard rather than as a bare filename.
+          #    The exclude is wildcard-prefixed so it matches whether the CLI
+          #    compares the pattern against the source-relative or the full path.
           aws s3 sync dist/_expo "s3://$BUCKET/_expo" \
             --exclude '*.routes.json' \
             --cache-control 'public,max-age=31536000,immutable' \
@@ -208,16 +271,21 @@ jobs:
             --no-progress
 
           # 3. Stable-path non-HTML. Content changes under a fixed key, so these
-          #    must revalidate rather than be treated as immutable.
-          aws s3 cp dist/favicon.ico "s3://$BUCKET/favicon.ico" \
-            --cache-control 'public,max-age=3600' --no-progress
+          #    must revalidate rather than be treated as immutable. The favicon's
+          #    hour is a choice this workflow makes; the plan prescribes only the
+          #    immutable/no-cache pair above and below.
+          if [ -f dist/favicon.ico ]; then
+            aws s3 cp dist/favicon.ico "s3://$BUCKET/favicon.ico" \
+              --cache-control 'public,max-age=3600' --no-progress
+          fi
           if [ -f dist/_expo/.routes.json ]; then
             aws s3 cp dist/_expo/.routes.json "s3://$BUCKET/_expo/.routes.json" \
               --cache-control 'no-cache' --no-progress
           fi
 
           # 4. HTML LAST — this is the step that flips the site to the new build,
-          #    and every asset it references is already in place.
+          #    and every asset it references is already in place. The include set
+          #    must stay HTML-only: --content-type applies to everything matched.
           aws s3 sync dist "s3://$BUCKET" \
             --exclude '*' --include '*.html' \
             --cache-control 'no-cache' \
@@ -234,20 +302,28 @@ jobs:
             --paths '/*' \
             --query 'Invalidation.Id' --output text)"
           echo "Invalidation $INVALIDATION_ID created; waiting for completion..."
-          aws cloudfront wait invalidation-completed \
-            --distribution-id "$DISTRIBUTION_ID" --id "$INVALIDATION_ID"
-          echo "Invalidation $INVALIDATION_ID completed."
+          # The waiter gives up after ~10 minutes. That is not a failed deploy —
+          # the bytes are already in place — so let the live assertion below be
+          # what decides.
+          if aws cloudfront wait invalidation-completed \
+              --distribution-id "$DISTRIBUTION_ID" --id "$INVALIDATION_ID"; then
+            echo "Invalidation $INVALIDATION_ID completed."
+          else
+            echo "::warning::Invalidation $INVALIDATION_ID has not completed yet; relying on the live assertion."
+          fi
 
       - name: Verify the live site serves this build
         # The deploy is proved by fetching the site, not by the exit code of the
         # publish step above.
-        env:
-          BUILD_SHA: ${{ steps.sha.outputs.sha }}
         run: |
           set -euo pipefail
+
           # Every extraction is `|| true`: a fetch that returns the OLD build has
           # no matching marker, grep exits 1, and under `set -e` + `pipefail`
-          # that would abort the step instead of retrying.
+          # that would abort the step instead of retrying. The request header is
+          # not what defeats the edge cache — the invalidation above is; it is
+          # here for any intermediary that does honour it.
+          HTML=''
           for attempt in $(seq 1 10); do
             HTML="$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/" || true)"
             LIVE="$(printf '%s' "$HTML" \
@@ -255,16 +331,43 @@ jobs:
               | sed 's/.*content="//; s/"$//' || true)"
             if [ "$LIVE" = "$BUILD_SHA" ]; then
               echo "$SITE_URL is serving build-sha=$LIVE"
-              exit 0
+              break
             fi
             echo "attempt $attempt: live build-sha='${LIVE:-<none>}', expected '$BUILD_SHA'"
-            sleep 15
+            LIVE=''
+            if [ "$attempt" -lt 10 ]; then sleep 15; fi
           done
-          echo "::error::$SITE_URL never served build-sha=$BUILD_SHA. The publish may be incomplete — investigate before pushing again."
-          exit 1
+          if [ "${LIVE:-}" != "$BUILD_SHA" ]; then
+            echo "::error::$SITE_URL never served build-sha=$BUILD_SHA. The publish may be incomplete — investigate before pushing again."
+            exit 1
+          fi
+
+          # The marker alone does not prove the site WORKS. Both 403 and 404 are
+          # rewritten to /index.html with HTTP 200, so a missing bundle is served
+          # as HTML, the browser parses HTML as JavaScript, and the page is blank
+          # while this assertion happily passes. Fetch what the page actually
+          # references and prove it is JavaScript.
+          BUNDLE="$(printf '%s' "$HTML" \
+            | grep -o '/_expo/static/js/web/[^"]*\.js' | head -1 || true)"
+          if [ -z "$BUNDLE" ]; then
+            echo "::error::live index.html references no /_expo/static/js/web bundle"
+            exit 1
+          fi
+          CT="$(curl -fsS -o bundle.live.js -w '%{content_type}' "$SITE_URL$BUNDLE")"
+          case "$CT" in
+            *javascript*) ;;
+            *) echo "::error::$BUNDLE served as '$CT' — the 403/404 rewrite fired, so the bundle is missing"; exit 1 ;;
+          esac
+          if head -c 512 bundle.live.js | grep -qi '<!doctype\|<html'; then
+            echo "::error::$BUNDLE served HTML — the bundle is missing and the site is blank"
+            exit 1
+          fi
+          rm -f bundle.live.js
+          echo "$BUNDLE is live and is JavaScript ($CT)."
 
   # A failed deploy must not be as invisible as the stale site this pipeline
-  # exists to prevent.
+  # exists to prevent. Note this does not fire on a CANCELLED run — which is how
+  # the concurrency queue disposes of a superseded run, and not a failure.
   notify-failure:
     needs: [build, deploy]
     if: failure()
@@ -276,12 +379,19 @@ jobs:
       - name: Open or update the deploy-failure issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # There is no checkout in this job, so `gh` has no git remote to infer
+          # the repository from. Without this it exits "could not determine base
+          # repository" and the alarm is as silent as the failure it reports.
+          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TITLE: 'Web deploy failed'
+          FAILED_SHA: ${{ needs.build.outputs.sha || github.sha }}
+          TITLE: Web deploy failed
         run: |
           set -euo pipefail
-          BODY="Deploy of \`${{ github.sha }}\` failed. Run: $RUN_URL"
-          EXISTING="$(gh issue list --state open --search "$TITLE in:title" \
+          BODY="Deploy of \`$FAILED_SHA\` failed. Run: $RUN_URL"
+          # Listed, not searched: GitHub's search index lags issue creation by up
+          # to minutes, and two failures in a row would then open two issues.
+          EXISTING="$(gh issue list --state open --limit 100 \
             --json number,title \
             --jq '[.[] | select(.title == env.TITLE) | .number][0] // empty')"
           if [ -n "$EXISTING" ]; then

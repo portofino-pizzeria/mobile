@@ -1,5 +1,9 @@
 name: qontinui CI
 on: [push, pull_request]
+# This job now executes the repo's own build toolchain (the export below), so
+# the token it runs under is narrowed to the minimum that needs.
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
