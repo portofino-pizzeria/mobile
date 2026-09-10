@@ -1,0 +1,291 @@
+name: Deploy web
+
+# Publishes the Expo web export to S3 + CloudFront.
+#
+# ⛔ TRIGGER: `push` on `main` ONLY — never `workflow_run`.
+#
+# This repository is PUBLIC and `qontinui-ci.yml` runs `on: [push, pull_request]`,
+# so a pull request from a fork produces a completed workflow run. A
+# `workflow_run`-triggered job runs on the default branch with full OIDC access
+# and its `sub` claim is `repo:portofino-pizzeria/mobile:ref:refs/heads/main` —
+# exactly what the deploy role's trust policy pins. Checking out
+# `event.workflow_run.head_sha`, or merely running `npm ci` against the
+# attacker's `package.json` (lifecycle scripts run as part of install), would
+# execute fork-authored code while holding the production S3 + CloudFront role.
+# A `push`-triggered job never runs for a fork. The build gate therefore lives
+# in THIS workflow as a `needs:` job rather than being imported from another
+# workflow's run.
+
+on:
+  push:
+    branches: [main]
+  # Rollback / first publish. Re-running this workflow replays the same commit,
+  # so it is not a rollback; deploying an explicit ref is.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit SHA to build and publish (default: main)'
+        required: false
+        default: main
+
+permissions:
+  id-token: write
+  contents: read
+
+# Two quick merges must not interleave two publishes. Never cancel in flight —
+# a cancelled run can leave the bucket half-published.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  # Written by Terraform (infra). CI must not carry copies of these values: the
+  # bucket name embeds the AWS account id, the distribution id is a Terraform
+  # output, and the API URL is derived from `domain_name`. A workflow-local copy
+  # is a silent drift channel that the bundle guard below would not catch.
+  SSM_WEB_BUCKET_PARAM: /portofino/production/web/bucket
+  SSM_WEB_DISTRIBUTION_PARAM: /portofino/production/web/distribution_id
+  SSM_API_URL_PARAM: /portofino/production/api_url
+  # Verification target only — nothing is shipped from this value. A wrong one
+  # fails the run loudly instead of publishing the wrong content.
+  SITE_URL: https://portofino-essen.com
+
+jobs:
+  # The gate. `qontinui-ci.yml` also runs on this push, but a deploy job cannot
+  # depend on a separate workflow's run without `workflow_run` (see above), so
+  # the gate is repeated here where `needs:` can enforce it.
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Export web build
+        # No API URL here — this run proves the bundle builds, not what it points
+        # at. The deploy job re-exports with the real value and guards it.
+        run: npx expo export --platform web
+
+  deploy:
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Resolve the commit being published
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the deploy role is configured
+        env:
+          ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ROLE_ARN}" ]; then
+            echo "::error::secrets.AWS_DEPLOY_ROLE_ARN is unset. Set it to the portofino-ci-web role ARN created by infra/github-oidc.tf."
+            exit 1
+          fi
+
+      - name: Assume the deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Read deploy config from SSM
+        id: config
+        run: |
+          set -euo pipefail
+          read_param() {
+            local value
+            # A missing parameter exits non-zero here and fails the step. `None`
+            # is what --output text prints for a null, and is not a value.
+            value="$(aws ssm get-parameter --name "$1" --query 'Parameter.Value' --output text)"
+            if [ -z "$value" ] || [ "$value" = "None" ]; then
+              echo "::error::SSM parameter $1 is empty. Has infra applied the Phase 2 parameters?" >&2
+              return 1
+            fi
+            printf '%s' "$value"
+          }
+          API_URL="$(read_param "$SSM_API_URL_PARAM")"
+          BUCKET="$(read_param "$SSM_WEB_BUCKET_PARAM")"
+          DISTRIBUTION_ID="$(read_param "$SSM_WEB_DISTRIBUTION_PARAM")"
+          {
+            echo "api_url=$API_URL"
+            echo "bucket=$BUCKET"
+            echo "distribution_id=$DISTRIBUTION_ID"
+          } >> "$GITHUB_OUTPUT"
+          echo "API URL: $API_URL"
+
+      - name: Export web build
+        env:
+          # --clear is REQUIRED: EXPO_PUBLIC_* values are inlined at build time,
+          # and a stale Metro cache silently bakes in the previous value (e.g.
+          # localhost, or the previous commit's SHA). Verified 2026-07-18.
+          EXPO_PUBLIC_API_URL: ${{ steps.config.outputs.api_url }}
+          EXPO_PUBLIC_BUILD_SHA: ${{ steps.sha.outputs.sha }}
+        run: npx expo export --platform web --clear
+
+      - name: Guard — the intended API host is in the shipped bundle
+        # Ported from infra/scripts/deploy-web.ps1. A stale cache that baked in
+        # the wrong API host must abort the deploy, not ship.
+        env:
+          EXPO_PUBLIC_API_URL: ${{ steps.config.outputs.api_url }}
+        run: |
+          set -euo pipefail
+          API_HOST="$(node -e 'process.stdout.write(new URL(process.env.EXPO_PUBLIC_API_URL).host)')"
+          if [ -z "$API_HOST" ]; then
+            echo "::error::Could not derive a host from EXPO_PUBLIC_API_URL"
+            exit 1
+          fi
+          if ! grep -qF -- "$API_HOST" dist/_expo/static/js/web/*.js; then
+            echo "::error::API host '$API_HOST' not found in the built bundle — aborting deploy (stale cache?)"
+            exit 1
+          fi
+          echo "API host '$API_HOST' found in the bundle."
+
+      - name: Guard — the build marker is in the exported HTML
+        env:
+          BUILD_SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if ! grep -qF "<meta name=\"build-sha\" content=\"$BUILD_SHA\"" dist/index.html; then
+            echo "::error::dist/index.html does not carry build-sha=$BUILD_SHA — the live assertion below could never pass."
+            exit 1
+          fi
+
+      - name: Publish to S3 (hashed assets first, HTML last, never pruning)
+        # ⛔ NOT `aws s3 sync --delete`.
+        #
+        # The export is stable-path HTML plus one content-hashed bundle. Pruning
+        # removes the OLD bundle while edge- and browser-cached HTML (default_ttl
+        # 3600) still references it. That request 403s, and the distribution
+        # rewrites 403 to /index.html with HTTP 200 — so the browser parses HTML
+        # as JavaScript and the page goes blank, silently, for up to an hour.
+        # `query_string = false` means cache-busting cannot rescue a diner from
+        # it. Old objects are pruned by an S3 lifecycle rule instead.
+        env:
+          BUCKET: ${{ steps.config.outputs.bucket }}
+        run: |
+          set -euo pipefail
+
+          # 1. Content-hashed JS/CSS. New paths, so no live page can break.
+          # The exclude pattern is matched against the whole source path, so it
+          # is written with a leading wildcard rather than as a bare filename.
+          aws s3 sync dist/_expo "s3://$BUCKET/_expo" \
+            --exclude '*.routes.json' \
+            --cache-control 'public,max-age=31536000,immutable' \
+            --no-progress
+
+          # 2. Content-hashed images + fonts.
+          aws s3 sync dist/assets "s3://$BUCKET/assets" \
+            --cache-control 'public,max-age=31536000,immutable' \
+            --no-progress
+
+          # 3. Stable-path non-HTML. Content changes under a fixed key, so these
+          #    must revalidate rather than be treated as immutable.
+          aws s3 cp dist/favicon.ico "s3://$BUCKET/favicon.ico" \
+            --cache-control 'public,max-age=3600' --no-progress
+          if [ -f dist/_expo/.routes.json ]; then
+            aws s3 cp dist/_expo/.routes.json "s3://$BUCKET/_expo/.routes.json" \
+              --cache-control 'no-cache' --no-progress
+          fi
+
+          # 4. HTML LAST — this is the step that flips the site to the new build,
+          #    and every asset it references is already in place.
+          aws s3 sync dist "s3://$BUCKET" \
+            --exclude '*' --include '*.html' \
+            --cache-control 'no-cache' \
+            --content-type 'text/html; charset=utf-8' \
+            --no-progress
+
+      - name: Invalidate CloudFront and wait for it
+        env:
+          DISTRIBUTION_ID: ${{ steps.config.outputs.distribution_id }}
+        run: |
+          set -euo pipefail
+          INVALIDATION_ID="$(aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths '/*' \
+            --query 'Invalidation.Id' --output text)"
+          echo "Invalidation $INVALIDATION_ID created; waiting for completion..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$DISTRIBUTION_ID" --id "$INVALIDATION_ID"
+          echo "Invalidation $INVALIDATION_ID completed."
+
+      - name: Verify the live site serves this build
+        # The deploy is proved by fetching the site, not by the exit code of the
+        # publish step above.
+        env:
+          BUILD_SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Every extraction is `|| true`: a fetch that returns the OLD build has
+          # no matching marker, grep exits 1, and under `set -e` + `pipefail`
+          # that would abort the step instead of retrying.
+          for attempt in $(seq 1 10); do
+            HTML="$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/" || true)"
+            LIVE="$(printf '%s' "$HTML" \
+              | grep -o -m1 '<meta name="build-sha" content="[^"]*"' \
+              | sed 's/.*content="//; s/"$//' || true)"
+            if [ "$LIVE" = "$BUILD_SHA" ]; then
+              echo "$SITE_URL is serving build-sha=$LIVE"
+              exit 0
+            fi
+            echo "attempt $attempt: live build-sha='${LIVE:-<none>}', expected '$BUILD_SHA'"
+            sleep 15
+          done
+          echo "::error::$SITE_URL never served build-sha=$BUILD_SHA. The publish may be incomplete — investigate before pushing again."
+          exit 1
+
+  # A failed deploy must not be as invisible as the stale site this pipeline
+  # exists to prevent.
+  notify-failure:
+    needs: [build, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the deploy-failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: 'Web deploy failed'
+        run: |
+          set -euo pipefail
+          BODY="Deploy of \`${{ github.sha }}\` failed. Run: $RUN_URL"
+          EXISTING="$(gh issue list --state open --search "$TITLE in:title" \
+            --json number,title \
+            --jq '[.[] | select(.title == env.TITLE) | .number][0] // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

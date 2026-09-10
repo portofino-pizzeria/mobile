@@ -14,7 +14,13 @@ jobs:
         run: if [ -f tsconfig.json ]; then npx --yes tsc --noEmit; fi
       - name: Lint
         run: npm run lint --if-present
-      - name: Build
-        run: npm run build --if-present
+      # `npm run build --if-present` was a silent no-op — package.json defines no
+      # `build` script — so CI never exercised the web export the deploy
+      # workflow ships. Run the export itself: it is the artifact that reaches
+      # customers, and a broken one must fail here rather than at deploy time.
+      - name: Export web build
+        run: npx expo export --platform web
+      # Still a no-op: package.json defines no `test` script. Left in place so
+      # the step exists the day one is added.
       - name: Test
         run: npm test --if-present
