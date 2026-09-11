@@ -24,6 +24,17 @@ jobs:
       # customers, and a broken one must fail here rather than at deploy time.
       - name: Export web build
         run: npx expo export --platform web
+      # Required by `policy/ux-priorities`, clause
+      # `an-asset-the-machine-cannot-reach-does-not-exist`. Stdlib-only, so no
+      # dependency step is needed.
+      #
+      # The two menu-join checks are reported SKIPPED here rather than passed:
+      # the menu lives in the sibling `backend` repo, which is not in this
+      # checkout. That is an honest UNKNOWN — `scripts/derive-assets.py` runs
+      # both halves locally, where both repos are present, and refuses to
+      # derive when the sheet order and the menu disagree.
+      - name: Asset manifest drift
+        run: python3 scripts/check-assets.py
       # Still a no-op: package.json defines no `test` script. Left in place so
       # the step exists the day one is added.
       - name: Test
