@@ -12,15 +12,15 @@
 > | 3 web deploy | `mobile#6`, `ebd9dc6` | working — push-triggered runs green, marker moves (verification 1 ✔) |
 > | 4a backend CI | `backend#1` | working — green on every PR and master push |
 > | 4b backend deploy | `backend#1`, `#2` | **has never reached AWS** — the three master pushes so far all stopped at the reviewer gate, which was unconfigurable on the Free plan at the time; the environment now carries a required reviewer and the four repo variables are set, so the NEXT master push is the first real run |
-> | 5 retire the Terraform path | `infra#1` | merged; apply-then-plan (verification 5) not recorded |
+> | 5 retire the Terraform path | `infra#1`, applied; `infra#3` follow-up | **done** — `terraform plan` against the live state (serial 16, 2026-09-12) shows no `null_resource`, no change to `aws_apprunner_service.backend` (not tainted by the dropped `depends_on`) and no infrastructure diff; the `null` provider #1 retained for the destroy is removed by `infra#3` (verification 5 ✔) |
 >
 > Outstanding before SHIPPED: verification 2 (a backend commit moves
 > `/api/health` `commit` — the merge of `backend#4`, which adds the retag
 > rollback path, is the natural first candidate; it needs the reviewer to
 > approve at the gate), 3 (a web deploy observed mid-flight from a warm-cache
-> browser), 4 (both rollbacks executed — the one `workflow_dispatch` of Deploy
-> web on 2026-09-11 deployed the tip of `main`, not an older sha, so neither
-> rollback has been exercised), and 5.
+> browser), and 4 (both rollbacks executed — the one `workflow_dispatch` of
+> Deploy web on 2026-09-11 deployed the tip of `main`, not an older sha, so
+> neither rollback has been exercised).
 >
 > Superseded by implementation: the backend rollback is retag-first rather
 > than rebuild-only (`ecr:BatchGetImage` was granted by `infra@425abd3` for
