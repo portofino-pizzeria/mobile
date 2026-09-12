@@ -164,6 +164,10 @@ export default function KitchenScreen() {
   });
 
   function submitToken() {
+    // An empty press is not an attempt: it would drop the stored token, clear
+    // the previous reason below, and the headerless 401 that follows carries no
+    // reason to replace it — leaving the operator with nothing on screen.
+    if (!tokenInput.trim()) return;
     setKitchenToken(tokenInput.trim());
     setTokenInput('');
     setOrders(null);
