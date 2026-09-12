@@ -106,11 +106,24 @@ jobs:
       # every check that guards a merge must also guard the publish, or a
       # manifest that drifts from the files it names ships anyway. Stdlib-only
       # and independent of the toolchain, so it runs before `npm ci` and fails
-      # in seconds rather than after a full export. The two menu-join halves
-      # report SKIPPED here (the menu lives in the sibling `backend` repo)
-      # exactly as they do in CI.
+      # in seconds rather than after a full export.
+      #
+      # The menu-join half needs the menu, which lives in the sibling `backend`
+      # repo (public). Only `data/menu.json` is fetched, as CI does, so the
+      # check is measured against the real menu here too rather than SKIPPED —
+      # a publish is exactly the moment a dish with no art must not slip past.
+      # No credentials are persisted: this job never needs to write anywhere.
+      - name: Fetch the menu the manifest binds to
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: portofino-pizzeria/backend
+          path: backend
+          sparse-checkout: data/menu.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Asset manifest drift
-        run: python3 scripts/check-assets.py
+        run: python3 scripts/check-assets.py --menu backend/data/menu.json
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
