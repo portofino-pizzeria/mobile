@@ -11,17 +11,16 @@
  * deliberately absent — the spec calls that out: the family was folded into
  * Open Sans's width axis and no longer exists standalone.
  *
- * `--font-mono` is consumed by `Fonts.mono` (the `code` text role). The other
- * `Fonts.*` slots have no consumer, so no variable is declared for them: a
- * variable that reads like the heading stack but changes nothing when edited
- * is worse than no variable. Headings come from the family names above.
+ * Only the text stack is declared as a variable. The template's other font
+ * variables had no consumer — a variable that reads like the heading stack but
+ * changes nothing when edited is worse than no variable — and the last one,
+ * `--font-mono`, went with the `code` text role whose only consumer was the
+ * template's own Expo badge. Headings come from the family names above.
  */
 :root {
   /* Geometric sans — anything a guest has to read carefully. Also the page
      default, so untyped web text does not fall back to the platform face. */
   --font-text: Jost_400Regular, Jost, Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
 }
 
 /* The page ground. `visual-system`: "The reference's `body` rule is

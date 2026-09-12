@@ -1,6 +1,6 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor, Type } from '@/constants/theme';
+import { ThemeColor, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -55,8 +55,7 @@ export type ThemedTextProps = TextProps & {
     | 'heading'
     | 'small'
     | 'smallBold'
-    | 'price'
-    | 'code';
+    | 'price';
   themeColor?: ThemeColor;
 };
 
@@ -79,7 +78,6 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'small' && styles.small,
         type === 'smallBold' && styles.smallBold,
         type === 'price' && styles.price,
-        type === 'code' && styles.code,
         style,
       ]}
       {...rest}
@@ -129,10 +127,5 @@ const styles = StyleSheet.create({
     fontFamily: Type.textBold,
     fontSize: 14,
     lineHeight: 21, // floor: ceil(14 x 1.445) = 21
-  },
-
-  code: {
-    fontFamily: Fonts.mono,
-    fontSize: 12,
   },
 });

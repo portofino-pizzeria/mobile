@@ -1,7 +1,55 @@
 # Portofino — apply the declared visual system to the app (2026-09-10)
 
-> **Status:** IMPLEMENTED (this branch). Findings that were *not* implemented
-> are listed under "Not done, and why" — they are the output that compounds.
+> **Status: SHIPPED 2026-09-10** — landed on `main` as
+> [#5](https://github.com/portofino-pizzeria/mobile/pull/5) (`eb64260`).
+> Findings that were *not* implemented are listed under "Not done, and why" —
+> they are the output that compounds.
+>
+> **Post-merge follow-up, 2026-09-12** (one PR, reviewed against `main` after
+> #5 and #8 landed). What #5 left unwired, and what changed under it:
+>
+> - `brandPressed` was declared with "no consumer yet". It is now read by
+>   every brand-red control while pressed — a fill darkens; an outline's
+>   border darkens and its ground lifts to `backgroundSelected`, because on
+>   the dark card a darker red alone measures ~2.4:1 and reads as fading
+>   rather than pressing. A pressed pill's LABEL does not move, because
+>   `priceText` is ink in dark mode for AA and a swap to the pressed red
+>   would drop it under 4.5:1 for the duration of the press. Hover on web is
+>   not wired — the `Pressable` style callback types only `pressed`.
+> - `Fonts.mono` and the `code` text role were kept in #5 on the grounds that
+>   `web-badge` consumed them — but nothing rendered `web-badge`. It, `HintRow`,
+>   `Collapsible`, `ExternalLink`, the dead `AnimatedIcon` export (Expo's logo
+>   on Expo's gradient), the template's unreferenced images, and the
+>   `reset-project` script that moves `app/` aside are removed, and with them
+>   the last web font variable. Same finding class as S7.
+> - `MaxContentWidth` was defined and never read; four screens hardcoded the
+>   same 800. They read the token now.
+> - **The v2 append to `domain_spec/visual-system` (#8, 2026-09-11) converted
+>   two of the gaps below from `Declared UNKNOWN` to declared:** spacing
+>   rhythm (4 / 8 / 12 / 16 / 24 / 32 / 48, section separation 48) and card
+>   geometry (one radius for cards, one for pills). `Spacing` is re-keyed to
+>   that ladder — the two off-ladder values the app carried, a 2px gap (eight
+>   token sites and two literals) and a 64px end spacer, move to 4 and 48 —
+>   and `Radius.card` / `Radius.pill` replace the spacing tokens that were
+>   doubling as radii. Text inputs keep their 8 under `Radius.field`: a field
+>   is neither a card nor a pill, so the declaration does not reach it, and
+>   it is carried forward as the one radius the tenant has not spoken to.
+>   Motion is declared now too (150 / 250 / 400 ms ceiling) and transcribed
+>   as `Motion`; its only consumer is the template splash overlay at 600 ms,
+>   a known violation that is S6's problem and not retimed here. Photography direction is closed by the companion
+>   `domain_spec/imagery-and-iconography`; wiring the 29 illustrations into the
+>   menu is #8's follow-up, not this one.
+> - Still open, unchanged, and NOT resolved in code: S1 (checkout accepts an
+>   order with no contact details), S4 (order summary at payment), S6 (the
+>   mark), the alert red, the type scale, the neutral ramp, dark mode.
+>
+> Verified the way CI does — `tsc --noEmit`, `expo lint`, `expo export
+> --platform web`, `check-assets.py` — and NOT on a device: the token
+> re-keying preserves every value except the two ladder moves named above
+> (2 → 4, 64 → 48), and no screen was re-rendered to confirm them. An
+> independent review of the diff found three of its own — inputs silently
+> reshaped to the card radius, two literal 2px gaps the re-key missed, and
+> the dark-mode pressed outline fading — and all three are fixed above.
 >
 > **Oracle:** DECLARED INTENT, tenant `pizzeria`. Read live on 2026-09-10 —
 > `domain_spec/visual-system` (v1), `policy/ux-priorities` (v3),
@@ -165,7 +213,9 @@ see a clipped price.
 ### S6 — The app's icon and splash are still Expo's own artwork `INSPECTED`
 
 `assets/images/splash-icon.png` is **byte-identical** to
-`assets/images/expo-logo.png` (sha256 `27b060a757a29038…`), and
+`assets/images/expo-logo.png` (sha256 `27b060a757a29038…`; the duplicate was
+removed as unreferenced by the 2026-09-12 follow-up — the digest still verifies
+against `splash-icon.png`), and
 `assets/images/icon.png` is the Expo chevron on Expo blue. `app.json` sets the
 splash background to `#208AEF` and the adaptive-icon background to `#E6F4FE`.
 

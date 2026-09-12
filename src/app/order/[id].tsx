@@ -5,7 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
@@ -84,7 +84,7 @@ export default function OrderScreen() {
           {copy.sub}
         </ThemedText>
         {order.status === 'pending_payment' ? (
-          <ActivityIndicator style={{ marginTop: Spacing.two }} />
+          <ActivityIndicator style={{ marginTop: Spacing.sm }} />
         ) : null}
       </View>
 
@@ -111,7 +111,10 @@ export default function OrderScreen() {
       <BridgeButton
         uiId="order-back-to-menu"
         uiLabel="Zurück zur Speisekarte"
-        style={[styles.btn, { backgroundColor: theme.brand }]}
+        style={({ pressed }) => [
+          styles.btn,
+          { backgroundColor: pressed ? theme.brandPressed : theme.brand },
+        ]}
         onPress={() => router.replace('/')}>
         <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
           Zur Speisekarte
@@ -122,12 +125,12 @@ export default function OrderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: Spacing.three, gap: Spacing.four, maxWidth: 800, width: '100%', alignSelf: 'center' },
+  container: { flex: 1, padding: Spacing.lg, gap: Spacing.xl, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   center: { textAlign: 'center', alignItems: 'center', justifyContent: 'center' },
-  hero: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.five },
+  hero: { alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xxl },
   emoji: { fontSize: 64, lineHeight: 72 },
-  summary: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.one },
+  summary: { padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.xs },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  totalRow: { marginTop: Spacing.one },
-  btn: { padding: Spacing.three, borderRadius: Spacing.three, alignItems: 'center' },
+  totalRow: { marginTop: Spacing.xs },
+  btn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center' },
 });

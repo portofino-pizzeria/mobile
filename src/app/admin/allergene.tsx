@@ -19,7 +19,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { AdminButton, AdminField, ConfirmAction, Notice } from '@/components/admin-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { AdminApiError, adminApi, loadOwnerToken } from '@/lib/admin';
 import type { AdminMenu } from '@/lib/types';
 
@@ -301,7 +301,7 @@ export default function AdminAllergensScreen() {
           />
         </ThemedView>
 
-        <View style={{ height: Spacing.six }} />
+        <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </ThemedView>
   );
@@ -309,17 +309,17 @@ export default function AdminAllergensScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   scroll: {
-    padding: Spacing.three,
-    gap: Spacing.three,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
     width: '100%',
     maxWidth: 700,
     alignSelf: 'center',
   },
-  card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  card: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.sm },
   code: { fontSize: 20 },
-  stack: { gap: Spacing.two },
-  row: { flexDirection: 'row', gap: Spacing.two },
+  stack: { gap: Spacing.sm },
+  row: { flexDirection: 'row', gap: Spacing.sm },
   grow: { flex: 1 },
 });

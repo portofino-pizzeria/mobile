@@ -23,7 +23,7 @@ import {
 } from '@/components/admin-ui';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { AdminApiError, adminApi, loadOwnerToken, setOwnerToken } from '@/lib/admin';
 import { formatEUR } from '@/lib/format';
@@ -438,7 +438,7 @@ export default function AdminMenuScreen() {
           onPress={() => router.push('/admin/allergene')}
         />
 
-        <View style={{ height: Spacing.six }} />
+        <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </ThemedView>
   );
@@ -450,34 +450,34 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.four,
-    gap: Spacing.two,
+    padding: Spacing.xl,
+    gap: Spacing.sm,
   },
   scroll: {
-    padding: Spacing.three,
-    gap: Spacing.three,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
     width: '100%',
     maxWidth: 700,
     alignSelf: 'center',
   },
-  headerBlock: { gap: Spacing.half },
-  tokenCard: { width: '100%', maxWidth: 420, gap: Spacing.three },
-  categoryCard: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  headerBlock: { gap: Spacing.xs },
+  tokenCard: { width: '100%', maxWidth: 420, gap: Spacing.lg },
+  categoryCard: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.sm },
   categoryHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    gap: Spacing.two,
+    gap: Spacing.sm,
   },
   categoryTitle: { fontSize: 18 },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
   },
-  itemText: { flex: 1, gap: 2 },
-  stack: { gap: Spacing.two },
-  row: { flexDirection: 'row', gap: Spacing.two },
+  itemText: { flex: 1, gap: Spacing.xs },
+  stack: { gap: Spacing.sm },
+  row: { flexDirection: 'row', gap: Spacing.sm },
   grow: { flex: 1 },
 });
