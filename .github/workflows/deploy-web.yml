@@ -101,6 +101,17 @@ jobs:
         id: sha
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # The same gate `qontinui-ci.yml` runs. It is repeated here for the reason
+      # the job comment gives: this workflow cannot depend on that one's run, so
+      # every check that guards a merge must also guard the publish, or a
+      # manifest that drifts from the files it names ships anyway. Stdlib-only
+      # and independent of the toolchain, so it runs before `npm ci` and fails
+      # in seconds rather than after a full export. The two menu-join halves
+      # report SKIPPED here (the menu lives in the sibling `backend` repo)
+      # exactly as they do in CI.
+      - name: Asset manifest drift
+        run: python3 scripts/check-assets.py
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
@@ -233,13 +244,19 @@ jobs:
         # `query_string = false` means cache-busting cannot rescue a diner from
         # it.
         #
-        # ⚠️ Nothing prunes the old objects yet. The plan calls for an S3
-        # lifecycle rule; infra has none today (no lifecycle configuration on the
-        # web bucket), so the bucket accumulates every build's bundle until one
-        # exists. Do NOT close that gap with a blanket age-based expiry: a site
-        # that goes un-deployed for longer than the horizon would have its LIVE
-        # bundle deleted, recreating exactly the white screen this ordering
-        # prevents. Prune only keys the live index.html does not reference.
+        # ⚠️ Nothing prunes the old objects, and that is now a DECISION rather
+        # than a gap. infra's lifecycle configuration on the web bucket carries
+        # only the one rule that is safe by construction (abort incomplete
+        # multipart uploads) and deliberately no age-based expiry: bundle keys
+        # are content-hashed and never rewritten, so an object's age is the age
+        # of its build, not evidence that nothing references it — production
+        # was measured serving an eight-day-old build, which a 7-day rule would
+        # have deleted while still answering HTTP 200. See "The publish
+        # invariant, and old builds" in infra/README.md. Pruning safely needs a
+        # reference-aware step (read the live HTML, keep what it names plus the
+        # last N builds, delete the rest), which would live in THIS workflow and
+        # does not exist yet; until it does, storage grows by about one bundle
+        # per build, which is cheap next to the outage an age rule would cause.
         env:
           BUCKET: ${{ steps.config.outputs.bucket }}
         run: |
@@ -368,6 +385,12 @@ jobs:
   # A failed deploy must not be as invisible as the stale site this pipeline
   # exists to prevent. Note this does not fire on a CANCELLED run — which is how
   # the concurrency queue disposes of a superseded run, and not a failure.
+  #
+  # The alarm is one issue, `Web deploy failed`, commented on each further
+  # failure and CLOSED by `notify-recovery` below on the next successful deploy.
+  # Before that job existed the issue stayed open through every later success
+  # (measured: #7, opened by the first push, still open after two green
+  # deploys) — a stale alarm is the same defect class as a stale site.
   notify-failure:
     needs: [build, deploy]
     if: failure()
@@ -391,11 +414,64 @@ jobs:
           BODY="Deploy of \`$FAILED_SHA\` failed. Run: $RUN_URL"
           # Listed, not searched: GitHub's search index lags issue creation by up
           # to minutes, and two failures in a row would then open two issues.
+          # Matched on author as well as title: this repo is public, so anyone
+          # can open an issue with this title, and the bot must only ever touch
+          # its own. (`--author` does not resolve an app login, hence the jq.)
           EXISTING="$(gh issue list --state open --limit 100 \
-            --json number,title \
-            --jq '[.[] | select(.title == env.TITLE) | .number][0] // empty')"
+            --json number,title,author \
+            --jq '[.[] | select(.title == env.TITLE and .author.login == "app/github-actions") | .number][0] // empty')"
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
             gh issue create --title "$TITLE" --body "$BODY"
           fi
+
+  # The other half of the alarm: a deploy that succeeds after one that failed
+  # closes the open issue, naming the run and the commit that recovered, so an
+  # open `Web deploy failed` issue always means the last deploy of main's head
+  # did not prove itself live.
+  #
+  # Only a deploy of main's HEAD counts as recovery. A rollback dispatch
+  # (`ref=<older sha>`) succeeds too, but leaves main's head — the commit whose
+  # failure raised the alarm — still not live, so it must not silence it.
+  # `github.sha` is main's head for a push and for a default-ref dispatch;
+  # `needs.build.outputs.sha` is what was actually published.
+  #
+  # A red `notify-recovery` means the DEPLOY SUCCEEDED and only the issue
+  # bookkeeping failed (a `gh` hiccup) — do not re-deploy to fix it; close the
+  # issue by hand. `notify-failure` cannot see this job, so no issue is opened
+  # for that case.
+  notify-recovery:
+    needs: [build, deploy]
+    if: success() && needs.build.outputs.sha == github.sha
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close the deploy-failure issue if one is open
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No checkout here either — see the note on notify-failure.
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOYED_SHA: ${{ needs.build.outputs.sha }}
+          TITLE: Web deploy failed
+        run: |
+          set -euo pipefail
+          # Listed, not searched, for the same reason as notify-failure: the
+          # search index lags, and a stale index here would leave the alarm on.
+          # Same author match as there, and EVERY open match is closed — a
+          # duplicate that ever slipped through must not linger as a false alarm.
+          OPEN="$(gh issue list --state open --limit 100 \
+            --json number,title,author \
+            --jq '.[] | select(.title == env.TITLE and .author.login == "app/github-actions") | .number')"
+          if [ -z "$OPEN" ]; then
+            echo "No open '$TITLE' issue — nothing to close."
+            exit 0
+          fi
+          BODY="Recovered: \`$DEPLOYED_SHA\` is live. Run: $RUN_URL"
+          for n in $OPEN; do
+            gh issue close "$n" --comment "$BODY"
+            echo "Closed #$n."
+          done
