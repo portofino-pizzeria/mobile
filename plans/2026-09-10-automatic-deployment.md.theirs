@@ -1,6 +1,5 @@
 # Portofino — automatic deployment (2026-09-10)
 
-<<<<<<< HEAD
 > **Status:** IMPLEMENTED 2026-09-12 — every phase is merged; NOT yet SHIPPED,
 > because the plan's own "Verification of this plan's own work" is only partly
 > met. Ledger, measured 2026-09-12 rather than inferred from merges:
@@ -31,35 +30,6 @@
 > ref form could never match.
 >
 > Previously: VETTED 2026-09-10.
-=======
-> **Status: SHIPPED 2026-09-12 — every phase has landed in its repo; the web
-> path is proved live, the backend path is one operator approval from it.**
-> Per phase, with the evidence read on 2026-09-12 (not the PRs' own claims):
->
-> | Phase | Repo | Landed as | Live? |
-> |---|---|---|---|
-> | 1 web — `build-sha` marker | `mobile` | #6 (`6a3c8aa`, `ebd9dc6`) | **Yes** — `curl https://portofino-essen.com/` carries `build-sha=35bf7e0d…`, which is `origin/main`. |
-> | 1 backend — `commit` on `/api/health` | `backend` | #1 (`9df5b85`) | **No** — the live `/api/health` answers `{"status":"ok","stripe":"mock"}`, no `commit`; the image carrying it has not been deployed (Phase 4b). |
-> | 2 — SSM channel, OIDC, two roles | `infra` | #1 (`f828054`), fixed by `3e02a93` | **Applied** — the mobile deploy assumes `portofino-ci-web` and reads all three parameters; `AWS_DEPLOY_ROLE_ARN` was set 2026-09-11 08:09. |
-> | 3 — web deploy workflow | `mobile` | #6; follow-up in the PR that carries this status | **Yes** — first green run was the 08:12 `workflow_dispatch` (first publish of `ebd9dc6`); the first push-triggered green deploy carried #8 (`35bf7e0`, run 34599882565). |
-> | 4a — backend CI on Postgres | `backend` | #1, #2 | CI runs. |
-> | 4b — backend deploy through `production-backend` | `backend` | #1, #2 | **No** — every push run so far failed at its own guard, *"Environment 'production-backend' has no required reviewer"*. The environment now carries `required_reviewers`; no run has been made since, so the next push to `master` (or a dispatch) is the one that will go through the gate. |
-> | 5 — retire the Terraform deploy path | `infra` | #1 (`f828054`); README rewritten | Both `null_resource`s are gone from `master`. Apply-then-plan cleanliness: not read from here. |
->
-> **Of the plan's own five verification items, one is done.** (1) the live
-> marker moved with a merge — done, twice. (2) the backend marker — blocked on
-> 4b. (3) a mid-flight deploy observed from a warm-cache browser — not done,
-> and cannot be done from CI. (4) **neither rollback has been executed** — the
-> one web dispatch so far published `main`'s head, which is a first publish,
-> not a rollback; the path is `gh workflow run deploy-web.yml -f ref=<sha>` and
-> it remains a claim until it is run once on purpose. (5) apply-then-plan —
-> not read. The lifecycle rule Phase 3 named turned out to be the wrong tool
-> and infra deliberately ships none (`infra/README.md`, "The publish
-> invariant, and old builds"); a reference-aware prune in the mobile workflow
-> is the replacement, and it is not built.
->
-> Earlier: VETTED 2026-09-10.
->>>>>>> 077b300 (fix(deploy): close the alarm on recovery, repeat the asset gate, document the deploy path)
 >
 > **Vet outcome:** NEEDS-REWORK on the first draft — 2 critical, 4 high,
 > 4 medium defects, 3 factual claims wrong, 4 ordering errors. All are resolved

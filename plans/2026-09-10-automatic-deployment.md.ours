@@ -1,37 +1,5 @@
 # Portofino — automatic deployment (2026-09-10)
 
-<<<<<<< HEAD
-> **Status:** IMPLEMENTED 2026-09-12 — every phase is merged; NOT yet SHIPPED,
-> because the plan's own "Verification of this plan's own work" is only partly
-> met. Ledger, measured 2026-09-12 rather than inferred from merges:
->
-> | Phase | Landed as | State |
-> |---|---|---|
-> | 1 web marker | `mobile#6` | live — `<meta name="build-sha">` on portofino-essen.com reads `35bf7e0`, the tip of `main` |
-> | 1 backend marker | `backend#1` | merged; **not live** — `api.portofino-essen.com/api/health` still answers without `commit` (a 2026-09-03 image) |
-> | 2 OIDC + roles + SSM | `infra#1`, `3e02a93` | **applied** — both roles exist, all three `/portofino/production/*` parameters exist |
-> | 3 web deploy | `mobile#6`, `ebd9dc6` | working — push-triggered runs green, marker moves (verification 1 ✔) |
-> | 4a backend CI | `backend#1` | working — green on every PR and master push |
-> | 4b backend deploy | `backend#1`, `#2` | **has never reached AWS** — the three master pushes so far all stopped at the reviewer gate, which was unconfigurable on the Free plan at the time; the environment now carries a required reviewer and the four repo variables are set, so the NEXT master push is the first real run |
-> | 5 retire the Terraform path | `infra#1` | merged; apply-then-plan (verification 5) not recorded |
->
-> Outstanding before SHIPPED: verification 2 (a backend commit moves
-> `/api/health` `commit` — the merge of `backend#4`, which adds the retag
-> rollback path, is the natural first candidate; it needs the reviewer to
-> approve at the gate), 3 (a web deploy observed mid-flight from a warm-cache
-> browser), 4 (both rollbacks executed — the one `workflow_dispatch` of Deploy
-> web on 2026-09-11 deployed the tip of `main`, not an older sha, so neither
-> rollback has been exercised), and 5.
->
-> Superseded by implementation: the backend rollback is retag-first rather
-> than rebuild-only (`ecr:BatchGetImage` was granted by `infra@425abd3` for
-> exactly this; `backend#4` retags when a `:<sha>` image exists and rebuilds
-> only when none does, or on an explicit `rebuild: true` dispatch). The backend OIDC subject pins `environment:production-backend`
-> rather than the ref — see `infra/github-oidc.tf`'s comment for why the
-> ref form could never match.
->
-> Previously: VETTED 2026-09-10.
-=======
 > **Status: SHIPPED 2026-09-12 — every phase has landed in its repo; the web
 > path is proved live, the backend path is one operator approval from it.**
 > Per phase, with the evidence read on 2026-09-12 (not the PRs' own claims):
@@ -59,7 +27,6 @@
 > is the replacement, and it is not built.
 >
 > Earlier: VETTED 2026-09-10.
->>>>>>> 077b300 (fix(deploy): close the alarm on recovery, repeat the asset gate, document the deploy path)
 >
 > **Vet outcome:** NEEDS-REWORK on the first draft — 2 critical, 4 high,
 > 4 medium defects, 3 factual claims wrong, 4 ordering errors. All are resolved
