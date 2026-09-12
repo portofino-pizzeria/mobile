@@ -17,6 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
 import {
   KitchenApiError,
+  getKitchenToken,
   kitchenApi,
   setKitchenToken,
   type KitchenStatus,
@@ -79,6 +80,12 @@ export default function KitchenScreen() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsToken, setNeedsToken] = useState(false);
+  // The server's own reason for the last 401 that followed a token we SENT.
+  // Null on a first visit with nothing stored — that is just the prompt, not a
+  // rejection. Set, it is either "wrong token" or "this server has no token
+  // configured", and the second is the one an operator cannot type their way
+  // out of, so the gate shows it rather than prompting forever.
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -91,10 +98,12 @@ export default function KitchenScreen() {
       setOrders(next);
       setError(null);
       setNeedsToken(false);
+      setAuthMessage(null);
     } catch (e) {
       if (!mounted.current) return;
       if (e instanceof KitchenApiError && e.status === 401) {
         setNeedsToken(true);
+        setAuthMessage(getKitchenToken() ? e.message : null);
       } else {
         setError((e as Error).message);
       }
@@ -165,6 +174,15 @@ export default function KitchenScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             Bitte das Küchen-Kennwort eingeben, um die laufenden Bestellungen zu sehen.
           </ThemedText>
+          {authMessage ? (
+            <ThemedText
+              type="small"
+              style={{ color: theme.alertUndeclared }}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite">
+              {authMessage}
+            </ThemedText>
+          ) : null}
           <BridgeInput
             uiId="kitchen-token"
             uiLabel="Küchen-Kennwort"
