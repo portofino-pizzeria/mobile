@@ -95,10 +95,22 @@ export interface OrderLine {
   quantity: number;
 }
 
+/** Customer details as an order READ returns them: orders placed before
+ *  contact details were required can carry none, so every field is optional. */
 export interface CustomerInfo {
   name?: string;
   phone?: string;
   address?: string;
+  notes?: string;
+}
+
+/** Customer details as an order REQUEST must send them. The API refuses an
+ *  order without a name, phone number and delivery address, so a request type
+ *  with optional fields would type-check a call that can only ever 400. */
+export interface CustomerRequest {
+  name: string;
+  phone: string;
+  address: string;
   notes?: string;
 }
 

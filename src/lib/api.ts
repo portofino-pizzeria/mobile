@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config';
-import type { CustomerInfo, Menu, Order, PaymentProvider } from './types';
+import type { CustomerRequest, Menu, Order, PaymentProvider } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -43,9 +43,12 @@ export const api = {
     return request<Menu>('/api/menu');
   },
 
+  // `customer` is required: the order API refuses an order without a name,
+  // phone number and delivery address, so an optional parameter would type-check
+  // a call that can only ever 400.
   async createOrder(
     items: OrderLineRequest[],
-    customer?: CustomerInfo,
+    customer: CustomerRequest,
   ): Promise<Order> {
     const { order } = await request<{ order: Order }>('/api/orders', {
       method: 'POST',
