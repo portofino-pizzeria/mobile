@@ -17,7 +17,6 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
 import {
   KitchenApiError,
-  getKitchenToken,
   kitchenApi,
   setKitchenToken,
   type KitchenStatus,
@@ -90,20 +89,26 @@ export default function KitchenScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const mounted = useRef(true);
+  // Only the newest `load` may set state. The poll keeps a headerless request
+  // in flight while the gate is showing; if the operator submits a token and
+  // that older request's 401 lands AFTER the new request's 200, it would bounce
+  // a correctly unlocked screen back to the prompt with a false "wrong token".
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       const next = await kitchenApi.list('active');
-      if (!mounted.current) return;
+      if (!mounted.current || seq !== loadSeq.current) return;
       setOrders(next);
       setError(null);
       setNeedsToken(false);
       setAuthMessage(null);
     } catch (e) {
-      if (!mounted.current) return;
+      if (!mounted.current || seq !== loadSeq.current) return;
       if (e instanceof KitchenApiError && e.status === 401) {
         setNeedsToken(true);
-        setAuthMessage(getKitchenToken() ? e.message : null);
+        setAuthMessage(e.tokenSent ? e.message : null);
       } else {
         setError((e as Error).message);
       }
@@ -162,6 +167,10 @@ export default function KitchenScreen() {
     setKitchenToken(tokenInput.trim());
     setTokenInput('');
     setOrders(null);
+    // Clear the previous attempt's reason while this one is checked. A second
+    // wrong token otherwise sets the identical string — no re-render, and the
+    // live region announces nothing — so the operator sees no response at all.
+    setAuthMessage(null);
     load();
   }
 

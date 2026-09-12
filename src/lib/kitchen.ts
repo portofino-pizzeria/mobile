@@ -12,7 +12,10 @@ import type { Order } from './types';
 // A 401 therefore has two causes the screen must tell apart: the token was
 // wrong, or the server has none at all — and in the second case no entry can
 // ever succeed. The server says which in its `error` body; `KitchenApiError`
-// carries it so the token gate can show it.
+// carries it, together with whether THIS request carried a token at all —
+// decided when the request is built, because by the time the 401 lands the
+// operator may have stored one, and a "wrong token" message about a request
+// that sent none would be a lie.
 
 const TOKEN_KEY = 'portofino.kitchenToken';
 
@@ -34,10 +37,13 @@ export function setKitchenToken(token: string): void {
 /** An HTTP error that carries the status so the UI can react to 401 → prompt. */
 export class KitchenApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Whether the failed request carried a Bearer token. Fixed at send time. */
+  tokenSent: boolean;
+  constructor(status: number, message: string, tokenSent: boolean) {
     super(message);
     this.name = 'KitchenApiError';
     this.status = status;
+    this.tokenSent = tokenSent;
   }
 }
 
@@ -59,7 +65,7 @@ async function kreq<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // keep the status message
     }
-    throw new KitchenApiError(res.status, message);
+    throw new KitchenApiError(res.status, message, token !== '');
   }
   return (await res.json()) as T;
 }
