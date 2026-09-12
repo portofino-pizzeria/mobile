@@ -12,7 +12,7 @@ import {
 import { BridgeButton, BridgeInput } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
 import {
@@ -261,7 +261,7 @@ export default function KitchenScreen() {
           })}
         </View>
 
-        <View style={{ height: Spacing.six }} />
+        <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </ThemedView>
   );
@@ -375,50 +375,50 @@ function OrderCard({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
-  scroll: { padding: Spacing.three, gap: Spacing.three, width: '100%', maxWidth: 1200, alignSelf: 'center' },
-  header: { gap: Spacing.half },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+  scroll: { padding: Spacing.lg, gap: Spacing.lg, width: '100%', maxWidth: 1200, alignSelf: 'center' },
+  header: { gap: Spacing.xs },
 
-  board: { gap: Spacing.three },
+  board: { gap: Spacing.lg },
   boardRow: { flexDirection: 'row', alignItems: 'flex-start' },
   boardColumn: { flexDirection: 'column' },
-  lane: { gap: Spacing.two },
+  lane: { gap: Spacing.sm },
   laneWide: { flex: 1 },
-  laneHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.one },
-  dot: { width: 10, height: 10, borderRadius: 999 },
-  empty: { paddingVertical: Spacing.two },
+  laneHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
+  dot: { width: 10, height: 10, borderRadius: Radius.pill },
+  empty: { paddingVertical: Spacing.sm },
 
   card: {
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     borderLeftWidth: 4,
-    padding: Spacing.three,
-    gap: Spacing.half,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  lines: { marginTop: Spacing.one, gap: 2 },
+  lines: { marginTop: Spacing.xs, gap: Spacing.xs },
   lineRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.one },
-  actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two, alignItems: 'center' },
+  cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.xs },
+  actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, alignItems: 'center' },
 
-  tokenCard: { width: '100%', maxWidth: 360, gap: Spacing.two },
+  tokenCard: { width: '100%', maxWidth: 360, gap: Spacing.sm },
   input: {
     borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    borderRadius: Radius.field,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
     fontSize: 16,
   },
   primaryBtn: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    padding: Spacing.lg,
+    borderRadius: Radius.card,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   cancelBtn: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.card,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

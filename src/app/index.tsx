@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
@@ -301,7 +301,19 @@ export default function MenuScreen() {
                           key={variant.id}
                           uiId={addButtonUiId(item.id, variant.id)}
                           uiLabel={`${item.name} (${variant.label}) in den Warenkorb legen`}
-                          style={[styles.addBtn, { borderColor: theme.brand }]}
+                          // Pressed: the OUTLINE darkens to the declared pressed
+                          // red and the ground lifts to the app's selected
+                          // ground; the label keeps its `priceText` colour (see
+                          // the `brandPressed` token for why the label does not
+                          // move). The ground lift is what carries the press in
+                          // dark mode — a darker red on a dark card measures
+                          // ~2.4:1 and reads as fading, not pressing.
+                          style={({ pressed }) => [
+                            styles.addBtn,
+                            pressed
+                              ? { borderColor: theme.brandPressed, backgroundColor: theme.backgroundSelected }
+                              : { borderColor: theme.brand },
+                          ]}
                           onPress={() => cart.add(item, variant)}>
                           <ThemedText type="price">
                             + {variant.label} · {formatEUR(variant.price)}
@@ -333,7 +345,7 @@ export default function MenuScreen() {
           </View>
         ) : null}
 
-        <View style={{ height: cart.count > 0 ? 96 : Spacing.four }} />
+        <View style={{ height: cart.count > 0 ? 96 : Spacing.xl }} />
       </ScrollView>
 
       {cart.count > 0 ? (
@@ -341,7 +353,10 @@ export default function MenuScreen() {
           <BridgeButton
             uiId="go-to-cart"
             uiLabel="Warenkorb ansehen"
-            style={[styles.cartBar, { backgroundColor: theme.brand }]}
+            style={({ pressed }) => [
+              styles.cartBar,
+              { backgroundColor: pressed ? theme.brandPressed : theme.brand },
+            ]}
             onPress={() => router.push('/cart')}>
             <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
               Warenkorb ansehen · {cart.count} Artikel
@@ -358,22 +373,22 @@ export default function MenuScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.xl },
   errorText: { textAlign: 'center' },
-  scroll: { padding: Spacing.three, gap: Spacing.four, maxWidth: 800, width: '100%', alignSelf: 'center' },
-  offlineBanner: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.half },
-  section: { gap: Spacing.two },
-  card: { flexDirection: 'row', borderRadius: Spacing.three, overflow: 'hidden', gap: Spacing.three },
+  scroll: { padding: Spacing.lg, gap: Spacing.xl, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
+  offlineBanner: { padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.xs },
+  section: { gap: Spacing.sm },
+  card: { flexDirection: 'row', borderRadius: Radius.card, overflow: 'hidden', gap: Spacing.lg },
   thumb: { width: 96, height: 96 },
-  cardBody: { flex: 1, paddingVertical: Spacing.two, paddingRight: Spacing.three, gap: Spacing.half, justifyContent: 'center' },
-  variants: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.one },
+  cardBody: { flex: 1, paddingVertical: Spacing.sm, paddingRight: Spacing.lg, gap: Spacing.xs, justifyContent: 'center' },
+  variants: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xs },
   // Outlined, not filled: the brand red is a foreground colour, and a menu
   // shows dozens of these. `visual-system` -> "A design that turns it into a
   // background wash is not this palette used differently."
   addBtn: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 999,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1.5,
     backgroundColor: 'transparent',
     minHeight: 44,
@@ -392,13 +407,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     maxWidth: '100%',
   },
-  cartBarWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.three },
+  cartBarWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.lg },
   cartBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    marginBottom: Spacing.two,
+    padding: Spacing.lg,
+    borderRadius: Radius.card,
+    marginBottom: Spacing.sm,
   },
 });

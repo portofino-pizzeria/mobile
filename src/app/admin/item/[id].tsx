@@ -30,7 +30,7 @@ import {
 import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   AdminApiError,
@@ -572,7 +572,7 @@ export default function AdminItemScreen() {
 
         <AdminButton uiId="admin-item-back" title="Zurück" onPress={() => router.back()} />
 
-        <View style={{ height: Spacing.six }} />
+        <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </ThemedView>
   );
@@ -580,22 +580,22 @@ export default function AdminItemScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   scroll: {
-    padding: Spacing.three,
-    gap: Spacing.three,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
     width: '100%',
     maxWidth: 700,
     alignSelf: 'center',
   },
-  block: { gap: Spacing.two },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  block: { gap: Spacing.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
     minHeight: 48,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.lg,
     justifyContent: 'center',
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     borderWidth: 1,
   },
-  variantCard: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  variantCard: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.sm },
 });

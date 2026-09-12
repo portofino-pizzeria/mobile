@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
 import { cartLineKey, useCart } from '@/state/cart';
@@ -34,7 +34,10 @@ export default function CartScreen() {
         <BridgeButton
           uiId="cart-back-to-menu"
           uiLabel="Zurück zur Speisekarte"
-          style={[styles.primaryBtn, { backgroundColor: theme.brand }]}
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            { backgroundColor: pressed ? theme.brandPressed : theme.brand },
+          ]}
           onPress={() => router.replace('/')}>
           <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
             Zur Speisekarte
@@ -69,7 +72,12 @@ export default function CartScreen() {
               <BridgeButton
                 uiId={`cart-dec-${item.id}-${variant.id}`}
                 uiLabel={`${item.name} (${variant.label}) verringern`}
-                style={[styles.stepBtn, { borderColor: theme.brand }]}
+                style={({ pressed }) => [
+                  styles.stepBtn,
+                  pressed
+                    ? { borderColor: theme.brandPressed, backgroundColor: theme.backgroundSelected }
+                    : { borderColor: theme.brand },
+                ]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
                 <ThemedText type="smallBold" themeColor="brand">−</ThemedText>
               </BridgeButton>
@@ -79,7 +87,12 @@ export default function CartScreen() {
               <BridgeButton
                 uiId={`cart-inc-${item.id}-${variant.id}`}
                 uiLabel={`${item.name} (${variant.label}) erhöhen`}
-                style={[styles.stepBtn, { borderColor: theme.brand }]}
+                style={({ pressed }) => [
+                  styles.stepBtn,
+                  pressed
+                    ? { borderColor: theme.brandPressed, backgroundColor: theme.backgroundSelected }
+                    : { borderColor: theme.brand },
+                ]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
                 <ThemedText type="smallBold" themeColor="brand">+</ThemedText>
               </BridgeButton>
@@ -101,7 +114,10 @@ export default function CartScreen() {
         <BridgeButton
           uiId="cart-checkout"
           uiLabel="Zur Kasse"
-          style={[styles.primaryBtn, { backgroundColor: theme.brand }]}
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            { backgroundColor: pressed ? theme.brandPressed : theme.brand },
+          ]}
           onPress={() => router.push('/checkout')}>
           <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
             Zur Kasse · {formatEUR(total)}
@@ -129,16 +145,16 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three, padding: Spacing.four },
-  scroll: { padding: Spacing.three, gap: Spacing.two, maxWidth: 800, width: '100%', alignSelf: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
-  rowInfo: { flex: 1, gap: Spacing.half },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  stepBtn: { width: 32, height: 32, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, padding: Spacing.xl },
+  scroll: { padding: Spacing.lg, gap: Spacing.sm, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.sm },
+  rowInfo: { flex: 1, gap: Spacing.xs },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  stepBtn: { width: 32, height: 32, borderRadius: Radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   qty: { minWidth: 20, textAlign: 'center' },
   lineTotal: { minWidth: 64, textAlign: 'right' },
-  summary: { marginTop: Spacing.three, gap: Spacing.one },
+  summary: { marginTop: Spacing.lg, gap: Spacing.xs },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  footer: { padding: Spacing.three },
-  primaryBtn: { padding: Spacing.three, borderRadius: Spacing.three, alignItems: 'center' },
+  footer: { padding: Spacing.lg },
+  primaryBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center' },
 });

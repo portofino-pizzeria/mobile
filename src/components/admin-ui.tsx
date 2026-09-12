@@ -16,7 +16,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { BridgeButton, BridgeInput } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 // All three are UNDECLARED by `domain_spec/visual-system`, which says of the
@@ -227,28 +227,28 @@ export function Notice({
 const styles = StyleSheet.create({
   button: {
     minHeight: 52,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.card,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  field: { gap: Spacing.half },
+  field: { gap: Spacing.xs },
   input: {
     borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.field,
+    paddingHorizontal: Spacing.lg,
     minHeight: 52,
     fontSize: 17,
   },
-  confirm: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
-  row: { flexDirection: 'row', gap: Spacing.two },
+  confirm: { padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.sm },
+  row: { flexDirection: 'row', gap: Spacing.sm },
   grow: { flex: 1 },
   notice: {
     borderWidth: 1,
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    gap: Spacing.half,
+    borderRadius: Radius.card,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
   },
 });

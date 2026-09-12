@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BridgeButton, BridgeInput } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api, type PaymentProviders } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
@@ -180,10 +180,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { padding: Spacing.three, gap: Spacing.three, maxWidth: 800, width: '100%', alignSelf: 'center' },
-  field: { gap: Spacing.one },
-  input: { borderWidth: 1, borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, fontSize: 16 },
-  footer: { padding: Spacing.three, gap: Spacing.two },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.one },
-  payBtn: { padding: Spacing.three, borderRadius: Spacing.three, alignItems: 'center', minHeight: 52, justifyContent: 'center' },
+  scroll: { padding: Spacing.lg, gap: Spacing.lg, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
+  field: { gap: Spacing.xs },
+  input: { borderWidth: 1, borderRadius: Radius.field, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, fontSize: 16 },
+  footer: { padding: Spacing.lg, gap: Spacing.sm },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  payBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 52, justifyContent: 'center' },
 });

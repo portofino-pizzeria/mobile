@@ -2,8 +2,11 @@
  * Portofino's visual system, as declared by the tenant.
  *
  * SOURCE OF TRUTH: coord prompt document `domain_spec/visual-system`
- * (tenant `pizzeria`, v1). Every value below is transcribed from it — nothing
- * here is a design decision made in code. That document says of itself:
+ * (tenant `pizzeria`, v2 — v1 declared the palette and the faces, the
+ * 2026-09-11 append declared spacing, motion and card geometry; the working
+ * copy of that append is `docs/intent-drafts/domain_spec--visual-system--APPEND.md`).
+ * Every value below is transcribed from it — nothing here is a design
+ * decision made in code. That document says of itself:
  *
  *   "Declared here because this tenant has no token package yet. The moment
  *    one exists, this section becomes a pointer to it and the values move
@@ -13,17 +16,17 @@
  * This file is that token layer. When the spec and this file disagree, the
  * spec wins and this file is the bug.
  *
- * WHAT THE SPEC LEAVES UNDECLARED — do not invent it here (see the
- * `Declared UNKNOWN` section of the document): the type scale, the spacing
- * rhythm, the ALERT TREATMENT, the neutral ramp, dark mode, and motion. The
- * neutral and size values below are the ones this app already shipped; they
- * are carried forward unchanged rather than re-derived, precisely so that
- * nothing here reads as a decision the tenant has not made.
+ * WHAT THE SPEC STILL LEAVES UNDECLARED — do not invent it here (see the
+ * `Declared UNKNOWN` section of the document, as the v2 append leaves it):
+ * the type scale, the ALERT TREATMENT, the neutral ramp, dark mode, and
+ * density. The neutral and size values below are the ones this app already
+ * shipped; they are carried forward unchanged rather than re-derived,
+ * precisely so that nothing here reads as a decision the tenant has not made.
+ * Spacing and card geometry WERE on that list until v2 declared them —
+ * `Spacing` and `Radius` below are now transcriptions, not carry-overs.
  */
 
 import '@/global.css';
-
-import { Platform } from 'react-native';
 
 /**
  * The brand palette. Roles, not hexes, are what the rest of the app names.
@@ -79,9 +82,15 @@ export const Colors = {
     textSecondary: '#60646C',
     /** Headings and prices — the brand red as a foreground colour. */
     brand: Brand.red,
-    /** Declared for "hover and active states". No consumer yet — the token
-     *  layer holds the declaration whether or not a control has reached for
-     *  it. */
+    /** Declared for "hover and active states". Read by every brand-red
+     *  control while it is pressed — a red fill darkens to it, an outlined
+     *  control's border darkens to it (with the ground lifting to
+     *  `backgroundSelected`, since on a dark card a darker red alone reads as
+     *  fading). Only the SURFACE moves: a pressed pill's label keeps its
+     *  `priceText` colour, because in dark mode that role is ink for contrast
+     *  and a pressed swap to this red would drop it below AA for the duration
+     *  of the press. Hover on web is not wired — RN's `Pressable` style
+     *  callback types only `pressed`. */
     brandPressed: Brand.redPressed,
     /** A price. Its own role, not an alias of `brand`, because the two schemes
      *  cannot answer the same way — see the dark entry below. */
@@ -158,28 +167,69 @@ export const Type = {
 } as const;
 
 /**
- * Platform faces that are NOT part of the declared system. Only `mono` has a
- * consumer — the `code` text role in `web-badge`. The template's `sans`,
- * `serif` and `rounded` slots were removed with their web CSS variables: every
- * text role now names a declared family through `Type`, so a second, unused
- * font indirection was only somewhere for a future edit to go and have no
- * effect.
+ * The spacing ladder, declared by the v2 append: "4 / 8 / 12 / 16 / 24 / 32 /
+ * 48, on a 4px base ... Section separation 48; screen side padding 16 on
+ * phones. The ladder is the declaration — a value off it is a bug, not a
+ * judgement call."
+ *
+ * Keyed by step rather than by value so that a value off the ladder has no
+ * name to be reached by. The two values the app used to carry that are NOT on
+ * it — a 2px gap and a 64px end-of-list spacer — were moved to the nearest
+ * step (4 and 48) rather than kept under a name of their own.
  */
-export const Fonts = Platform.select({
-  ios: { mono: 'ui-monospace' },
-  default: { mono: 'monospace' },
-  web: { mono: 'var(--font-mono)' },
-});
-
 export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+  /** Section separation. */
+  xxxl: 48,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+/**
+ * Card geometry, from the same append: "One radius token for content cards,
+ * one for pills, nothing in between." The reference's own radii cluster at 0
+ * (Foundation's default, so not a choice), circles and pills — roundness is
+ * reserved for avatars and buttons.
+ *
+ * `card` keeps the 16 the app already shipped; the append declares the SHAPE
+ * of the system (two tokens) and not the card value, so that value is a
+ * carry-over rather than a transcription. Rectangular buttons share it.
+ *
+ * `field` is NOT one of the two declared tokens. A text input is neither a
+ * content card nor a pill, so the declaration does not reach it, and the 8 the
+ * app already shipped is carried forward under its own name rather than
+ * silently reshaped to the card radius or hidden inside a spacing step. It is
+ * a carry-over, and it is the one radius the tenant has not spoken to.
+ */
+export const Radius = {
+  card: 16,
+  pill: 999,
+  field: 8,
+} as const;
+
+/**
+ * Motion, declared by the v2 append: "150 ms for a state change on a control,
+ * 250 ms for a transition that moves content, 400 ms ceiling. Ease-out for
+ * entrances, ease-in-out for movement." Plus two rules with no number to hold:
+ * nothing auto-advances, and every animation over 150 ms honours
+ * `prefers-reduced-motion: reduce` by becoming an instant state change.
+ *
+ * One consumer today, and it is a KNOWN violation rather than a transcription:
+ * the template splash overlay (`components/animated-icon.tsx`) runs 600 ms,
+ * over the ceiling. It is not retimed here because it is the Expo template's
+ * splash, and the plan's S6 says it needs a mark before it needs a timing.
+ */
+export const Motion = {
+  /** A state change on a control. */
+  control: 150,
+  /** A transition that moves content. */
+  move: 250,
+  /** No animation runs longer than this. */
+  ceiling: 400,
+} as const;
+
+/** Content column cap on wide screens (tablet, web) for the guest screens; the kitchen board is a lane layout and does not cap. */
 export const MaxContentWidth = 800;
