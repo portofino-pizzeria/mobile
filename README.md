@@ -106,3 +106,28 @@ App source lives in `src/app/` (screens & routes) and `src/components/`
 
 - Typecheck: `npx tsc --noEmit`
 - Lint: `npm run lint`
+- Asset manifest drift: `python3 scripts/check-assets.py`
+  (`--menu ../backend/data/menu.json` for the two menu-join checks)
+
+## Deploy (web)
+
+**A merge to `main` ships the web build.** `.github/workflows/deploy-web.yml`
+re-runs the CI gate (typecheck, lint, export, asset drift), exports with
+`EXPO_PUBLIC_API_URL` read from SSM, publishes to S3 hashed assets first and
+HTML last (never pruning), invalidates CloudFront, and then proves the deploy by
+fetching <https://portofino-essen.com/> and asserting the just-built commit —
+not by the publish step's exit code.
+
+- **Is the live site current?** Every web page carries
+  `<meta name="build-sha" content="<commit>">` (`src/app/+html.tsx`, fed from
+  `EXPO_PUBLIC_BUILD_SHA`; a local `expo export` renders `unknown`). Compare it
+  with `git rev-parse origin/main`.
+- **Rollback / first publish:** run the workflow by hand (`gh workflow run
+  deploy-web.yml -f ref=<sha>`). The ref must already be an ancestor of `main`;
+  re-running a past run replays its commit and is not a rollback.
+- **Failure:** the run opens (or comments on) a `Web deploy failed` issue; the
+  next successful deploy of `main`'s head closes it (a rollback does not). An
+  open one means the last deploy of `main` did not prove itself live.
+- Infrastructure (bucket, distribution, the OIDC role and the SSM parameters)
+  is provisioned by the sibling `infra` repo and is never copied into this one.
+  The design and its rationale: `plans/2026-09-10-automatic-deployment.md`.
