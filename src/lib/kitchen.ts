@@ -1,11 +1,18 @@
 import { API_BASE_URL } from './config';
 import type { Order } from './types';
 
-// The kitchen dashboard is a staff tool. In deployed environments the backend
-// requires a shared token (KITCHEN_TOKEN) sent as a Bearer header; in local dev
-// the backend leaves it unset and no token is needed. The operator enters the
-// token once and we persist it in the browser (web is the primary target for
-// this screen).
+// The kitchen dashboard is a staff tool. The backend requires a shared token
+// (KITCHEN_TOKEN) sent as a Bearer header, and its guard FAILS CLOSED: a
+// backend with no token configured answers 401 to everything rather than
+// serving order data unauthenticated (backend/src/routes/kitchen.ts). Local
+// dev opts out with KITCHEN_AUTH_DISABLED=1 on the backend side; there is
+// nothing to configure here. The operator enters the token once and we persist
+// it in the browser (web is the primary target for this screen).
+//
+// A 401 therefore has two causes the screen must tell apart: the token was
+// wrong, or the server has none at all — and in the second case no entry can
+// ever succeed. The server says which in its `error` body; `KitchenApiError`
+// carries it so the token gate can show it.
 
 const TOKEN_KEY = 'portofino.kitchenToken';
 
