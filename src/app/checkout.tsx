@@ -10,7 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { api, type PaymentProviders } from '@/lib/api';
+import { api, ApiError, type PaymentProviders } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
 import type { PaymentProvider } from '@/lib/types';
 import { useCart } from '@/state/cart';
@@ -25,8 +25,9 @@ const DELIVERY_FEE = 299;
  */
 const MIN_PHONE_DIGITS = 6;
 
-/** Field length limits. MIRROR the backend's `requiredText` limits. */
-const MAX_LENGTH = { name: 200, phone: 50, address: 500 } as const;
+/** Field length limits. MIRROR the backend's `requiredText` limits and its
+ *  cap on the optional `notes`. */
+const MAX_LENGTH = { name: 200, phone: 50, address: 500, notes: 1000 } as const;
 
 /** Rendered as nothing and kept by trim(). MIRRORS the backend's INVISIBLE
  *  exactly, including the Hangul fillers (letters by category). */
@@ -34,12 +35,24 @@ const INVISIBLE = /[\u00AD\u115F\u1160\u200B-\u200F\u2060-\u2064\u3164\uFFA0]/g;
 
 const clean = (value: string) => value.replace(INVISIBLE, '').trim();
 
+type Fields = { name: string; phone: string; address: string; notes: string };
+
 /**
- * What is still missing before this order can be delivered, or null. The same
- * cleaning, digit floor and length limits as the backend, so a diner is never
- * shown an enabled button that the server then refuses.
+ * Why this order cannot be placed yet, or null. The contact fields use the
+ * backend's cleaning, digit floor and length limits. The note is optional, so
+ * only its length is checked, and it is checked here because the backend's
+ * `notes` rule answers an over-long note in English. `maxLength` stops typing
+ * past the limit but does not stop a UI Bridge `setValue`.
+ *
+ * One backend rule is deliberately NOT mirrored: a name or address must contain
+ * a letter or digit (`READABLE`, a Unicode property escape). The checkout does
+ * not depend on Hermes matching one: hermesc 250829098.0.10 compiles
+ * `/[\p{L}\p{N}]/u`, but nobody has run the match on a device. A name of only
+ * punctuation, such as ".", passes here and the server refuses it. The diner
+ * sees that German refusal in the error line above the buttons, not a disabled
+ * button.
  */
-function missingContact(name: string, phone: string, address: string): string | null {
+function orderGap({ name, phone, address, notes }: Fields): string | null {
   const gaps: string[] = [];
   if (!clean(name)) gaps.push('Name');
   if (!clean(phone)) gaps.push('Telefonnummer');
@@ -49,6 +62,7 @@ function missingContact(name: string, phone: string, address: string): string | 
   if (clean(name).length > MAX_LENGTH.name) return 'Der Name ist zu lang.';
   if (clean(phone).length > MAX_LENGTH.phone) return 'Die Telefonnummer ist zu lang.';
   if (clean(address).length > MAX_LENGTH.address) return 'Die Lieferadresse ist zu lang.';
+  if (notes.trim().length > MAX_LENGTH.notes) return 'Der Hinweis ist zu lang.';
   return null;
 }
 
@@ -57,12 +71,32 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const cart = useCart();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  // `fields` drives rendering. `typed` holds the same values, but is written in
+  // the onChangeText call itself, without waiting for a render. pay() reads
+  // `typed`: the UI Bridge reaches pay() through a ref that is one commit
+  // behind (see payRef below), and state read from that pay() would be the
+  // previous render's.
+  const [fields, setFields] = useState<Fields>({ name: '', phone: '', address: '', notes: '' });
+  const typed = useRef(fields);
   const [providers, setProviders] = useState<PaymentProviders | null>(null);
   const [busy, setBusy] = useState<PaymentProvider | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // `clearsOnEdit` marks an error that is safe to hide once the diner edits a
+  // field: a 4xx answer to createOrder, which proves no order was written.
+  // Some of those are fixed by the edit, such as the letter-or-digit rule this
+  // screen does not mirror. Others, such as an item that has become
+  // unavailable, come back on the next press. Every other failure stays until
+  // the next attempt, because an order may exist: one created before payment
+  // failed to start, or one whose outcome is unknown (a 5xx, or a response lost
+  // after the server committed). Its message says so.
+  const [error, setError] = useState<{ message: string; clearsOnEdit: boolean } | null>(null);
+  // Called only from onChangeText, never during render. The Bridge holds the
+  // handler from the last commit, which is harmless because update() touches
+  // only a ref and stable state setters.
+  function update(field: keyof Fields, value: string) {
+    typed.current = { ...typed.current, [field]: value };
+    setFields(typed.current);
+    setError((current) => (current?.clearsOnEdit ? null : current));
+  }
 
   useEffect(() => {
     api.getPaymentProviders().then(setProviders).catch(() => setProviders(null));
@@ -84,14 +118,15 @@ export default function CheckoutScreen() {
     if (busy || inFlight.current) return 'Eine Bezahlung läuft bereits.';
     // The same rule as the disabled buttons below. The UI Bridge actions call
     // pay() without going through a button, so the rule has to live here too.
-    const gap = missingContact(name, phone, address);
-    if (gap) {
-      setError(gap);
-      return gap;
-    }
+    // Not copied into `error`: the footer already states the gap and follows
+    // the fields, whereas `error` would stay red after they were filled in.
+    const { name, phone, address, notes } = typed.current;
+    const gap = orderGap(typed.current);
+    if (gap) return gap;
     inFlight.current = true;
     setError(null);
     setBusy(provider);
+    let placed = false;
     try {
       const order = await api.createOrder(
         // The variant carries the price, so every line names one. The API
@@ -101,8 +136,19 @@ export default function CheckoutScreen() {
           variantId: l.variant.id,
           quantity: l.quantity,
         })),
-        { name: clean(name), phone: clean(phone), address: clean(address) },
+        {
+          name: clean(name),
+          phone: clean(phone),
+          address: clean(address),
+          // Trimmed but not cleaned. INVISIBLE also covers U+200C/U+200D,
+          // which Persian, Indic scripts and joined emoji need mid-text, and
+          // the backend keeps a note as sent. A note that is only whitespace
+          // or invisible characters is left out, because the kitchen card
+          // would show it as an empty "Hinweis:".
+          notes: clean(notes) ? notes.trim() : undefined,
+        },
       );
+      placed = true;
       const { url } = await api.startCheckout(order.id, provider);
       // Hosted checkout (Stripe Checkout / PayPal). Opens the platform browser;
       // resolves when the user returns. The order screen then polls for "paid".
@@ -111,8 +157,22 @@ export default function CheckoutScreen() {
       router.replace(`/order/${order.id}`);
       return null;
     } catch (e) {
-      const message = (e as Error).message;
-      setError(message);
+      // The server's own message when it answered. Anything else (no answer,
+      // an unreadable one, the browser failing to open) gets a German reason
+      // instead of a raw fetch or parse error.
+      const reason = e instanceof ApiError && e.message ? e.message : 'Keine verwertbare Antwort.';
+      // Only a 4xx answer to createOrder proves that no order was written.
+      const refused = !placed && e instanceof ApiError && e.status >= 400 && e.status < 500;
+      // An unpaid order never reaches the kitchen, so both messages say so.
+      // "angelegt" alone reads as "placed", and a diner who stops reading
+      // there waits for food nobody is cooking. It also makes a retry safe: an
+      // earlier unpaid order is never prepared.
+      const message = placed
+        ? `Die Bestellung ist angelegt, aber noch nicht bezahlt, und wird erst nach der Bezahlung zubereitet. Die Bezahlung konnte nicht gestartet werden: ${reason}`
+        : refused
+          ? reason
+          : `Unklar, ob die Bestellung angelegt wurde (${reason}) Eine unbezahlte Bestellung wird nicht zubereitet; du kannst es erneut versuchen.`;
+      setError({ message, clearsOnEdit: refused });
       return message;
     } finally {
       inFlight.current = false;
@@ -127,12 +187,20 @@ export default function CheckoutScreen() {
   // the fields were filled. The handlers read `pay` through a ref instead,
   // written after every commit.
   //
-  // What the ref does NOT cover: a Bridge WORKFLOW that sets the fields and
-  // then calls a pay action in the same run, with no yield between the steps.
-  // The setters schedule a render that has not happened yet, so the ref still
-  // holds the pre-fill `pay`, which refuses. That is why a refusal THROWS below
-  // rather than resolving: the step fails visibly with the German reason, and a
-  // workflow that needs it adds a wait before the action.
+  // The ref is still one commit behind. Take a Bridge WORKFLOW that sets the
+  // fields and calls a pay action in the same run, with nothing in between:
+  // the render those setters scheduled has not happened, so the ref still
+  // holds the pay() from before the fields were filled. That pay() reads the
+  // fields from `typed`, so it sees what was typed and not what was last
+  // rendered; an ungated field like the note is not silently dropped. The cart
+  // can still be stale, and changing it means leaving this screen. A refusal
+  // THROWS below rather than resolving, so a step that cannot pay fails
+  // visibly with the German reason.
+  //
+  // All of that is about the payWithStripe / payWithPaypal ACTIONS. A Bridge
+  // `press` on the pay-stripe / pay-paypal BUTTONS in the same run still
+  // fails: the button's `disabled` is also one commit old, and BridgeButton
+  // refuses a press on a disabled button. A workflow should call the actions.
   const payRef = useRef(pay);
   useEffect(() => {
     payRef.current = pay;
@@ -153,7 +221,7 @@ export default function CheckoutScreen() {
   });
 
   const total = cart.subtotal + (cart.count > 0 ? DELIVERY_FEE : 0);
-  const contactGap = missingContact(name, phone, address);
+  const contactGap = orderGap(fields);
 
   return (
     <ThemedView style={styles.container}>
@@ -165,8 +233,8 @@ export default function CheckoutScreen() {
             uiId="checkout-name"
             maxLength={MAX_LENGTH.name}
             uiLabel="Name"
-            value={name}
-            onChangeText={setName}
+            value={fields.name}
+            onChangeText={(value) => update('name', value)}
             placeholder="Mario Rossi"
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
@@ -177,8 +245,8 @@ export default function CheckoutScreen() {
             uiId="checkout-phone"
             maxLength={MAX_LENGTH.phone}
             uiLabel="Telefon"
-            value={phone}
-            onChangeText={setPhone}
+            value={fields.phone}
+            onChangeText={(value) => update('phone', value)}
             keyboardType="phone-pad"
             placeholder="+49 …"
             placeholderTextColor={theme.textSecondary}
@@ -190,11 +258,26 @@ export default function CheckoutScreen() {
             uiId="checkout-address"
             maxLength={MAX_LENGTH.address}
             uiLabel="Adresse"
-            value={address}
-            onChangeText={setAddress}
+            value={fields.address}
+            onChangeText={(value) => update('address', value)}
             placeholder="Straße, Hausnummer, Ort"
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
+          />
+        </Field>
+        {/* Optional, and never part of the pay gate. The order API has always
+            stored `customer.notes`; checkout just offered no way to send one. */}
+        <Field label="Hinweis für die Lieferung (optional)">
+          <BridgeInput
+            uiId="checkout-notes"
+            maxLength={MAX_LENGTH.notes}
+            uiLabel="Hinweis für die Lieferung"
+            value={fields.notes}
+            onChangeText={(value) => update('notes', value)}
+            multiline
+            placeholder="z. B. Klingel, Etage, Hintereingang"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, styles.notesInput, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
         </Field>
 
@@ -210,7 +293,7 @@ export default function CheckoutScreen() {
 
         {error ? (
           <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
-            {error}
+            {error.message}
           </ThemedText>
         ) : null}
       </ScrollView>
@@ -277,6 +360,10 @@ const styles = StyleSheet.create({
   scroll: { padding: Spacing.lg, gap: Spacing.lg, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   field: { gap: Spacing.xs },
   input: { borderWidth: 1, borderRadius: Radius.field, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, fontSize: 16 },
+  // Room for about three lines, so the optional note reads as a text area
+  // rather than one more single-line field, with the text starting at the top
+  // on Android.
+  notesInput: { minHeight: 88, verticalAlign: 'top' },
   footer: { padding: Spacing.lg, gap: Spacing.sm },
   contactGap: { textAlign: 'center' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },

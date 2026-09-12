@@ -1,20 +1,35 @@
 import { API_BASE_URL } from './config';
 import type { CustomerRequest, Menu, Order, PaymentProvider } from './types';
 
+/**
+ * A non-2xx answer from the API. `status` lets a caller tell a refusal (4xx)
+ * from a failure whose outcome is unknown (5xx). A request that got no answer
+ * at all never reaches this class: fetch rejects with its own TypeError.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
-    let message = `Request failed (${res.status})`;
+    let message = `Anfrage fehlgeschlagen (${res.status}).`;
     try {
       const body = (await res.json()) as { error?: string };
       if (body?.error) message = body.error;
     } catch {
       // non-JSON error body; keep the status message
     }
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
   return (await res.json()) as T;
 }

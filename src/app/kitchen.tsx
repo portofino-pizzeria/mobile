@@ -339,6 +339,14 @@ function OrderCard({
           {order.customer.address}
         </ThemedText>
       ) : null}
+      {/* The diner's delivery note (bell, floor, back entrance). Stored and
+          returned by the order API all along; nothing displayed it. A note of
+          only spaces, from any client, is not a note. */}
+      {order.customer?.notes?.trim() ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Hinweis: {order.customer.notes}
+        </ThemedText>
+      ) : null}
       {/* An order with no contact details rendered as BLANK space, which a cook
           reads as "pickup, nothing to deliver" — the surface inventing a fact.
           `ux-priorities`: honesty, never fabricate state.

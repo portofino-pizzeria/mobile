@@ -29,7 +29,22 @@ export function BridgeButton({ uiId, uiLabel, onPress, children, ...rest }: Brid
     label: uiLabel,
     // Required for 'button': UI Bridge invokes this when the runner dispatches
     // a `press` action, so automated presses run the same code as a real tap.
-    handlers: { onPress: () => onPress?.() },
+    // The Bridge calls this WITHOUT checking `disabled`, and a press that
+    // returned quietly would be reported as a success that did nothing. A real
+    // tap on a disabled Pressable does nothing, so an automated one fails
+    // instead of pretending.
+    //
+    // `rest.disabled` is as of the last commit, because the Bridge swaps this
+    // handler in an effect. A workflow that changes what `disabled` depends on
+    // and presses in the next step, with nothing in between, is refused.
+    // `waitOptions.enabled` cannot wait that out: ui-bridge-native never reads
+    // `disabled`, and every state write it makes sets `enabled: true`.
+    handlers: {
+      onPress: () => {
+        if (rest.disabled) throw new Error(`${uiLabel} ist gerade nicht verfügbar.`);
+        onPress?.();
+      },
+    },
   });
   return (
     <Pressable ref={ref} onLayout={onLayout} {...bridgeProps} onPress={onPress} {...rest}>

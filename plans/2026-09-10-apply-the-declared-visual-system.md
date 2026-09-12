@@ -39,9 +39,9 @@
 >   a known violation that is S6's problem and not retimed here. Photography direction is closed by the companion
 >   `domain_spec/imagery-and-iconography`; wiring the 29 illustrations into the
 >   menu is #8's follow-up, not this one.
-> - Still open, unchanged, and NOT resolved in code: S1 (checkout accepts an
->   order with no contact details), S4 (order summary at payment), S6 (the
->   mark), the alert red, the type scale, the neutral ramp, dark mode.
+> - Still open, unchanged, and NOT resolved in code: S4 (order summary at
+>   payment), S6 (the mark), the alert red, the type scale, the neutral ramp,
+>   dark mode.
 >
 > Verified the way CI does — `tsc --noEmit`, `expo lint`, `expo export
 > --platform web`, `check-assets.py` — and NOT on a device: the token
@@ -50,6 +50,35 @@
 > independent review of the diff found three of its own — inputs silently
 > reshaped to the card radius, two literal 2px gaps the re-key missed, and
 > the dark-mode pressed outline fading — and all three are fixed above.
+>
+> **S1 closed, 2026-09-12:**
+> [#15](https://github.com/portofino-pizzeria/mobile/pull/15) (`669ffa5`).
+> Checkout used to accept an order with no contact details.
+>
+> - **What #15 does:** it disables payment until name, phone and address pass
+>   the backend's cleaning, digit and length rules, and it shows the reason
+>   while payment is disabled. It does not copy the backend's letter-or-digit
+>   rule.
+> - **Where the rule is enforced:** portofino-pizzeria/backend#9, where the API
+>   refuses such an order. That PR was still OPEN when this was written, so
+>   check its state rather than relying on this note.
+> - **The follow-up to #15:**
+>   - wires the optional delivery note the order contract already carried: a
+>     field at checkout, shown on the kitchen card;
+>   - makes `pay()` read each field as it was typed, so a UI Bridge workflow
+>     that fills the fields and pays in one run gets the new values, not the
+>     previous render's;
+>   - stops copying the gap into the red error line, where it went stale once
+>     the fields were filled in. The footer states it live instead. Editing a
+>     field clears only a 4xx refusal of the order. An error after the order
+>     was created, or one whose outcome is unknown, stays and says so;
+>   - makes a UI Bridge `press` on a disabled button fail, instead of reporting
+>     success when nothing happened.
+> - **Verification:**
+>   - #15: `tsc --noEmit` and `expo lint`.
+>   - The follow-up: those two plus `expo export --platform web` and
+>     `check-assets.py`.
+>   - Neither was run on a device.
 >
 > **Oracle:** DECLARED INTENT, tenant `pizzeria`. Read live on 2026-09-10 —
 > `domain_spec/visual-system` (v1), `policy/ux-priorities` (v3),
@@ -153,10 +182,20 @@ order.
 `audience_profile/owner-operator`: "Anything that risks order volume. A bad
 week is not recoverable from."
 
-**Partially addressed.** The kitchen card now says
-`Keine Kontaktdaten hinterlegt` instead of rendering blank space — the surface
-no longer invents a fact. **The checkout still accepts the order**; that is
-behaviour rather than styling and is left for a decision, see below.
+**Closed in the app 2026-09-12 by
+[#15](https://github.com/portofino-pizzeria/mobile/pull/15). Server enforcement
+is pending in portofino-pizzeria/backend#9, which was OPEN as of 2026-09-12.**
+Until it merges, a direct API call, or a build installed before #15, can still
+place the order this finding describes.
+
+- **2026-09-10:** the kitchen card started saying
+  `Keine Kontaktdaten hinterlegt` instead of showing blank space, so the screen
+  no longer invents a fact.
+- **2026-09-12:** the checkout disables payment until name, phone and address
+  are given.
+- **Enforcement:** portofino-pizzeria/backend#9 makes the API refuse such an
+  order, once it merges. See the S1 note in the status block at the top for
+  what each change covers and where it was verified.
 
 ### S2 — The kitchen screen was entirely in English `OPERATED`
 
@@ -333,9 +372,10 @@ Named so a later change does not delete them.
 
 ## Not done, and why
 
-- **Checkout validation (S1).** Requiring name/phone/address before payment is
-  behaviour, not styling, and it changes what the backend receives. Left as a
-  decision.
+- ~~**Checkout validation (S1).**~~ No longer open. It was left out of this
+  pass because requiring name/phone/address is behaviour, not styling, and it
+  changes what the backend receives. The decision was taken on 2026-09-12; see
+  "S1 closed" in the status block at the top.
 - **An order summary on the checkout screen (S4).** Content, not styling.
 - **The three kitchen lane accents** (`#f5a524`, `#635bff`, `#17c964`) and
   `admin-ui`'s `DANGER` / `WARNING` / `OK`. All UNDECLARED. Carried forward
