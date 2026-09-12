@@ -1,5 +1,15 @@
 name: qontinui CI
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  # The asset drift check below joins this repo's manifest against the MENU,
+  # which lives in the sibling backend repo and changes without any commit
+  # here. A push/PR-only trigger would measure that drift only on the next
+  # mobile change — possibly weeks after the owner added a dish — so the
+  # whole job also runs daily, and on demand.
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 # This job now executes the repo's own build toolchain (the export below), so
 # the token it runs under is narrowed to the minimum that needs.
 permissions:
@@ -28,13 +38,25 @@ jobs:
       # `an-asset-the-machine-cannot-reach-does-not-exist`. Stdlib-only, so no
       # dependency step is needed.
       #
-      # The two menu-join checks are reported SKIPPED here rather than passed:
-      # the menu lives in the sibling `backend` repo, which is not in this
-      # checkout. That is an honest UNKNOWN — `scripts/derive-assets.py` runs
-      # both halves locally, where both repos are present, and refuses to
-      # derive when the sheet order and the menu disagree.
+      # The menu-join half needs the menu, which lives in the sibling `backend`
+      # repo (public). Only `data/menu.json` is fetched, into `backend/`, and
+      # handed to the check, so the third clause ("a menu item in an
+      # illustrated category with no manifest entry") is measured against the
+      # menu on the backend's default branch rather than reported SKIPPED. The
+      # step fails, not skips, if that file is missing: `--menu` names a path,
+      # and a path that is not there is an error. A red here on a mobile PR
+      # that touched nothing nearby is the menu having moved under the
+      # manifest — the signal this check exists to raise, not noise.
+      - name: Fetch the menu the manifest binds to
+        uses: actions/checkout@v4
+        with:
+          repository: portofino-pizzeria/backend
+          path: backend
+          sparse-checkout: data/menu.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - name: Asset manifest drift
-        run: python3 scripts/check-assets.py
+        run: python3 scripts/check-assets.py --menu backend/data/menu.json
       # Still a no-op: package.json defines no `test` script. Left in place so
       # the step exists the day one is added.
       - name: Test

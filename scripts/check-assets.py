@@ -9,11 +9,15 @@ Required by `policy/ux-priorities`, clause
     an illustrated category with no manifest entry at all. The third is the one
     that catches drift the day the owner adds a dish.
 
-The three checks do not all have the same reach, and the difference is reported
-rather than hidden. Manifest-vs-files runs anywhere. The two menu-join checks
-need the menu, which lives in the sibling `backend` repo and is NOT present in
-this repo's CI checkout — so without `--menu` they are reported **SKIPPED
-(UNKNOWN)**, never silently passed.
+A fourth check covers the app's side of the join: `src/lib/asset-registry.generated.ts`
+is the manifest projected into the static `require()` calls Metro needs, and it
+must match the manifest it was generated from (see `scripts/gen-asset-registry.py`).
+
+The checks do not all have the same reach, and the difference is reported
+rather than hidden. Manifest-vs-files and manifest-vs-registry run anywhere. The
+two menu-join checks need the menu, which lives in the sibling `backend` repo —
+CI checks that repo out beside this one for exactly this step; without `--menu`
+they are reported **SKIPPED (UNKNOWN)**, never silently passed.
 
 Usage:
     python scripts/check-assets.py
@@ -24,11 +28,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
 MOBILE = Path(__file__).resolve().parent.parent
+REGISTRY = MOBILE / "src" / "lib" / "asset-registry.generated.ts"
 VALID_STATUS = {"confirmed", "candidate", "unmapped"}
 ASSET_DIRS = ("assets/menu", "assets/icons")
 
@@ -86,12 +92,44 @@ def main() -> int:
 
     print(f"manifest vs files : {len(entries)} entries checked")
 
+    # --- 1b. manifest vs the app's generated registry (always runnable) ------
+    # Same renderer the generator uses, so "in sync" means byte-identical to
+    # what a re-run would write — not a looser structural comparison.
+    sys.dont_write_bytecode = True  # a checker that leaves __pycache__ behind is a side effect
+    spec = importlib.util.spec_from_file_location(
+        "gen_asset_registry", Path(__file__).with_name("gen-asset-registry.py"))
+    assert spec and spec.loader
+    gen = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gen)
+    have = REGISTRY.read_text(encoding="utf-8") if REGISTRY.exists() else None
+    try:
+        want = gen.render(m)
+    except (SystemExit, KeyError) as exc:
+        # The generator refuses a malformed manifest; recorded as one finding
+        # among the others rather than cutting the report short at this line.
+        fails.append(f"registry cannot be rendered from the manifest: {exc}")
+        want = None
+    in_sync = want is not None and have == want
+    if want is not None and not in_sync:
+        fails.append(f"{REGISTRY.relative_to(MOBILE).as_posix()} is stale against "
+                     f"the manifest — re-run scripts/gen-asset-registry.py")
+    print(f"manifest vs app   : {REGISTRY.relative_to(MOBILE).as_posix()} "
+          f"{'matches' if in_sync else 'STALE'}")
+
     # --- 2 + 3. manifest vs menu (needs the menu) ----------------------------
+    menu = None
     if args.menu is None:
         print("menu join         : SKIPPED — no --menu given. This is UNKNOWN, "
               "not a pass: an item the owner added today would not be detected.")
+    elif not Path(args.menu).exists():
+        # A named menu that is not there is a FAIL, not a skip: the caller
+        # asserted the join could run, and CI relies on that assertion.
+        fails.append(f"--menu {args.menu} does not exist")
+        print("menu join         : FAILED — the named menu is not there")
     else:
         menu = json.loads(Path(args.menu).read_text(encoding="utf-8"))
+
+    if menu is not None:
         ids = {i["id"] for i in menu["items"]}
         cat_ids = {c["id"] for c in menu["categories"]}
         mapped: set[str] = set()

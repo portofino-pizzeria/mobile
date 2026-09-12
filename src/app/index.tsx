@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import { describeArtResolution, resolveDishArt, type ResolvedArt } from '@/lib/dish-art';
 import { formatEUR } from '@/lib/format';
 import { formatCacheAge, readCachedMenu, writeCachedMenu } from '@/lib/menu-cache';
 import type {
@@ -38,11 +39,20 @@ interface MenuSection {
   id: string;
   label: string;
   items: MenuItem[];
+  /** True when at least one item in this section resolved a picture. Then every
+   *  card in the section keeps the picture column, drawn or not, so rows stay
+   *  the same shape — `imagery-and-iconography`: the no-image treatment "keeps
+   *  the row's geometry". Its visual form is `Declared UNKNOWN`, so the empty
+   *  column draws nothing. */
+  illustrated: boolean;
 }
+
+/** Each item's picture, resolved once per menu. `null` is a resolved "none". */
+type ArtByItem = ReadonlyMap<string, ResolvedArt | null>;
 
 /** Group the items into the sections the API's own categories describe, in the
  *  API's own order. Nothing about the category list is hardcoded here. */
-function buildSections(menu: Menu | null): MenuSection[] {
+function buildSections(menu: Menu | null, art: ArtByItem): MenuSection[] {
   if (!menu) return [];
 
   const byCategory = new Map<string, MenuItem[]>();
@@ -52,19 +62,26 @@ function buildSections(menu: Menu | null): MenuSection[] {
     byCategory.set(item.categoryId, list);
   }
 
+  const section = (id: string, label: string, items: MenuItem[]): MenuSection => ({
+    id,
+    label,
+    items,
+    illustrated: items.some((item) => art.get(item.id) != null),
+  });
+
   const sections: MenuSection[] = [];
   const known = new Set<string>();
   for (const category of [...menu.categories].sort((a, b) => a.sortOrder - b.sortOrder)) {
     known.add(category.id);
     const items = byCategory.get(category.id);
-    if (items?.length) sections.push({ id: category.id, label: category.label, items });
+    if (items?.length) sections.push(section(category.id, category.label, items));
   }
 
   // An item whose category the API did not send still gets rendered, under its
   // raw category id. Hiding a real dish because its heading is missing is the
   // same class of silent omission the allergen rule forbids.
   for (const [categoryId, items] of byCategory) {
-    if (!known.has(categoryId)) sections.push({ id: categoryId, label: categoryId, items });
+    if (!known.has(categoryId)) sections.push(section(categoryId, categoryId, items));
   }
 
   return sections;
@@ -201,6 +218,25 @@ export default function MenuScreen() {
         },
       },
       {
+        id: 'getDishArt',
+        label: 'Report which picture, if any, each menu item resolved to',
+        description:
+          'No params. Returns { source: "live" | "cache", items: [{ itemId, rendered: ' +
+          '"stored" | "bundled" | "none", manifestKey?, manifestStatus? }] } — the ' +
+          'verification the policy clause an-image-beside-a-price-is-a-claim asks for: ' +
+          'per item, which manifest key resolved and what its status was. A screenshot ' +
+          'cannot tell a confirmed binding from a near-miss; this can. Throws while no ' +
+          'menu is loaded, because an empty list would read as "nothing rendered".',
+        handler: async () => {
+          const current = menuRef.current;
+          if (!current) throw new Error('getDishArt: no menu is loaded yet.');
+          return {
+            source: cachedAtRef.current ? 'cache' : 'live',
+            items: describeArtResolution(current.items),
+          };
+        },
+      },
+      {
         id: 'getMenuStatus',
         label: 'Report what the menu screen is currently showing',
         description:
@@ -228,7 +264,13 @@ export default function MenuScreen() {
     return map;
   }, [menu]);
 
-  const sections = useMemo(() => buildSections(menu), [menu]);
+  const artByItem = useMemo<ArtByItem>(() => {
+    const art = new Map<string, ResolvedArt | null>();
+    for (const item of menu?.items ?? []) art.set(item.id, resolveDishArt(item));
+    return art;
+  }, [menu]);
+
+  const sections = useMemo(() => buildSections(menu, artByItem), [menu, artByItem]);
 
   if (error) {
     return (
@@ -269,50 +311,55 @@ export default function MenuScreen() {
         {sections.map((section) => (
           <View key={section.id} style={styles.section}>
             <ThemedText type="subtitle">{section.label}</ThemedText>
-            {section.items.map((item) => (
-              <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.thumb} contentFit="cover" />
-                ) : null}
-                <View style={styles.cardBody}>
-                  <ThemedText type="heading">
-                    {item.number ? `${item.number}  ` : ''}
-                    {item.name}
-                  </ThemedText>
-                  {item.description ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {item.description}
-                    </ThemedText>
+            {section.items.map((item) => {
+              const art = artByItem.get(item.id);
+              return (
+                <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
+                  {art ? (
+                    <Image source={art.source} alt={art.alt} style={styles.thumb} contentFit="cover" />
+                  ) : section.illustrated ? (
+                    <View style={styles.thumb} />
                   ) : null}
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {allergenText(item, legendByCode)}
-                  </ThemedText>
-
-                  {item.variants.length === 0 ? (
-                    // The API returns an item with no priced variant rather than
-                    // hiding it. It is shown, and it is not orderable.
-                    <ThemedText type="small" themeColor="textSecondary">
-                      Zurzeit nicht bestellbar
+                  <View style={styles.cardBody}>
+                    <ThemedText type="heading">
+                      {item.number ? `${item.number}  ` : ''}
+                      {item.name}
                     </ThemedText>
-                  ) : (
-                    <View style={styles.variants}>
-                      {item.variants.map((variant) => (
-                        <BridgeButton
-                          key={variant.id}
-                          uiId={addButtonUiId(item.id, variant.id)}
-                          uiLabel={`${item.name} (${variant.label}) in den Warenkorb legen`}
-                          style={[styles.addBtn, { borderColor: theme.brand }]}
-                          onPress={() => cart.add(item, variant)}>
-                          <ThemedText type="price">
-                            + {variant.label} · {formatEUR(variant.price)}
-                          </ThemedText>
-                        </BridgeButton>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              </ThemedView>
-            ))}
+                    {item.description ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {item.description}
+                      </ThemedText>
+                    ) : null}
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {allergenText(item, legendByCode)}
+                    </ThemedText>
+
+                    {item.variants.length === 0 ? (
+                      // The API returns an item with no priced variant rather than
+                      // hiding it. It is shown, and it is not orderable.
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Zurzeit nicht bestellbar
+                      </ThemedText>
+                    ) : (
+                      <View style={styles.variants}>
+                        {item.variants.map((variant) => (
+                          <BridgeButton
+                            key={variant.id}
+                            uiId={addButtonUiId(item.id, variant.id)}
+                            uiLabel={`${item.name} (${variant.label}) in den Warenkorb legen`}
+                            style={[styles.addBtn, { borderColor: theme.brand }]}
+                            onPress={() => cart.add(item, variant)}>
+                            <ThemedText type="price">
+                              + {variant.label} · {formatEUR(variant.price)}
+                            </ThemedText>
+                          </BridgeButton>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </ThemedView>
+              );
+            })}
           </View>
         ))}
 
