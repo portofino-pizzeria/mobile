@@ -10,7 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { api, ApiError, type PaymentProviders } from '@/lib/api';
+import { api, ApiError, errorReason, type PaymentProviders } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
 import type { PaymentProvider } from '@/lib/types';
 import { useCart } from '@/state/cart';
@@ -157,10 +157,9 @@ export default function CheckoutScreen() {
       router.replace(`/order/${order.id}`);
       return null;
     } catch (e) {
-      // The server's own message when it answered. Anything else (no answer,
-      // an unreadable one, the browser failing to open) gets a German reason
-      // instead of a raw fetch or parse error.
-      const reason = e instanceof ApiError && e.message ? e.message : 'Keine verwertbare Antwort.';
+      // errorReason gives anything that is not an ApiError, including the
+      // browser failing to open, the same German reason as no answer at all.
+      const reason = errorReason(e);
       // Only a 4xx answer to createOrder proves that no order was written.
       const refused = !placed && e instanceof ApiError && e.status >= 400 && e.status < 500;
       // An unpaid order never reaches the kitchen, so both messages say so.
@@ -171,7 +170,7 @@ export default function CheckoutScreen() {
         ? `Die Bestellung ist angelegt, aber noch nicht bezahlt, und wird erst nach der Bezahlung zubereitet. Die Bezahlung konnte nicht gestartet werden: ${reason}`
         : refused
           ? reason
-          : `Unklar, ob die Bestellung angelegt wurde (${reason}) Eine unbezahlte Bestellung wird nicht zubereitet; du kannst es erneut versuchen.`;
+          : `Unklar, ob die Bestellung angelegt wurde. Grund: ${reason} Eine unbezahlte Bestellung wird nicht zubereitet; du kannst es erneut versuchen.`;
       setError({ message, clearsOnEdit: refused });
       return message;
     } finally {

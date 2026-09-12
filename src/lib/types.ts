@@ -104,9 +104,10 @@ export interface CustomerInfo {
   notes?: string;
 }
 
-/** Customer details as an order REQUEST must send them. The API refuses an
- *  order without a name, phone number and delivery address, so a request type
- *  with optional fields would type-check a call that can only ever 400. */
+/** Customer details as an order REQUEST must send them. Checkout refuses an
+ *  order without a name, phone number and delivery address, and the API will
+ *  as well once backend#9 lands, so a request type with optional fields would
+ *  type-check a call that checkout never makes. */
 export interface CustomerRequest {
   name: string;
   phone: string;

@@ -10,7 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { api } from '@/lib/api';
+import { api, errorReason } from '@/lib/api';
 import { describeArtResolution, resolveDishArt, type ResolvedArt } from '@/lib/dish-art';
 import { formatEUR } from '@/lib/format';
 import { formatCacheAge, readCachedMenu, writeCachedMenu } from '@/lib/menu-cache';
@@ -140,7 +140,7 @@ export default function MenuScreen() {
           setCachedAt(cached.cachedAt);
           setError(null);
         } else {
-          setError((e as Error).message);
+          setError(errorReason(e));
         }
       }
     }

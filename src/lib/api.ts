@@ -16,6 +16,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Why a request failed, as a reason to put in front of a diner. A 4xx carries
+ * the server's own message: it names what the request got wrong, although the
+ * backend's refusals are still English. A 5xx gets a German reason, because
+ * the backend's error handler forwards internal error text. Anything else (no
+ * answer, an unreadable one) gets a German reason instead of fetch's or the
+ * JSON parser's English one. Dev builds log the original error, which is the
+ * detail those replacements hide; `info` rather than `warn`, so a native dev
+ * build shows no LogBox banner over the screen's bottom controls.
+ */
+export function errorReason(e: unknown): string {
+  if (__DEV__) console.info('[api] request failed:', e);
+  if (!(e instanceof ApiError)) return 'Keine verwertbare Antwort.';
+  if (e.status >= 500) return `Fehler auf dem Server (${e.status}).`;
+  return e.message || `Anfrage fehlgeschlagen (${e.status}).`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -58,9 +75,10 @@ export const api = {
     return request<Menu>('/api/menu');
   },
 
-  // `customer` is required: the order API refuses an order without a name,
-  // phone number and delivery address, so an optional parameter would type-check
-  // a call that can only ever 400.
+  // `customer` is required: checkout refuses an order without a name, phone
+  // number and delivery address, and the order API will as well once
+  // backend#9 lands. Until then the API accepts such an order, so the checkout
+  // gate is the only one.
   async createOrder(
     items: OrderLineRequest[],
     customer: CustomerRequest,
