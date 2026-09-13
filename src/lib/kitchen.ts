@@ -95,7 +95,8 @@ export const kitchenApi = {
 
   async setStatus(id: string, status: KitchenStatus): Promise<Order> {
     const { order } = await kreq<{ order: Order }>(
-      `/api/kitchen/orders/${id}/status`,
+      // Encoded, as the diner's order read and the menu editor's paths are.
+      `/api/kitchen/orders/${encodeURIComponent(id)}/status`,
       { method: 'POST', body: JSON.stringify({ status }) },
     );
     return order;
