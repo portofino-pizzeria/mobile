@@ -2,25 +2,32 @@
 
 > **Status:** IMPLEMENTED 2026-09-12 — every phase is merged; NOT yet SHIPPED,
 > because the plan's own "Verification of this plan's own work" is only partly
-> met. Ledger, measured 2026-09-12 rather than inferred from merges:
+> met. Ledger, measured 2026-09-12 rather than inferred from merges (backend
+> rows re-measured 2026-09-13):
 >
 > | Phase | Landed as | State |
 > |---|---|---|
 > | 1 web marker | `mobile#6` | live — `<meta name="build-sha">` on portofino-essen.com reads `35bf7e0`, the tip of `main` |
-> | 1 backend marker | `backend#1` | merged; **not live** — `api.portofino-essen.com/api/health` still answers without `commit` (a 2026-09-03 image) |
+> | 1 backend marker | `backend#1` | **live** — on 2026-09-13 `api.portofino-essen.com/api/health` answered `commit: 577f21575992…`, the tip of `master` |
 > | 2 OIDC + roles + SSM | `infra#1`, `3e02a93` | **applied** — both roles exist, all three `/portofino/production/*` parameters exist |
 > | 3 web deploy | `mobile#6`, `ebd9dc6` | working — push-triggered runs green, marker moves (verification 1 ✔) |
 > | 4a backend CI | `backend#1` | working — green on every PR and master push |
-> | 4b backend deploy | `backend#1`, `#2` | **has never reached AWS** — the three master pushes so far all stopped at the reviewer gate, which was unconfigurable on the Free plan at the time; the environment now carries a required reviewer and the four repo variables are set, so the NEXT master push is the first real run |
+> | 4b backend deploy | `backend#1`, `#2`, `#4`, `#8`, `#11` | **working, with no reviewer** — `backend#11` removed the human approval gate (operator decision 2026-09-12) and the `production-backend` environment now carries only its master-only branch policy. Master pushes deploy unattended: runs 34746809481, 34747478263 and 34747755643 (2026-09-13) all green; the last carried App Runner operation `b65ae19b3c9e42d3ab85d036d36747e8`, named in its job log (verification 2 ✔) |
 > | 5 retire the Terraform path | `infra#1`, applied; `infra#3` follow-up | **done** — `terraform plan` against the live state (serial 16, 2026-09-12) shows no `null_resource`, no change to `aws_apprunner_service.backend` (not tainted by the dropped `depends_on`) and no infrastructure diff; the `null` provider #1 retained for the destroy is removed by `infra#3` (verification 5 ✔) |
 >
-> Outstanding before SHIPPED: verification 2 (a backend commit moves
-> `/api/health` `commit` — the merge of `backend#4`, which adds the retag
-> rollback path, is the natural first candidate; it needs the reviewer to
-> approve at the gate), 3 (a web deploy observed mid-flight from a warm-cache
-> browser), and 4 (both rollbacks executed — the one `workflow_dispatch` of
-> Deploy web on 2026-09-11 deployed the tip of `main`, not an older sha, so
-> neither rollback has been exercised).
+> Outstanding before SHIPPED: verification 3 (a web deploy observed mid-flight
+> from a warm-cache browser) and 4 (both rollbacks executed — the one
+> `workflow_dispatch` of Deploy web on 2026-09-11 deployed the tip of `main`,
+> not an older sha; Deploy backend has had no `workflow_dispatch` run at all as
+> of 2026-09-13, so the backend retag rollback is still unexercised).
+> Verification 2 is met (see the 4b row).
+>
+> Superseded by operator decision 2026-09-12 (`backend#11`): backend deploys no
+> longer wait on a human. The "required reviewer" in Phase 4 and in "Decisions
+> taken during vetting" is the original design, kept for the record; what
+> stands in for it is the master-only `resolve` job, the test job at the target
+> commit, and the pre-deploy Aurora snapshot (`backend#8`). The environment
+> itself stays, because the CI role's OIDC trust pins its claim.
 >
 > Superseded by implementation: the backend rollback is retag-first rather
 > than rebuild-only (`ecr:BatchGetImage` was granted by `infra@425abd3` for
@@ -216,6 +223,10 @@ field Phase 1 added to `/api/health`.
 > Environment with a required reviewer.** Automatic to the door, human through
 > it. This is the one place in this plan where a person stays in the loop, and
 > it is deliberate.
+>
+> **Superseded 2026-09-12 (`backend#11`):** the reviewer was removed — a
+> deploy held at it left `master` red and blocked the merge train. The
+> pre-deploy snapshot is now the way back; see the Status block.
 
 ### Phase 5 — Retire the Terraform deploy path (`infra`)
 
@@ -260,7 +271,8 @@ untested rollback is a claim, not a capability.
   a web deploy by clock delays a fix for a bug a diner is hitting now, and the
   safe publish sequence above removes the reason to fear it. The backend's real
   risk is migrations, and that is gated by a required reviewer rather than by
-  the time of day.
+  the time of day. *(Superseded 2026-09-12 by `backend#11`: no reviewer; the
+  pre-deploy snapshot is the restore point.)*
 - **Failure notification is in scope.** Open question 3 was the difference
   between fixing the problem and moving it: today a stale site is invisible;
   after this, a **failed deploy** would be invisible too. Every deploy workflow
