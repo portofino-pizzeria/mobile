@@ -21,6 +21,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { AdminApiError, adminApi, loadOwnerToken } from '@/lib/admin';
+import { errorReason } from '@/lib/api';
 import type { AdminMenu } from '@/lib/types';
 
 export default function AdminAllergensScreen() {
@@ -46,7 +47,7 @@ export default function AdminAllergensScreen() {
       if (e instanceof AdminApiError && e.status === 401) {
         setError('Bitte zuerst im Speisekarten-Editor anmelden.');
       } else {
-        setError((e as Error).message);
+        setError(errorReason(e));
       }
     }
   }, []);
@@ -67,7 +68,7 @@ export default function AdminAllergensScreen() {
         setError(null);
         await load();
       } catch (e) {
-        setError((e as Error).message);
+        setError(errorReason(e));
       } finally {
         setBusy(false);
       }

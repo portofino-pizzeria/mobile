@@ -14,6 +14,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { errorReason } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
 import {
   KitchenApiError,
@@ -24,6 +25,9 @@ import {
 import type { Order, OrderStatus } from '@/lib/types';
 
 const POLL_MS = 5000;
+
+/** The statuses the kitchen may set, as the server accepts them. */
+const KITCHEN_STATUSES: readonly KitchenStatus[] = ['preparing', 'ready', 'cancelled'];
 
 // A RED FILL DOES NOT APPEAR ON THIS SCREEN, and the omission is the rule
 // rather than an oversight — see `constants/theme.ts`, "Where a red FILL is
@@ -87,7 +91,8 @@ export default function KitchenScreen() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // The orders with a status change in flight, as the board shows them.
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
   const mounted = useRef(true);
   // Only the newest `load` may set state. The poll keeps a headerless request
   // in flight while the gate is showing; if the operator submits a token and
@@ -110,7 +115,7 @@ export default function KitchenScreen() {
         setNeedsToken(true);
         setAuthMessage(e.tokenSent ? e.message : null);
       } else {
-        setError((e as Error).message);
+        setError(errorReason(e));
       }
     }
   }, []);
@@ -129,35 +134,71 @@ export default function KitchenScreen() {
     };
   }, [load]);
 
+  // The same set, written synchronously. `busyIds` is a commit behind, and a
+  // second tap or UI Bridge call on the same order can arrive before then.
+  const updating = useRef(new Set<string>());
+
+  /** Moves one order on. Resolves to null, or to the reason it did not; a
+   *  failed request's reason is also shown on the board. Refuses while that
+   *  order already has a change in flight: two requests for one order can land
+   *  in either order, and the backend applies whichever lands last. */
   const advance = useCallback(
-    async (order: Order, status: KitchenStatus) => {
-      setBusyId(order.id);
+    async (order: Order, status: KitchenStatus): Promise<string | null> => {
+      if (updating.current.has(order.id)) return 'Diese Bestellung wird gerade aktualisiert.';
+      updating.current.add(order.id);
+      setBusyIds(new Set(updating.current));
       try {
         await kitchenApi.setStatus(order.id, status);
         await load();
+        return null;
       } catch (e) {
-        setError((e as Error).message);
+        const reason = errorReason(e);
+        setError(reason);
+        return reason;
       } finally {
-        setBusyId(null);
+        updating.current.delete(order.id);
+        setBusyIds(new Set(updating.current));
       }
     },
     [load],
   );
 
-  // Let the runner drive the board semantically (e.g. kitchen.advance).
+  // useUIComponent registers its action handlers once, at mount, and never
+  // re-registers them. A handler that read `orders` directly would see the
+  // first render's null forever and find no order to move, so it reads the
+  // board and advance() through a ref written after every commit.
+  const live = useRef({ orders, advance });
+  useEffect(() => {
+    live.current = { orders, advance };
+  });
+
+  // Let the runner drive the board semantically (e.g. kitchen.setStatus).
   useUIComponent({
     id: 'kitchen',
     name: 'Kitchen',
     actions: [
       {
         id: 'setStatus',
+        label: 'Move one active order to a new status',
+        description:
+          'Params: { orderId: string, status: "preparing" | "ready" | "cancelled" }. ' +
+          'Fails with the reason, rather than resolving, when the order is not on the ' +
+          'board, already has a change in flight, or the server refuses the change.',
         handler: async (params) => {
           const { orderId, status } = (params ?? {}) as {
             orderId?: string;
             status?: KitchenStatus;
           };
-          const order = orders?.find((o) => o.id === orderId);
-          if (order && status) await advance(order, status);
+          if (!orderId) throw new Error('setStatus: orderId is required.');
+          if (!status || !KITCHEN_STATUSES.includes(status)) {
+            throw new Error(`setStatus: status must be one of ${KITCHEN_STATUSES.join(', ')}.`);
+          }
+          const order = live.current.orders?.find((o) => o.id === orderId);
+          if (!order) throw new Error(`setStatus: no active order with id "${orderId}" on the board.`);
+          // advance() refuses while this order already has a change in flight.
+          const failure = await live.current.advance(order, status);
+          if (failure) throw new Error(failure);
+          return { orderId: order.id, status };
         },
       },
     ],
@@ -282,7 +323,7 @@ export default function KitchenScreen() {
                       key={order.id}
                       order={order}
                       accent={lane.accent}
-                      busy={busyId === order.id}
+                      busy={busyIds.has(order.id)}
                       onAdvance={advance}
                     />
                   ))
@@ -397,16 +438,20 @@ function OrderCard({
             Bereit zur Abholung / Lieferung.
           </ThemedText>
         )}
-        <BridgeButton
-          uiId={`kitchen-cancel-${order.id}`}
-          uiLabel={`Bestellung ${order.id.slice(0, 8)} stornieren`}
-          disabled={busy}
-          style={[styles.cancelBtn, { borderColor: theme.backgroundSelected }]}
-          onPress={() => onAdvance(order, 'cancelled')}>
-          <ThemedText type="small" themeColor="textSecondary">
-            Stornieren
-          </ThemedText>
-        </BridgeButton>
+        {/* The backend allows no change from ready, so a cancel here could
+            only fail, with the backend's English refusal. */}
+        {order.status !== 'ready' ? (
+          <BridgeButton
+            uiId={`kitchen-cancel-${order.id}`}
+            uiLabel={`Bestellung ${order.id.slice(0, 8)} stornieren`}
+            disabled={busy}
+            style={[styles.cancelBtn, { borderColor: theme.backgroundSelected }]}
+            onPress={() => onAdvance(order, 'cancelled')}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Stornieren
+            </ThemedText>
+          </BridgeButton>
+        ) : null}
       </View>
     </ThemedView>
   );

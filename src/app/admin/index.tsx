@@ -26,6 +26,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { AdminApiError, adminApi, loadOwnerToken, setOwnerToken } from '@/lib/admin';
+import { errorReason } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
 import type { AdminMenu, AdminMenuItem } from '@/lib/types';
 
@@ -63,7 +64,7 @@ export default function AdminMenuScreen() {
         setNeedsToken(true);
         setError(e.message);
       } else {
-        setError((e as Error).message);
+        setError(errorReason(e));
       }
     }
   }, []);
@@ -98,7 +99,7 @@ export default function AdminMenuScreen() {
         setError(null);
         await load();
       } catch (e) {
-        setError((e as Error).message);
+        setError(errorReason(e));
       } finally {
         setBusy(false);
       }

@@ -4,7 +4,9 @@ import type { CustomerRequest, Menu, Order, PaymentProvider } from './types';
 /**
  * A non-2xx answer from the API. `status` lets a caller tell a refusal (4xx)
  * from a failure whose outcome is unknown (5xx). A request that got no answer
- * at all never reaches this class: fetch rejects with its own TypeError.
+ * at all never reaches this class: fetch rejects with its own TypeError. The
+ * kitchen's and the menu editor's clients throw subclasses of it, so
+ * `errorReason` reads their answers the same way.
  */
 export class ApiError extends Error {
   readonly status: number;
@@ -17,12 +19,14 @@ export class ApiError extends Error {
 }
 
 /**
- * Why a request failed, as a reason to put in front of a diner. A 4xx carries
- * the server's own message: it names what the request got wrong, although the
- * backend's refusals are still English. A 5xx gets a German reason, because
- * the backend's error handler forwards internal error text. Anything else (no
- * answer, an unreadable one) gets a German reason instead of fetch's or the
- * JSON parser's English one. Dev builds log the original error, which is the
+ * Why a request failed, as a reason to put in front of a diner, a cook or the
+ * owner. A 4xx carries the server's own message: it names what the request got
+ * wrong, although some of the backend's refusals are still English, and a
+ * screen that knows what a status means there can say it better (the order
+ * screen's 404). A 5xx gets a German reason, because the backend's error
+ * handler forwards internal error text. Anything else (no answer, an
+ * unreadable one) gets a German reason instead of fetch's or the JSON
+ * parser's English one. Dev builds log the original error, which is the
  * detail those replacements hide; `info` rather than `warn`, so a native dev
  * build shows no LogBox banner over the screen's bottom controls.
  */
@@ -91,7 +95,10 @@ export const api = {
   },
 
   async getOrder(id: string): Promise<Order> {
-    const { order } = await request<{ order: Order }>(`/api/orders/${id}`);
+    // Encoded, so an id from a link can only ever name an order.
+    const { order } = await request<{ order?: Order }>(`/api/orders/${encodeURIComponent(id)}`);
+    // A 2xx without an order is an answer nobody can use, not an order.
+    if (!order) throw new Error('The order read answered without an order.');
     return order;
   },
 

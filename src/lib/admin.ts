@@ -11,6 +11,7 @@
 // on web that is localStorage, on a phone a file in the app's document
 // directory.
 
+import { ApiError } from './api';
 import { API_BASE_URL } from './config';
 import { readStoredText, writeStoredText } from './storage';
 import type {
@@ -40,14 +41,12 @@ export async function setOwnerToken(token: string): Promise<void> {
 }
 
 /** An HTTP error carrying the status, so the screen can tell "wrong password"
- *  (401 → ask again) from "that is not allowed" (400/409 → show the reason). */
-export class AdminApiError extends Error {
-  status: number;
-
+ *  (401 → ask again) from "that is not allowed" (400/409 → show the reason).
+ *  An `ApiError`, so `errorReason` reads it like any other answer. */
+export class AdminApiError extends ApiError {
   constructor(status: number, message: string) {
-    super(message);
+    super(message, status);
     this.name = 'AdminApiError';
-    this.status = status;
   }
 }
 
@@ -61,7 +60,7 @@ async function areq<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    let message = `Die Anfrage ist fehlgeschlagen (${res.status}).`;
+    let message = `Anfrage fehlgeschlagen (${res.status}).`;
     try {
       const body = (await res.json()) as { error?: string };
       if (body?.error) message = body.error;

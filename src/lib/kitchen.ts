@@ -1,3 +1,4 @@
+import { ApiError } from './api';
 import { API_BASE_URL } from './config';
 import type { Order } from './types';
 
@@ -19,30 +20,42 @@ import type { Order } from './types';
 
 const TOKEN_KEY = 'portofino.kitchenToken';
 
-function hasLocalStorage(): boolean {
-  return typeof localStorage !== 'undefined';
+/** localStorage, or null where it is absent or blocked. With site data
+ *  blocked, even reading the global throws, so the probe is guarded too. */
+function tokenStore(): Storage | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage;
+  } catch {
+    return null;
+  }
 }
 
 export function getKitchenToken(): string {
-  if (!hasLocalStorage()) return '';
-  return localStorage.getItem(TOKEN_KEY) ?? '';
+  try {
+    return tokenStore()?.getItem(TOKEN_KEY) ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function setKitchenToken(token: string): void {
-  if (!hasLocalStorage()) return;
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  try {
+    const store = tokenStore();
+    if (token) store?.setItem(TOKEN_KEY, token);
+    else store?.removeItem(TOKEN_KEY);
+  } catch {
+    // Not persisted: the operator enters the token again on the next visit.
+  }
 }
 
-/** An HTTP error that carries the status so the UI can react to 401 → prompt. */
-export class KitchenApiError extends Error {
-  status: number;
+/** An HTTP error that carries the status so the UI can react to 401 → prompt.
+ *  An `ApiError`, so `errorReason` reads it like any other answer. */
+export class KitchenApiError extends ApiError {
   /** Whether the failed request carried a Bearer token. Fixed at send time. */
   tokenSent: boolean;
   constructor(status: number, message: string, tokenSent: boolean) {
-    super(message);
+    super(message, status);
     this.name = 'KitchenApiError';
-    this.status = status;
     this.tokenSent = tokenSent;
   }
 }
@@ -58,7 +71,7 @@ async function kreq<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    let message = `Request failed (${res.status})`;
+    let message = `Anfrage fehlgeschlagen (${res.status}).`;
     try {
       const body = (await res.json()) as { error?: string };
       if (body?.error) message = body.error;

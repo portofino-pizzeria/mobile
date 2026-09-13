@@ -41,6 +41,7 @@ import {
   type ItemDraft,
   type VariantDraft,
 } from '@/lib/admin';
+import { errorReason } from '@/lib/api';
 import type { AdminMenu, AllergenLegendEntry } from '@/lib/types';
 
 /** The literal route id that means "this dish does not exist yet". */
@@ -125,7 +126,7 @@ export default function AdminItemScreen() {
       if (e instanceof AdminApiError && e.status === 401) {
         setError('Bitte zuerst im Speisekarten-Editor anmelden.');
       } else {
-        setError((e as Error).message);
+        setError(errorReason(e));
       }
     }
   }, [isNew, itemId, params.kategorie]);
@@ -208,7 +209,7 @@ export default function AdminItemScreen() {
       setError(null);
       router.back();
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorReason(e));
     } finally {
       setBusy(false);
     }
@@ -530,7 +531,7 @@ export default function AdminItemScreen() {
                   setAvailable(updated.available);
                   setError(null);
                 } catch (e) {
-                  setError((e as Error).message);
+                  setError(errorReason(e));
                 } finally {
                   setBusy(false);
                 }
@@ -562,7 +563,7 @@ export default function AdminItemScreen() {
                 await adminApi.deleteItem(itemId);
                 router.back();
               } catch (e) {
-                setError((e as Error).message);
+                setError(errorReason(e));
               } finally {
                 setBusy(false);
               }

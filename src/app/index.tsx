@@ -108,6 +108,8 @@ export default function MenuScreen() {
   /** Non-null exactly when what is on screen came out of the offline cache. */
   const [cachedAt, setCachedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by the retry button to load the menu again.
+  const [attempt, setAttempt] = useState(0);
 
   // The UI Bridge action handlers below are registered once, so reading `menu`
   // directly would capture its initial (null) value. Refs always see the latest.
@@ -149,7 +151,7 @@ export default function MenuScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
 
   // Semantic actions for the Qontinui runner.
   useUIComponent({
@@ -280,9 +282,30 @@ export default function MenuScreen() {
           {error}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.errorText}>
-          Es ist auch keine gespeicherte Speisekarte vorhanden. Läuft das Backend?
-          (npm run dev in ../backend)
+          Es ist auch keine gespeicherte Speisekarte vorhanden.
         </ThemedText>
+        {/* A hint for a developer, not a diner: a release build says nothing
+            about a backend. */}
+        {__DEV__ ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.errorText}>
+            Läuft das Backend? (npm run dev in ../backend)
+          </ThemedText>
+        ) : null}
+        <BridgeButton
+          uiId="menu-retry"
+          uiLabel="Erneut versuchen"
+          style={({ pressed }) => [
+            styles.retryBtn,
+            { backgroundColor: pressed ? theme.brandPressed : theme.brand },
+          ]}
+          onPress={() => {
+            setError(null);
+            setAttempt((n) => n + 1);
+          }}>
+          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
+            Erneut versuchen
+          </ThemedText>
+        </BridgeButton>
       </ThemedView>
     );
   }
@@ -420,8 +443,24 @@ export default function MenuScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.xl },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xl,
+  },
   errorText: { textAlign: 'center' },
+  retryBtn: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    marginTop: Spacing.sm,
+  },
   scroll: { padding: Spacing.lg, gap: Spacing.xl, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   offlineBanner: { padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.xs },
   section: { gap: Spacing.sm },
