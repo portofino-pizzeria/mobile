@@ -166,10 +166,12 @@ export default function KitchenScreen() {
   // useUIComponent registers its action handlers once, at mount, and never
   // re-registers them. A handler that read `orders` directly would see the
   // first render's null forever and find no order to move, so it reads the
-  // board and advance() through a ref written after every commit.
-  const live = useRef({ orders, advance });
+  // board and advance() through a ref written after every commit. getBoard
+  // reads the rest of what the screen shows through the same ref, so it is one
+  // commit behind as well.
+  const live = useRef({ orders, advance, error, needsToken, authMessage, busyIds });
   useEffect(() => {
-    live.current = { orders, advance };
+    live.current = { orders, advance, error, needsToken, authMessage, busyIds };
   });
 
   // Let the runner drive the board semantically (e.g. kitchen.setStatus).
@@ -199,6 +201,56 @@ export default function KitchenScreen() {
           const failure = await live.current.advance(order, status);
           if (failure) throw new Error(failure);
           return { orderId: order.id, status };
+        },
+      },
+      {
+        // setStatus needs an order id, and without this a workflow could only
+        // learn one by parsing the card buttons' element ids.
+        id: 'getBoard',
+        label: 'Report what the kitchen board is currently showing',
+        description:
+          'No params. Returns { state: "token" | "loading" | "shown", error, orders }. ' +
+          '"token" is the password prompt; `error` then carries the server\'s reason for ' +
+          'refusing the token that was sent, if any, and a server with no token configured ' +
+          'cannot be unlocked by any entry. When state is "shown", `error` is the reason ' +
+          'the last load or status change failed, shown above the board. `orders` lists ' +
+          'the active orders on the board as { orderId, status, busy, lines: [{ quantity, ' +
+          'name, variantLabel }] } and is empty unless state is "shown". `busy` is true ' +
+          'while a status change for that order is in flight. The report follows the ' +
+          'last render, so right after setStatus resolves it can still show the old ' +
+          'status or busy: true. Poll until the order shows the new status or is gone ' +
+          'from `orders` (a cancelled order leaves the board) rather than reading once. ' +
+          'A setStatus that failed has already rejected, so there is nothing to wait for.',
+        handler: async () => {
+          const {
+            orders: board,
+            error: failure,
+            needsToken: locked,
+            authMessage: refusal,
+            busyIds: busy,
+          } = live.current;
+          // The same order as the render: the token gate wins, and a failed
+          // first load shows an empty board with its reason.
+          const state = locked ? 'token' : board || failure ? 'shown' : 'loading';
+          return {
+            state,
+            error: state === 'token' ? refusal : state === 'shown' ? failure : null,
+            orders:
+              state === 'shown'
+                ? // Null only when the first load failed: an empty board with
+                  // its reason, as the screen shows it.
+                  (board ?? []).map((o) => ({
+                    orderId: o.id,
+                    status: o.status,
+                    busy: busy.has(o.id),
+                    lines: o.lines.map((l) => ({
+                      quantity: l.quantity,
+                      name: l.name,
+                      variantLabel: l.variantLabel,
+                    })),
+                  }))
+                : [],
+          };
         },
       },
     ],
@@ -401,10 +453,13 @@ function OrderCard({
       ) : null}
 
       <View style={styles.lines}>
+        {/* Snapshotted lines are (item, variant) pairs, so the size is what a
+            cook needs to bake the right one, and two sizes of one dish stay two
+            rows under distinct keys, as on the diner's order screen. */}
         {order.lines.map((l) => (
-          <View key={l.menuItemId} style={styles.lineRow}>
+          <View key={`${l.menuItemId}::${l.variantId}`} style={styles.lineRow}>
             <ThemedText type="small">
-              {l.quantity}× {l.name}
+              {l.quantity}× {l.name}, {l.variantLabel}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {formatEUR(l.unitPrice * l.quantity)}
