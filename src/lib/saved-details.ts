@@ -6,8 +6,10 @@ import type { Fulfilment } from './types';
 // re-entering an address "Once is tolerable at signup. Twice ends it."
 //
 // Nothing here leaves the device: no account, no server copy. The checkout
-// saves only when the diner leaves "Angaben merken" ticked, and offers to
-// forget them.
+// saves only when the diner ticks "Angaben merken", and offers to forget them.
+//
+// The note is NOT kept: it belongs to one order ("hole um 19:30 ab"), and a
+// prefilled note is one a diner does not re-read before it reaches the kitchen.
 
 const KEY = 'checkout-details-v1';
 
@@ -16,7 +18,6 @@ export interface SavedDetails {
   name: string;
   phone: string;
   address: string;
-  notes: string;
 }
 
 function text(value: unknown): string {
@@ -34,7 +35,6 @@ export async function loadSavedDetails(): Promise<SavedDetails | null> {
       name: text(parsed.name),
       phone: text(parsed.phone),
       address: text(parsed.address),
-      notes: text(parsed.notes),
     };
     return details.name || details.phone || details.address ? details : null;
   } catch {
@@ -43,7 +43,8 @@ export async function loadSavedDetails(): Promise<SavedDetails | null> {
 }
 
 export function saveDetails(details: SavedDetails): Promise<void> {
-  return writeStoredText(KEY, JSON.stringify(details));
+  const { fulfilment, name, phone, address } = details;
+  return writeStoredText(KEY, JSON.stringify({ fulfilment, name, phone, address }));
 }
 
 export function forgetSavedDetails(): Promise<void> {

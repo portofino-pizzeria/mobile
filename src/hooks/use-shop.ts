@@ -9,9 +9,13 @@ import type { Fulfilment, ShopInfo } from '@/lib/types';
 const REFRESH_MS = 60_000;
 
 export interface ShopState {
+  /** The last status received, for display (address, hours). */
   shop: ShopInfo | null;
-  /** True while the last read failed. The order route still enforces the
-   *  hours, so a failed read never blocks ordering on its own. */
+  /** The status to BLOCK an order on: null while the last read failed, so an
+   *  old "closed" can never keep refusing after the shop has opened. The
+   *  order route still enforces the hours either way. */
+  gating: ShopInfo | null;
+  /** True while the last read failed. */
   unavailable: boolean;
 }
 
@@ -41,7 +45,7 @@ export function useShop(): ShopState {
     };
   }, []);
 
-  return { shop, unavailable };
+  return { shop, gating: unavailable ? null : shop, unavailable };
 }
 
 /** The German sentence for an order kind that is not taken now, or null. The

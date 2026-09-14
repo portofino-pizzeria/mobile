@@ -208,10 +208,12 @@ export default function CheckoutScreen() {
     notes: '',
   });
   const typed = useRef(fields);
-  const { shop, unavailable: shopUnavailable } = useShop();
-  // "Angaben merken": on by default, because typing an address twice is what
-  // `audience_profile/hungry-diner` says ends it. Kept on this device only.
-  const [remember, setRemember] = useState(true);
+  const { shop, gating, unavailable: shopUnavailable } = useShop();
+  // "Angaben merken" starts UNTICKED: storing a diner's name, phone and address
+  // on the device for convenience needs their consent (TTDSG §25 for the web
+  // build's localStorage), and a pre-ticked box is not consent. It starts
+  // ticked only when details are already saved — the diner opted in before.
+  const [remember, setRemember] = useState(false);
   const rememberRef = useRef(remember);
   const [hasSaved, setHasSaved] = useState(false);
   const [providers, setProviders] = useState<PaymentProviders | null>(null);
@@ -248,7 +250,11 @@ export default function CheckoutScreen() {
     setRemember(rememberRef.current);
   }
 
+  // Forgetting also unticks "merken": otherwise the next payment, or one
+  // already running, writes the details straight back.
   async function forget() {
+    rememberRef.current = false;
+    setRemember(false);
     await forgetSavedDetails();
     setHasSaved(false);
   }
@@ -264,17 +270,19 @@ export default function CheckoutScreen() {
     loadSavedDetails().then((saved) => {
       if (!active || !saved) return;
       setHasSaved(true);
+      rememberRef.current = true;
+      setRemember(true);
       const current = typed.current;
       if (current.name || current.phone || current.address || current.notes) return;
-      typed.current = { ...saved };
+      // The fulfilment on screen stays: it came from the cart, which already
+      // started from the saved choice and carries anything the diner picked
+      // since. Replacing it would undo a pickup chosen on an earlier visit.
+      typed.current = { ...current, name: saved.name, phone: saved.phone, address: saved.address };
       setFields(typed.current);
-      cart.setFulfilment(saved.fulfilment);
     });
     return () => {
       active = false;
     };
-    // Once, on mount: `cart.setFulfilment` is a stable state setter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // A synchronous guard against a double submit. `busy` is state, so two pay()
@@ -298,7 +306,7 @@ export default function CheckoutScreen() {
     // Not copied into `error`: the footer already states the gap and follows
     // the fields, whereas `error` would stay red after they were filled in.
     const { fulfilment, name, phone, address, notes } = typed.current;
-    const gap = orderGap(typed.current, cart.lines, shop);
+    const gap = orderGap(typed.current, cart.lines, gating);
     if (gap) return refuse(gap);
     inFlight.current = true;
     setError(null);
@@ -346,7 +354,7 @@ export default function CheckoutScreen() {
       // forget any earlier copy when the diner unticked "Angaben merken".
       // Best-effort either way; neither may hold up the payment.
       if (rememberRef.current) {
-        void saveDetails({ fulfilment, name: clean(name), phone: clean(phone), address: clean(address), notes: notes.trim() });
+        void saveDetails({ fulfilment, name: clean(name), phone: clean(phone), address: clean(address) });
       } else {
         void forgetSavedDetails();
       }
@@ -482,7 +490,7 @@ export default function CheckoutScreen() {
 
   const fee = cart.count > 0 ? deliveryFeeFor(fields.fulfilment) : 0;
   const total = cart.subtotal + fee;
-  const contactGap = orderGap(fields, cart.lines, shop);
+  const contactGap = orderGap(fields, cart.lines, gating);
   const isPickup = fields.fulfilment === 'pickup';
 
   return (
@@ -492,7 +500,7 @@ export default function CheckoutScreen() {
         <ThemedText type="subtitle">Deine Angaben</ThemedText>
 
         {/* Lieferung / Abholung, as portofino-essen.de offers. */}
-        <View role="radiogroup" aria-label="Lieferung oder Abholung" style={styles.modes}>
+        <View role="group" aria-label="Lieferung oder Abholung" style={styles.modes}>
           <ModeOption
             uiId="checkout-fulfilment-delivery"
             title="Lieferung"
@@ -524,9 +532,10 @@ export default function CheckoutScreen() {
             </ThemedText>
           </ThemedView>
         ) : null}
-        {shopUnavailable && !shop ? (
+        {shopUnavailable ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Die Öffnungszeiten konnten gerade nicht geladen werden.
+            Ob wir gerade Bestellungen annehmen, konnte nicht geladen werden. Du kannst
+            trotzdem bestellen; wir prüfen es beim Absenden.
           </ThemedText>
         ) : null}
 
@@ -590,8 +599,10 @@ export default function CheckoutScreen() {
           <BridgeButton
             uiId="checkout-remember"
             uiLabel="Angaben auf diesem Gerät für die nächste Bestellung merken"
-            role="checkbox"
-            aria-checked={remember}
+            // A toggle button rather than role="checkbox": react-native-web
+            // activates only role="button" with the Space key.
+            role="button"
+            aria-pressed={remember}
             style={styles.rememberRow}
             onPress={toggleRemember}>
             <View
@@ -618,7 +629,8 @@ export default function CheckoutScreen() {
               uiId="checkout-forget"
               uiLabel="Gespeicherte Angaben löschen"
               style={styles.forget}
-              onPress={() => void forget()}>
+              disabled={!!busy}
+            onPress={() => void forget()}>
               <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
                 Gespeicherte Angaben löschen
               </ThemedText>
@@ -709,9 +721,13 @@ function ModeOption({
   return (
     <BridgeButton
       uiId={uiId}
-      uiLabel={title}
-      role="radio"
-      aria-checked={selected}
+      // The label carries the fee and hours: the Bridge's label is also the
+      // accessibility label, and they are what the choice turns on.
+      uiLabel={`${title}, ${detail}`}
+      // Toggle buttons rather than radios: react-native-web activates only
+      // role="button" with the Space key.
+      role="button"
+      aria-pressed={selected}
       onPress={onPress}
       style={({ pressed }) => [
         styles.mode,

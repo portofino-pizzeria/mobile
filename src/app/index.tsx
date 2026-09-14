@@ -713,7 +713,7 @@ export default function MenuScreen() {
                 uiId="shop-call"
                 uiLabel={`Portofino anrufen: ${shop.phoneDisplay}`}
                 style={styles.link}
-                onPress={() => void Linking.openURL(`tel:${shop.phoneE164}`)}>
+                onPress={() => openLink(`tel:${shop.phoneE164}`)}>
                 <ThemedText type="small" themeColor="brandText" style={styles.linkText}>
                   {shop.phoneDisplay}
                 </ThemedText>
@@ -728,7 +728,7 @@ export default function MenuScreen() {
               styles.heroBtn,
               { backgroundColor: pressed ? theme.brandPressed : theme.brand },
             ]}
-            onPress={() => void Linking.openURL(routeUrl)}>
+            onPress={() => openLink(routeUrl)}>
             <ThemedText type="smallBold" themeColor="onBrand">
               Route planen
             </ThemedText>
@@ -811,6 +811,19 @@ function CategoryIcon({ categoryId, size, color }: { categoryId: string; size: n
       accessible={false}
     />
   );
+}
+
+/**
+ * Opens a tel: or web link. A device with no dialer rejects `tel:`; that is
+ * not an error worth surfacing, because the number stays visible on screen.
+ * On web a `tel:` link opens in the same tab, so no blank tab is left behind.
+ */
+function openLink(url: string): void {
+  if (Platform.OS === 'web') {
+    window.open(url, url.startsWith('tel:') ? '_self' : '_blank', 'noopener');
+    return;
+  }
+  Linking.openURL(url).catch(() => {});
 }
 
 /**
