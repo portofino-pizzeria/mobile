@@ -72,9 +72,9 @@ export function resolveDishArt(item: MenuItem): ResolvedArt | null {
   return bundled(DISH_ILLUSTRATIONS, item.id);
 }
 
-/** The line-art icon for a category, or `null`. Where icons appear is still
- *  `Declared UNKNOWN` in the spec, so no surface places one yet; the resolver
- *  exists so that decision is a placement, not a plumbing job. */
+/** The line-art icon for a category, or `null` when it has no `confirmed`
+ *  icon. The menu places icons in the category tabs and beside each section
+ *  heading (`imagery-and-iconography`, "Placement in the v0 menu"). */
 export function resolveCategoryIcon(categoryId: string): ResolvedArt | null {
   return bundled(CATEGORY_ICONS, categoryId);
 }

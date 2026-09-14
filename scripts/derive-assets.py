@@ -20,7 +20,8 @@ WHAT THIS SCRIPT WILL NOT DO, because the spec forbids it:
     caption is used only to VERIFY that, never to search with. A caption that
     disagrees with the menu aborts the run.
   * mark anything `confirmed`. That status means a human looked at the picture
-    beside the dish. This script writes `candidate`; a person promotes it.
+    beside the dish. This script writes `candidate`; a person promotes it, and
+    a re-run keeps that promotion only while the file's bytes are unchanged.
 
 Usage:
     python scripts/derive-assets.py --dry-run     # print the plan, write nothing
@@ -125,9 +126,39 @@ def cells_from_sheet(img: Image.Image, kind: str) -> list[tuple[int, int, int, i
             xs = np.where(sl.any(axis=0))[0]
             if len(ys) == 0 or len(xs) == 0:
                 continue
-            boxes.append((left + int(xs[0]), art_t + int(ys[0]),
-                          left + int(xs[-1]) + 1, art_t + int(ys[-1]) + 1))
+            box = (left + int(xs[0]), art_t + int(ys[0]),
+                   left + int(xs[-1]) + 1, art_t + int(ys[-1]) + 1)
+            if kind != "icons":
+                box = trim_caption(mask, box)
+            boxes.append(box)
     return boxes
+
+
+def trim_caption(mask: np.ndarray, box: tuple[int, int, int, int],
+                 max_caption: int = 25) -> tuple[int, int, int, int]:
+    """Cut a caption still attached to the bottom of one cell.
+
+    The band split above works per sheet ROW, so when a garnish in one cell hangs
+    down to within a few pixels of the caption line, the whole row keeps its
+    captions. Measured on `pizzas-2.png`: cells 1-6 shipped with "1. MARGHERITA"
+    through "6. QUATTRO FORMAGGI" printed under the art. This looks inside the
+    single cell instead: the last gap of blank rows in its bottom 40%, with no
+    more than `max_caption` rows of ink below it, is the caption boundary.
+    """
+    l, t, r, b = box
+    rows = mask[t:b, l:r].any(axis=1)
+    h = b - t
+    y = h - 1
+    while y > h * 0.6 and rows[y]:
+        y -= 1
+    if y <= h * 0.6 or h - 1 - y > max_caption:
+        return box
+    caption_top = t + y + 1
+    while y > 0 and not rows[y]:
+        y -= 1
+    # `pad` later grows every box by 6px; the gap above a caption can be as
+    # narrow as 2px, so the padded edge must stop at the caption, not cross it.
+    return (l, t, r, min(t + y + 1, caption_top - 6))
 
 
 def pad(box, img, px=6):
@@ -269,16 +300,36 @@ def main() -> int:
         print("\n--dry-run: nothing written")
         return 0
 
+    # A person's review is kept only for the exact bytes they saw. An entry
+    # whose derived file is byte-identical to the previous run keeps its
+    # status and review note; a re-cropped or regenerated picture drops back to
+    # `candidate`, because nobody has looked at THAT picture yet.
+    mf_prev = MOBILE / "assets" / "manifest.json"
+    previous = {}
+    if mf_prev.exists():
+        prev = json.loads(mf_prev.read_text(encoding="utf-8"))
+        previous = {e["key"]: e for e in prev.get("images", []) + prev.get("icons", [])}
+        manifest["notes"] = list(dict.fromkeys(manifest["notes"] + prev.get("notes", [])))
+
+    def carry_review(entry: dict) -> None:
+        old = previous.get(entry["key"])
+        if old and old.get("sha256") == entry["sha256"]:
+            entry["status"] = old.get("status", entry["status"])
+            if "review_note" in old:
+                entry["review_note"] = old["review_note"]
+
     for entry in images:
         out = MOBILE / entry["file"]
         out.parent.mkdir(parents=True, exist_ok=True)
         sheet.crop(tuple(entry["source"]["crop"])).save(out)
         entry["sha256"] = sha256(out)
+        carry_review(entry)
     for entry in icons:
         out = MOBILE / entry["file"]
         out.parent.mkdir(parents=True, exist_ok=True)
         to_tintable(isheet.crop(tuple(entry["source"]["crop"]))).save(out)
         entry["sha256"] = sha256(out)
+        carry_review(entry)
 
     manifest["sources"] = {
         f"design/sources/{args.pizza_sheet}": {

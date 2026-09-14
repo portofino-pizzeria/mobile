@@ -11,7 +11,8 @@ tenant, or at `/admin/coord/prompt-documents`.
 | File | Document | Operation |
 |---|---|---|
 | `domain_spec--visual-system--REPLACE.md` | `domain_spec/visual-system` | **replace** (whole body) |
-| `domain_spec--imagery-and-iconography--APPEND.md` | `domain_spec/imagery-and-iconography` | append |
+| `domain_spec--imagery-and-iconography--APPEND.md` | `domain_spec/imagery-and-iconography` | append (hero photograph), applied v1 → v2 |
+| `domain_spec--imagery-and-iconography--APPEND-2.md` | `domain_spec/imagery-and-iconography` | append (icon and illustration placement, first confirmations), applied v2 → v3 |
 
 The operator supplied a design made in v0 (source in `design/sources/portofino-pizzeria/`)
 to replace the previous visual system. The replace discards the reference-site

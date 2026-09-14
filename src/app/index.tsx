@@ -4,6 +4,8 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image as RNImage,
+  type ImageSourcePropType,
   Platform,
   ScrollView,
   StyleSheet,
@@ -19,7 +21,12 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api, errorReason } from '@/lib/api';
-import { describeArtResolution, resolveDishArt, type ResolvedArt } from '@/lib/dish-art';
+import {
+  describeArtResolution,
+  resolveCategoryIcon,
+  resolveDishArt,
+  type ResolvedArt,
+} from '@/lib/dish-art';
 import { formatEUR } from '@/lib/format';
 import { formatCacheAge, readCachedMenu, writeCachedMenu } from '@/lib/menu-cache';
 import type {
@@ -509,6 +516,11 @@ export default function MenuScreen() {
               // active state's indicator and needs 3:1 (the fill gold is 2.23:1).
               style={[styles.tab, { borderBottomColor: active ? theme.brandText : 'transparent' }]}
               onPress={() => scrollToSection(section.id)}>
+              <CategoryIcon
+                categoryId={section.id}
+                size={22}
+                color={active ? theme.text : theme.textSecondary}
+              />
               <ThemedText type="smallBold" themeColor={active ? 'text' : 'textSecondary'}>
                 {section.label}
               </ThemedText>
@@ -526,34 +538,49 @@ export default function MenuScreen() {
           key={section.id}
           style={[styles.column, styles.section]}
           onLayout={(e) => sectionY.current.set(section.id, e.nativeEvent.layout.y)}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            {section.label}
-          </ThemedText>
+          <View style={styles.sectionHead}>
+            <CategoryIcon categoryId={section.id} size={40} color={theme.brandText} />
+            <ThemedText type="subtitle" style={styles.sectionHeadTitle}>
+              {section.label}
+            </ThemedText>
+          </View>
           {section.items.map((item, index) => {
             const art = artByItem.get(item.id);
             return (
               <View
                 key={item.id}
                 style={[styles.row, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.backgroundSelected }]}>
-                {art ? (
-                  <Image source={art.source} alt={art.alt} style={styles.thumb} contentFit="cover" />
-                ) : section.illustrated ? (
-                  <View style={styles.thumb} />
-                ) : null}
-                <View style={styles.rowBody}>
-                  <ThemedText type="heading">
-                    {item.number ? (
+                {/* Picture and name side by side; allergens and the add
+                    buttons run the full width underneath, so a picture never
+                    squeezes a price. */}
+                <View style={styles.rowTop}>
+                  {art ? (
+                    <Image
+                      source={art.source}
+                      alt={art.alt}
+                      style={[styles.thumb, { backgroundColor: theme.backgroundElement }]}
+                      contentFit="cover"
+                    />
+                  ) : section.illustrated ? (
+                    <View style={styles.thumb} />
+                  ) : null}
+                  <View style={styles.rowTitle}>
+                    <ThemedText type="heading">
+                      {item.number ? (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {item.number}{'  '}
+                        </ThemedText>
+                      ) : null}
+                      {item.name}
+                    </ThemedText>
+                    {item.description ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        {item.number}{'  '}
+                        {item.description}
                       </ThemedText>
                     ) : null}
-                    {item.name}
-                  </ThemedText>
-                  {item.description ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {item.description}
-                    </ThemedText>
-                  ) : null}
+                  </View>
+                </View>
+                <View style={styles.rowBody}>
                   <ThemedText type="small" themeColor="textSecondary">
                     {allergenText(item, legendByCode)}
                   </ThemedText>
@@ -691,6 +718,25 @@ export default function MenuScreen() {
   );
 }
 
+/** A category's line-art icon, tinted — or nothing, when the category has no
+ *  `confirmed` icon. The icons are alpha masks (`render: tintable-alpha` in the
+ *  manifest), so the colour is the surface's, not the file's. Decorative: the
+ *  label beside it already names the category. */
+function CategoryIcon({ categoryId, size, color }: { categoryId: string; size: number; color: string }) {
+  const icon = resolveCategoryIcon(categoryId);
+  if (!icon) return null;
+  // React Native's Image rather than expo-image: expo-image ignores
+  // `tintColor` on web, which left the masks as faint grey sketches there.
+  return (
+    <RNImage
+      source={icon.source as ImageSourcePropType}
+      style={{ height: size, width: size * 1.5, tintColor: color }}
+      resizeMode="contain"
+      accessible={false}
+    />
+  );
+}
+
 /** `PORTOFINO.` — the design's wordmark: the gold serif, and an ink full stop
  *  (gold on the dark footer, as in `footer.tsx`). A logotype, so the gold carries no contrast
  *  requirement. */
@@ -764,6 +810,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
     borderBottomWidth: 2,
@@ -773,9 +822,14 @@ const styles = StyleSheet.create({
   menu: { paddingBottom: Spacing.xxxl },
   section: { paddingTop: Spacing.xxxl },
   sectionTitle: { marginBottom: Spacing.sm },
-  row: { flexDirection: 'row', gap: Spacing.lg, paddingVertical: Spacing.gutter },
-  thumb: { width: 80, height: 80, borderRadius: Radius.card },
-  rowBody: { flex: 1, gap: Spacing.xs },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.sm },
+  sectionHeadTitle: { flexShrink: 1 },
+  row: { gap: Spacing.xs, paddingVertical: Spacing.gutter },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
+  /** The illustrations are about 3:2; this keeps their garnish in frame. */
+  thumb: { width: 120, height: 80, borderRadius: Radius.card },
+  rowTitle: { flex: 1, gap: Spacing.xs },
+  rowBody: { gap: Spacing.xs },
   variants: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
   addBtn: {
     flexDirection: 'row',

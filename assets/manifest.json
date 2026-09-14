@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-11T11:54:20Z",
+  "generated_at": "2026-09-14T09:44:27Z",
   "generated_by": "scripts/derive-assets.py",
   "spec": "coord domain_spec/imagery-and-iconography (tenant pizzeria)",
   "join_keys": {
@@ -18,16 +18,16 @@
           24,
           29,
           276,
-          217
+          196
         ]
       },
       "alt_de": "Illustration: Pizza Margherita mit Oregano",
       "maps_to": [
         "1-pizza-margherita"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
-      "sha256": "f9982c1bac0451433cf8b74e52af5b98bc8a07b3f2354c2c2ae683a1dfe3c531"
+      "sha256": "5bbe31798cfb7c887ed27ab56728d96488bf81260f76946aa32d5b9280d42553"
     },
     {
       "key": "menu/pizza/2-pizza-cipolla",
@@ -39,16 +39,16 @@
           288,
           33,
           531,
-          217
+          196
         ]
       },
       "alt_de": "Illustration: Pizza Cipolla mit Zwiebeln",
       "maps_to": [
         "2-pizza-cipolla"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
-      "sha256": "52d8f9bc28fadf30e7b983af5cdc29852356c2a1063fd7e1b6da910a926070b8"
+      "sha256": "835dc81804c80c419558514de10858cdbf88f4096ea1934a6bd5c93227bdc1b7"
     },
     {
       "key": "menu/pizza/3-pizza-napoli",
@@ -60,16 +60,16 @@
           539,
           30,
           781,
-          217
+          194
         ]
       },
       "alt_de": "Illustration: Pizza Napoli mit Oliven, Sardellen, Knoblauch",
       "maps_to": [
         "3-pizza-napoli"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
-      "sha256": "baa5580f83b6bde6c8b832fcd2373bc93e1643209013c66a1f4f933ad0ad8736"
+      "sha256": "f7815fe1d6be6e9e62ce420f061bb4984da0d7e5550957d1fcc6bc6583a4f67f"
     },
     {
       "key": "menu/pizza/4-pizza-diavolo",
@@ -81,16 +81,16 @@
           782,
           31,
           1024,
-          218
+          198
         ]
       },
       "alt_de": "Illustration: Pizza Diavolo mit Paprika, Tabasco",
       "maps_to": [
         "4-pizza-diavolo"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
-      "sha256": "72a5761b6b8bd0d44db268a2cd1e328ba566b0beb31cc4624ab8f6e0b8289707"
+      "sha256": "a048f382fd08009aab929dff7cd234c9ca8213cad460d0d53ecfa6f5a8f3f392"
     },
     {
       "key": "menu/pizza/5-pizza-salami",
@@ -102,16 +102,16 @@
           1033,
           32,
           1263,
-          218
+          197
         ]
       },
       "alt_de": "Illustration: Pizza Salami mit Salami",
       "maps_to": [
         "5-pizza-salami"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
-      "sha256": "96a878946be3ba09027db2a4f14c6665b5170d995921a646f2f54308de3824e7"
+      "sha256": "3fad9fde871fb180d614e8302fe9ab53847d18d11e54d2d4774adde5f871de59"
     },
     {
       "key": "menu/pizza/6-pizza-quattro-formaggi",
@@ -123,16 +123,16 @@
           1282,
           34,
           1521,
-          220
+          197
         ]
       },
       "alt_de": "Illustration: Pizza Quattro Formaggi mit 4 verschiedene Käsesorten",
       "maps_to": [
         "6-pizza-quattro-formaggi"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
-      "sha256": "c0f593f44fe7908cc31f1265299a82ac4192bdcccc437ed2b41b02c2d383436b"
+      "sha256": "d4c7a11c1e596312008f669bb990697bc8b89874359e2f8f032de144c5c3b747"
     },
     {
       "key": "menu/pizza/7-pizza-prosciutto",
@@ -151,7 +151,7 @@
       "maps_to": [
         "7-pizza-prosciutto"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "81c50faec240787a3943bd31c7071c46d04bd4e3f51e5775e739f73595286e20"
     },
@@ -172,7 +172,7 @@
       "maps_to": [
         "8-pizza-funghi"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "3dd128b401d05652a84705bc6a29a5599a39679e5527559c6aaae22386068d27"
     },
@@ -193,7 +193,7 @@
       "maps_to": [
         "9-pizza-toscana"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "2baa795b95de78c1622d180c3821a45614b081bd8bd0446d39ccecfb352330e7"
     },
@@ -214,7 +214,7 @@
       "maps_to": [
         "10-pizza-hawaii"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "c3f1d616cc71da08ce43de01a95477ee188a6d715a40d919f7b8053fad273efd"
     },
@@ -235,7 +235,7 @@
       "maps_to": [
         "11-pizza-marinara"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "1942e94d5749a3ebad9373ac5eff2dec132d1ad220dcc6fd8c8930487d668152"
     },
@@ -256,7 +256,7 @@
       "maps_to": [
         "12-pizza-mimmo"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "6b152058d6c879eb9471a9e144c3592b43c1826e01ffab7e36665e26a7c790fa"
     },
@@ -277,7 +277,7 @@
       "maps_to": [
         "13-calzone"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "4b2d4171175fd83df0970380c63d44edf96d937570a3b155e98bfa9cb320b060"
     },
@@ -298,7 +298,7 @@
       "maps_to": [
         "14-pizza-don-camillo"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "a4080252ec2e671c15ae6616dc334440c01ea7e236ccb048c7c85bbbade89541"
     },
@@ -319,7 +319,7 @@
       "maps_to": [
         "15-pizza-quattro-stagioni"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "5e496b65b0b9c7ebb596328aabb3dc92fce4fe8a3edd8c0ed2064723fbfd7b2b"
     },
@@ -340,7 +340,7 @@
       "maps_to": [
         "16-pizza-capricciosa"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "b6983391a9729495a29a21dc64e6dd142059ea08c5068c7b91ed86b1088d9714"
     },
@@ -361,7 +361,7 @@
       "maps_to": [
         "17-pizza-ozeano"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "98872ba3038581d2198183ba81e86aec8a5128aacbe27a458105169c817c3c45"
     },
@@ -382,7 +382,7 @@
       "maps_to": [
         "18-pizza-mamma-mia"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "3b07fee6e0a87f752a42b606c66925f4d0aae469b22ac409109c0c60a165b937"
     },
@@ -403,7 +403,7 @@
       "maps_to": [
         "19-pizza-gamberetti"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "39c11cd0742724d46e24d1180182dc540abdfe8d48dec7dc3cde856a3b86ede6"
     },
@@ -424,7 +424,7 @@
       "maps_to": [
         "20-pizza-pepone"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "c65c4b1ba8f459748d76c394ceef60a1914a1dbebd41d4aed0c0199575446ed3"
     },
@@ -445,7 +445,7 @@
       "maps_to": [
         "21-pizza-sandro-s-spezial"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "038acc0bcc35a8075d748a5d3d949143d4142831733819f92cfd6cd385414ebd"
     },
@@ -466,7 +466,7 @@
       "maps_to": [
         "22-pizza-romino-s"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "03bc1d846ded62bf91ab9e1fce803d4a87ef788f8b747d83ef970082e6ddc636"
     },
@@ -487,7 +487,7 @@
       "maps_to": [
         "23-pizza-siciliano"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "1c102783802816f9ef6a2cd8d3ba0502a688fca350613ff64be52bb7735a40eb"
     },
@@ -508,7 +508,7 @@
       "maps_to": [
         "24-pizza-venezia"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "8994f43c214fdd12b0225e2415bc993d00b59ca74ce925f4ecd60b332e50ec3f"
     },
@@ -529,7 +529,7 @@
       "maps_to": [
         "25-pizza-firenze"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "1f9e71f44cbd573fd1284055f206043b7537b5a88768ef32abdab96fd58311ea"
     },
@@ -550,7 +550,7 @@
       "maps_to": [
         "26-pizza-spaghetti"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "0e2c933605fe7e7b913c12a882bc41297ee617647329c812b04a9ea9912f81ae"
     },
@@ -571,7 +571,7 @@
       "maps_to": [
         "27-pizza-de-pollo"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "ea3eab50ee85925684e9d76b1220e1c2341a38e9fade4fd3931661292ee2a7dc"
     },
@@ -592,7 +592,7 @@
       "maps_to": [
         "28-pizza-portofino"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "401836618868bfe6001562190f6745951404cf05629d6a656ce7ae0464a5a326"
     },
@@ -613,7 +613,7 @@
       "maps_to": [
         "29-pizza-de-parma"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "sha256": "1677737fd67fe47ed1ea38030c35bffeaedd0ad8c431acb3935b1e8667637a38"
     }
@@ -635,7 +635,7 @@
       "maps_to": [
         "pizza"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "31134966df054bce4f11b8c3c8af9670cf7e3b98e5de310835c786d51b0a6c34"
@@ -656,7 +656,7 @@
       "maps_to": [
         "vorspeisen"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "7218b5a516786893996cb1ba3bd4186e10c4aa3953c7c28034e54857e4d3a048"
@@ -677,7 +677,7 @@
       "maps_to": [
         "antipasti-misto"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "e806bbb6047d8a23f9bf3d1d1248d3cfa2cf86df88f4f3589591dccf51b93705"
@@ -698,7 +698,7 @@
       "maps_to": [
         "nudeln"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "e680d2a21731a458ca2d0b0043064b0ab0352040e0a312da0fbaf844d92a6b6a"
@@ -719,7 +719,7 @@
       "maps_to": [
         "frisch-aus-dem-ofen"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "a54859402173b84d17995a1b22621dc7e22f8f1691a6a0ee40d38595b04b2e28"
@@ -740,7 +740,7 @@
       "maps_to": [
         "mexikanisch"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "ebd41d1e19f84f0bd3d7b19620f327103c2cd8a1011a0a12c25986ad7379b8e8"
@@ -761,7 +761,7 @@
       "maps_to": [
         "salate"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "83e04527e1ced1c89356ea5c094d37709908cc2c2b1a76583a803299c1ed16d7"
@@ -782,7 +782,7 @@
       "maps_to": [
         "vegetarische-auflaeufe"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "1538de5f51fbf22b65558d7d672c9bfa7a6c77900b2781fba35ba7bd852268b4"
@@ -803,7 +803,7 @@
       "maps_to": [
         "fisch"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "fe1ed1ccaf87ba8cd98ff12ebb57f46e91dc8d024ccc47d571d62250734e4d19"
@@ -824,7 +824,7 @@
       "maps_to": [
         "schweinefilet"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "e1134e5e243de1b6872c97eae7a7eac23ee3ac4a962b36513c0f3a936899f9ac"
@@ -845,7 +845,7 @@
       "maps_to": [
         "schnitzel"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "db5e7477c085fa4df1f4cede944f2f077c3c1ab4d002245d543a1b036927732e"
@@ -866,7 +866,7 @@
       "maps_to": [
         "getraenke"
       ],
-      "status": "candidate",
+      "status": "confirmed",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
       "sha256": "4f8d33652a8801c5ad7a82307b2b5ec7f1614b9c5b0d0fc533088a604bfee755"
@@ -890,7 +890,8 @@
       "status": "candidate",
       "provenance": "ai-generated",
       "render": "tintable-alpha",
-      "sha256": "7a090268e85e3bb71eefa6685e6b41486259a6ff30f1cfe11ef3b8ff45773d0b"
+      "sha256": "7a090268e85e3bb71eefa6685e6b41486259a6ff30f1cfe11ef3b8ff45773d0b",
+      "review_note": "2026-09-14 operator review: not confirmed — a gift box reads as 'voucher', not 'offer'. Kept off the surface until a better icon exists."
     }
   ],
   "unmapped_menu_items": [
@@ -1011,7 +1012,8 @@
   ],
   "notes": [
     "status is 'candidate' for every entry: a human must confirm that each picture is that dish before it renders. See the clause an-image-beside-a-price-is-a-claim in policy/ux-priorities.",
-    "categories_without_icon are the categories publishing zero items; an icon for them would be a navigational promise to an empty room."
+    "categories_without_icon are the categories publishing zero items; an icon for them would be a navigational promise to an empty room.",
+    "2026-09-14: the operator confirmed 29 dish illustrations and 12 category icons after reviewing each picture beside its dish name and toppings; icons/category/angebote stays candidate."
   ],
   "sources": {
     "design/sources/pizzas-2.png": {
