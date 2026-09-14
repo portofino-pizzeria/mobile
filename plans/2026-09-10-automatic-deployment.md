@@ -38,9 +38,10 @@
 > `build-sha` with `main`'s head as read at that moment. It raises the same
 > `Web deploy failed` issue when the site or its bundle does not answer three
 > times, when the bundle is not JavaScript, or when the sha differs and the
-> head is older than fifteen minutes with no deploy of it queued or running.
-> It shares the runner pool, and so the outage, but not the moment: the first
-> tick that acquires a runner alarms.
+> head is older than fifteen minutes with no deploy of it queued or running
+> (or a deploy of it stuck longer than thirty). The first tick that finds the
+> site current closes the issue again. It shares the runner pool, and so the
+> outage, but not the moment: the first tick that acquires a runner alarms.
 >
 > Superseded by operator decision 2026-09-12 (`backend#11`): backend deploys no
 > longer wait on a human. The "required reviewer" in Phase 4 and in "Decisions
