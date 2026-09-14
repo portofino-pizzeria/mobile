@@ -3,7 +3,7 @@
 > **Status:** IMPLEMENTED 2026-09-12 — every phase is merged; NOT yet SHIPPED,
 > because the plan's own "Verification of this plan's own work" is only partly
 > met. Ledger, measured 2026-09-12 rather than inferred from merges (backend
-> rows re-measured 2026-09-13):
+> rows re-measured 2026-09-13, rollback rows measured 2026-09-14):
 >
 > | Phase | Landed as | State |
 > |---|---|---|
@@ -14,13 +14,31 @@
 > | 4a backend CI | `backend#1` | working — green on every PR and master push |
 > | 4b backend deploy | `backend#1`, `#2`, `#4`, `#8`, `#11` | **working, with no reviewer** — `backend#11` removed the human approval gate (operator decision 2026-09-12) and the `production-backend` environment now carries only its master-only branch policy. Master pushes deploy unattended: runs 34746809481, 34747478263 and 34747755643 (2026-09-13) all green; the last carried App Runner operation `b65ae19b3c9e42d3ab85d036d36747e8`, named in its job log (verification 2 ✔) |
 > | 5 retire the Terraform path | `infra#1`, applied; `infra#3` follow-up | **done** — `terraform plan` against the live state (serial 16, 2026-09-12) shows no `null_resource`, no change to `aws_apprunner_service.backend` (not tainted by the dropped `depends_on`) and no infrastructure diff; the `null` provider #1 retained for the destroy is removed by `infra#3` (verification 5 ✔) |
+>> | Rollback, web | `mobile#6`, `#9` | **exercised** — Deploy web run 34719947683 (2026-09-12 21:26Z, `workflow_dispatch`, `ref=07c2606`, then the parent of `main`'s head) built and published that commit, and its own live assertion read `build-sha=07c2606db982…` from portofino-essen.com; run 34720114949 three minutes later published `main`'s head `8716c97` again (its `notify-recovery` ran, the rollback's did not — the job is keyed on the published sha equalling `main`'s head, and behaved). Both green |
+> | Rollback, backend | `backend#4` | **exercised** — Deploy backend run 34812439656 (2026-09-14 06:12Z, `workflow_dispatch`, `sha=603eb23`, the parent of `master`'s tip) took the retag path: "Found portofino-production-backend:603eb235… (sha256:638afa1a…): retagging, not rebuilding", no snapshot (`drizzle/` identical to the live commit), App Runner operation `c0355e483f514ed384888f4611de55c8` SUCCEEDED, "Verified: 603eb235… is live", and `/api/health` read `commit: 603eb235…` independently. Run 34812853560 rolled forward the same way (operation `32477190028c4fd4995af09975fb4eca`) and `/api/health` reads `577f215…`, `master`'s tip, again. The target was chosen to differ from the tip by one comment line, so an interrupted exercise would have left production functionally unchanged |
 >
-> Outstanding before SHIPPED: verification 3 (a web deploy observed mid-flight
-> from a warm-cache browser) and 4 (both rollbacks executed — the one
-> `workflow_dispatch` of Deploy web on 2026-09-11 deployed the tip of `main`,
-> not an older sha; Deploy backend has had no `workflow_dispatch` run at all as
-> of 2026-09-13, so the backend retag rollback is still unexercised).
-> Verification 2 is met (see the 4b row).
+> Outstanding before SHIPPED: verification 3 only (a web deploy observed
+> mid-flight from a warm-cache browser — a person at a browser while a deploy
+> that changes the bundle is running; it cannot be checked from CI, and none of
+> the sessions so far has been at one at the right moment). Verifications 1, 2,
+> 4 and 5 are met (rows above). Until 2026-09-14 this block said the web
+> rollback was unexercised; it had been run on 2026-09-12, and the text was
+> corrected by reading the run list rather than the block.
+>
+> **A gap the pipeline showed on 2026-09-13, closed by `mobile` follow-up to
+> `#20`.** The push deploy of `c25c2d4` (Deploy web run 34748395985, 08:43Z)
+> was never started — GitHub: "The job was not started because it repeatedly
+> failed to be acquired (5 attempts)" — and `notify-failure`, in the same run,
+> died the same way. No issue was opened; `main`'s head was not live until the
+> next unrelated push (`f955875`, 14:54Z) happened to ship it, six hours later.
+> The failure-notification decision below assumed the alarm could run when the
+> deploy could not, and a hosted-runner outage falsifies that. What closes it
+> is `.github/workflows/web-site-current.yml`: every half hour it fetches the
+> site, compares the `build-sha` with `main`'s head, proves the referenced
+> bundle is served as JavaScript, and raises the same `Web deploy failed` issue
+> when either fails — once the head is older than fifteen minutes and no
+> deploy of it is queued or running. It shares the runner pool, and so the
+> outage, but not the moment: the first tick that acquires a runner alarms.
 >
 > Superseded by operator decision 2026-09-12 (`backend#11`): backend deploys no
 > longer wait on a human. The "required reviewer" in Phase 4 and in "Decisions
@@ -263,7 +281,8 @@ retagging a known-good `:<sha>` to `:latest`; a rollback across a migration is
 **not** a rollback and must be treated as a forward fix.
 
 **Both paths are executed once, on purpose, before this plan is done.** An
-untested rollback is a claim, not a capability.
+untested rollback is a claim, not a capability. *(Done: web on
+2026-09-12, backend on 2026-09-14 — runs in the Status block.)*
 
 ## Decisions taken during vetting
 
@@ -276,7 +295,10 @@ untested rollback is a claim, not a capability.
 - **Failure notification is in scope.** Open question 3 was the difference
   between fixing the problem and moving it: today a stale site is invisible;
   after this, a **failed deploy** would be invisible too. Every deploy workflow
-  gets an `if: failure()` notification step.
+  gets an `if: failure()` notification step. *(Extended 2026-09-14: an
+  `if: failure()` step cannot run when the run itself never starts — measured
+  on 2026-09-13, see the Status block — so the web side also gets a scheduled
+  watchdog that asks the site directly.)*
 - **`infra` CI stays out of scope.** `terraform plan` on PR needs state access
   this plan deliberately does not grant CI.
 
