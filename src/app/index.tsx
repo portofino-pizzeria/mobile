@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Image as RNImage,
   type ImageSourcePropType,
   Platform,
@@ -19,6 +20,7 @@ import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing, Type } from '@/constants/theme';
+import { useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, errorReason } from '@/lib/api';
 import {
@@ -118,6 +120,7 @@ export default function MenuScreen() {
   const theme = useTheme();
   const router = useRouter();
   const cart = useCart();
+  const { shop } = useShop();
 
   const [menu, setMenu] = useState<Menu | null>(null);
   /** Non-null exactly when what is on screen came out of the offline cache. */
@@ -461,6 +464,7 @@ export default function MenuScreen() {
           <ThemedText type="default" themeColor="textSecondary" style={styles.heroLead}>
             Pizza, Pasta und mehr — direkt bei Portofino in Essen bestellen.
           </ThemedText>
+          {shop ? <OpenStatus shop={shop} /> : null}
           <BridgeButton
             uiId="hero-to-menu"
             uiLabel="Speisekarte entdecken"
@@ -581,6 +585,13 @@ export default function MenuScreen() {
                   </View>
                 </View>
                 <View style={styles.rowBody}>
+                  {item.pickupOnly ? (
+                    <View style={[styles.pickupBadge, { borderColor: theme.brandText }]}>
+                      <ThemedText type="smallBold" themeColor="brandText" style={styles.pickupBadgeText}>
+                        Nur zur Abholung
+                      </ThemedText>
+                    </View>
+                  ) : null}
                   <ThemedText type="small" themeColor="textSecondary">
                     {allergenText(item, legendByCode)}
                   </ThemedText>
@@ -663,8 +674,72 @@ export default function MenuScreen() {
     );
   }
 
-  // `components/footer.tsx`, without its Instagram and contact links: the app
-  // has no confirmed address for either.
+  // `components/contact.tsx` — "Kommt vorbei." — with the shop's own address,
+  // hours and phone from `GET /api/shop`, which come from the footer of
+  // portofino-essen.de. Absent while that read has not answered: the band says
+  // nothing rather than something unconfirmed.
+  if (shop) {
+    const routeUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${shop.street}, ${shop.postalCode} ${shop.city}`,
+    )}`;
+    blocks.push(
+      <View key="contact" style={styles.band}>
+        <View style={[styles.column, styles.contact]}>
+          <ThemedText type="eyebrow">Dove trovarci</ThemedText>
+          <ThemedText type="subtitle">Kommt vorbei.</ThemedText>
+          <View style={[styles.contactGrid, wide && styles.contactGridWide]}>
+            <View style={[styles.contactBlock, wide && styles.contactBlockWide]}>
+              <ThemedText type="smallBold">Adresse</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {shop.street}
+                {'\n'}
+                {shop.postalCode} {shop.city}
+              </ThemedText>
+            </View>
+            <View style={[styles.contactBlock, wide && styles.contactBlockWide]}>
+              <ThemedText type="smallBold">Öffnungszeiten</ThemedText>
+              {shop.hours.map((row) => (
+                <ThemedText key={row.days} type="small" themeColor="textSecondary">
+                  {row.days}: {row.hours}
+                </ThemedText>
+              ))}
+              <ThemedText type="small" themeColor="textSecondary">
+                Lieferung bis {shop.deliveryUntil} Uhr
+              </ThemedText>
+            </View>
+            <View style={[styles.contactBlock, wide && styles.contactBlockWide]}>
+              <ThemedText type="smallBold">Telefon</ThemedText>
+              <BridgeButton
+                uiId="shop-call"
+                uiLabel={`Portofino anrufen: ${shop.phoneDisplay}`}
+                style={styles.link}
+                onPress={() => void Linking.openURL(`tel:${shop.phoneE164}`)}>
+                <ThemedText type="small" themeColor="brandText" style={styles.linkText}>
+                  {shop.phoneDisplay}
+                </ThemedText>
+              </BridgeButton>
+            </View>
+          </View>
+          <BridgeButton
+            uiId="shop-route"
+            uiLabel="Route zu Portofino planen"
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              styles.heroBtn,
+              { backgroundColor: pressed ? theme.brandPressed : theme.brand },
+            ]}
+            onPress={() => void Linking.openURL(routeUrl)}>
+            <ThemedText type="smallBold" themeColor="onBrand">
+              Route planen
+            </ThemedText>
+          </BridgeButton>
+        </View>
+      </View>,
+    );
+  }
+
+  // `components/footer.tsx`, without its Instagram link: the shop has given no
+  // account to link to.
   blocks.push(
     <View
       key="footer"
@@ -738,6 +813,32 @@ function CategoryIcon({ categoryId, size, color }: { categoryId: string; size: n
   );
 }
 
+/**
+ * Whether orders are taken right now, from the same status the order route
+ * enforces. A dot and a sentence rather than a colour alone: the declared
+ * palette has no status colours, and the sentence carries the meaning.
+ */
+function OpenStatus({ shop }: { shop: NonNullable<ReturnType<typeof useShop>['shop']> }) {
+  const theme = useTheme();
+  const { pickup, delivery } = shop.status;
+  const open = pickup.available || delivery.available;
+  const text = delivery.available
+    ? `Jetzt geöffnet · Lieferung bis ${delivery.until} Uhr · Abholung bis ${pickup.until} Uhr`
+    : pickup.available
+      ? `Jetzt nur Abholung · bis ${pickup.until} Uhr`
+      : pickup.next
+        ? `Geschlossen · Bestellungen wieder ab ${pickup.next.weekday}, ${pickup.next.time} Uhr`
+        : 'Geschlossen';
+  return (
+    <View aria-live="polite" style={[styles.status, { backgroundColor: theme.background }]}>
+      <View style={[styles.statusDot, { backgroundColor: open ? theme.brandText : theme.textSecondary }]} />
+      <ThemedText type="small" style={styles.statusText}>
+        {text}
+      </ThemedText>
+    </View>
+  );
+}
+
 /** `PORTOFINO.` — the design's wordmark: the gold serif, and an ink full stop
  *  (gold on the dark footer, as in `footer.tsx`). A logotype, so the gold carries no contrast
  *  requirement. */
@@ -798,6 +899,29 @@ const styles = StyleSheet.create({
   heroCopy: { gap: Spacing.md },
   heroCopyWide: { flex: 1 },
   heroLead: { maxWidth: 384, marginTop: Spacing.sm },
+  status: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.pill,
+    maxWidth: '100%',
+  },
+  statusDot: { width: 8, height: 8, borderRadius: Radius.pill },
+  statusText: { flexShrink: 1 },
+  pickupBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: Radius.pill, paddingHorizontal: Spacing.sm },
+  pickupBadgeText: { fontSize: 12, lineHeight: 20 },
+  contact: { gap: Spacing.md },
+  contactGrid: { gap: Spacing.xl, marginTop: Spacing.sm },
+  contactGridWide: { flexDirection: 'row' },
+  contactBlock: { gap: Spacing.xs },
+  // Side by side only on a wide screen. In the phone column `flex: 1` would
+  // shrink each block below its text, and the lines would overlap.
+  contactBlockWide: { flex: 1 },
+  link: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  linkText: { textDecorationLine: 'underline' },
   heroBtn: { alignSelf: 'flex-start', marginTop: Spacing.lg },
 
   // --- menu ---

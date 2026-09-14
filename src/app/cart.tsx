@@ -8,10 +8,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
 import { cartLineKey, useCart } from '@/state/cart';
 
-const DELIVERY_FEE = 299; // must match backend DELIVERY_FEE_CENTS
 
 export default function CartScreen() {
   const theme = useTheme();
@@ -49,7 +49,8 @@ export default function CartScreen() {
     );
   }
 
-  const total = cart.subtotal + DELIVERY_FEE;
+  const fee = deliveryFeeFor(cart.fulfilment);
+  const total = cart.subtotal + fee;
 
   return (
     <ThemedView style={styles.container}>
@@ -117,8 +118,15 @@ export default function CartScreen() {
 
         <View style={[styles.summary, { borderTopColor: theme.backgroundSelected }]}>
           <SummaryRow label="Zwischensumme" value={formatEUR(cart.subtotal)} />
-          <SummaryRow label="Lieferung" value={formatEUR(DELIVERY_FEE)} />
+          <SummaryRow
+            label={cart.fulfilment === 'pickup' ? 'Abholung' : 'Lieferung'}
+            value={formatEUR(fee)}
+          />
           <SummaryRow label="Gesamt" value={formatEUR(total)} bold />
+          <ThemedText type="small" themeColor="textSecondary" style={styles.modeHint}>
+            Lieferung oder Abholung wählst du an der Kasse. Bei Abholung entfällt die
+            Liefergebühr.
+          </ThemedText>
         </View>
       </ScrollView>
 
@@ -167,6 +175,7 @@ const styles = StyleSheet.create({
   lineTotal: { minWidth: 64, textAlign: 'right' },
   summary: { marginTop: Spacing.sm, paddingTop: Spacing.lg, gap: Spacing.xs, borderTopWidth: 1 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  modeHint: { marginTop: Spacing.sm },
   footer: { paddingHorizontal: Spacing.gutter, paddingVertical: Spacing.lg, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   primaryBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 44 },
 });

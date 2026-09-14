@@ -25,6 +25,16 @@ export async function readStoredText(key: string): Promise<string | null> {
   }
 }
 
+export function removeStoredText(key: string): Promise<void> {
+  try {
+    const file = fileFor(key);
+    if (file.exists) file.delete();
+  } catch {
+    // Best-effort, like every operation here.
+  }
+  return Promise.resolve();
+}
+
 export function writeStoredText(key: string, value: string): Promise<void> {
   try {
     const file = fileFor(key);

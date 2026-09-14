@@ -2,12 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 
-import type { MenuItem, MenuVariant } from '@/lib/types';
+import { loadSavedDetails } from '@/lib/saved-details';
+import type { Fulfilment, MenuItem, MenuVariant } from '@/lib/types';
 
 /** A cart line is an (item, variant) pair, never an item on its own: a klein
  *  and a groß Margherita are two different purchasable things at two different
@@ -28,6 +30,10 @@ interface CartContextValue {
   lines: CartLine[];
   count: number;
   subtotal: number;
+  /** Lieferung or Abholung. Lives with the cart so the cart and the checkout
+   *  show the same fee; starts from the diner's saved choice, if any. */
+  fulfilment: Fulfilment;
+  setFulfilment: (next: Fulfilment) => void;
   add: (item: MenuItem, variant: MenuVariant, quantity?: number) => void;
   setQuantity: (menuItemId: string, variantId: string, quantity: number) => void;
   remove: (menuItemId: string, variantId: string) => void;
@@ -42,6 +48,19 @@ function isLine(line: CartLine, menuItemId: string, variantId: string): boolean 
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [fulfilment, setFulfilment] = useState<Fulfilment>('delivery');
+
+  // The last order's choice, from this device. Read once; the checkout owns it
+  // from then on.
+  useEffect(() => {
+    let active = true;
+    loadSavedDetails().then((saved) => {
+      if (active && saved) setFulfilment(saved.fulfilment);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const add = useCallback(
     (item: MenuItem, variant: MenuVariant, quantity = 1) => {
@@ -81,8 +100,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const count = lines.reduce((n, l) => n + l.quantity, 0);
     // Prices live on the variant — the item has none.
     const subtotal = lines.reduce((s, l) => s + l.variant.price * l.quantity, 0);
-    return { lines, count, subtotal, add, setQuantity, remove, clear };
-  }, [lines, add, setQuantity, remove, clear]);
+    return { lines, count, subtotal, fulfilment, setFulfilment, add, setQuantity, remove, clear };
+  }, [lines, fulfilment, add, setQuantity, remove, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

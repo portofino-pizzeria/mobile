@@ -13,17 +13,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BridgeInput } from '@/components/bridge';
+import { BridgeButton, BridgeInput } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { closedReason, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError, errorReason, type PaymentProviders } from '@/lib/api';
+import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
-import type { PaymentProvider } from '@/lib/types';
-import { useCart } from '@/state/cart';
-
-const DELIVERY_FEE = 299;
+import { forgetSavedDetails, loadSavedDetails, saveDetails } from '@/lib/saved-details';
+import type { Fulfilment, PaymentProvider, ShopInfo } from '@/lib/types';
+import { useCart, type CartLine } from '@/state/cart';
 
 /**
  * Digits a phone number must contain. MIRRORS `MIN_PHONE_DIGITS` in
@@ -140,7 +141,7 @@ function PayButton({
   );
 }
 
-type Fields = { name: string; phone: string; address: string; notes: string };
+type Fields = { fulfilment: Fulfilment; name: string; phone: string; address: string; notes: string };
 
 /**
  * Why this order cannot be placed yet, or null. The contact fields use the
@@ -157,16 +158,34 @@ type Fields = { name: string; phone: string; address: string; notes: string };
  * sees that German refusal in the error line above the buttons, not a disabled
  * button.
  */
-function orderGap({ name, phone, address, notes }: Fields): string | null {
+function orderGap(
+  { fulfilment, name, phone, address, notes }: Fields,
+  lines: readonly CartLine[],
+  shop: ShopInfo | null,
+): string | null {
+  // What the order route would refuse whatever the diner types: the shop is
+  // closed for this kind of order, or the cart holds a pickup-only offer. Shown
+  // first, because no edit to the fields fixes either. With no status (a
+  // failed read), nothing is blocked here: the server still enforces the hours.
+  const closed = shop ? closedReason(shop, fulfilment) : null;
+  if (closed) return closed;
+  if (fulfilment === 'delivery') {
+    const pickupOnly = lines.find((l) => l.item.pickupOnly);
+    if (pickupOnly) {
+      return `„${pickupOnly.item.name}“ gibt es nur für Selbstabholer. Bitte Abholung wählen.`;
+    }
+  }
   const gaps: string[] = [];
   if (!clean(name)) gaps.push('Name');
   if (!clean(phone)) gaps.push('Telefonnummer');
   else if ((phone.match(/\d/g) ?? []).length < MIN_PHONE_DIGITS) gaps.push('gültige Telefonnummer');
-  if (!clean(address)) gaps.push('Lieferadresse');
+  if (fulfilment === 'delivery' && !clean(address)) gaps.push('Lieferadresse');
   if (gaps.length > 0) return `Bitte noch angeben: ${gaps.join(', ')}.`;
   if (clean(name).length > MAX_LENGTH.name) return 'Der Name ist zu lang.';
   if (clean(phone).length > MAX_LENGTH.phone) return 'Die Telefonnummer ist zu lang.';
-  if (clean(address).length > MAX_LENGTH.address) return 'Die Lieferadresse ist zu lang.';
+  if (fulfilment === 'delivery' && clean(address).length > MAX_LENGTH.address) {
+    return 'Die Lieferadresse ist zu lang.';
+  }
   if (notes.trim().length > MAX_LENGTH.notes) return 'Der Hinweis ist zu lang.';
   return null;
 }
@@ -181,8 +200,20 @@ export default function CheckoutScreen() {
   // `typed`: the UI Bridge reaches pay() through a ref that is one commit
   // behind (see payRef below), and state read from that pay() would be the
   // previous render's.
-  const [fields, setFields] = useState<Fields>({ name: '', phone: '', address: '', notes: '' });
+  const [fields, setFields] = useState<Fields>({
+    fulfilment: cart.fulfilment,
+    name: '',
+    phone: '',
+    address: '',
+    notes: '',
+  });
   const typed = useRef(fields);
+  const { shop, unavailable: shopUnavailable } = useShop();
+  // "Angaben merken": on by default, because typing an address twice is what
+  // `audience_profile/hungry-diner` says ends it. Kept on this device only.
+  const [remember, setRemember] = useState(true);
+  const rememberRef = useRef(remember);
+  const [hasSaved, setHasSaved] = useState(false);
   const [providers, setProviders] = useState<PaymentProviders | null>(null);
   const [busy, setBusy] = useState<PaymentProvider | null>(null);
   // `clearsOnEdit` marks an error that is safe to hide once the diner edits a
@@ -197,14 +228,53 @@ export default function CheckoutScreen() {
   // Called only from onChangeText, never during render. The Bridge holds the
   // handler from the last commit, which is harmless because update() touches
   // only a ref and stable state setters.
-  function update(field: keyof Fields, value: string) {
+  function update(field: Exclude<keyof Fields, 'fulfilment'>, value: string) {
     typed.current = { ...typed.current, [field]: value };
     setFields(typed.current);
     setError((current) => (current?.clearsOnEdit ? null : current));
   }
 
+  // Lieferung or Abholung. Written to `typed` synchronously like a field, and
+  // mirrored into the cart so the cart screen shows the same fee.
+  function chooseFulfilment(next: Fulfilment) {
+    typed.current = { ...typed.current, fulfilment: next };
+    setFields(typed.current);
+    cart.setFulfilment(next);
+    setError((current) => (current?.clearsOnEdit ? null : current));
+  }
+
+  function toggleRemember() {
+    rememberRef.current = !rememberRef.current;
+    setRemember(rememberRef.current);
+  }
+
+  async function forget() {
+    await forgetSavedDetails();
+    setHasSaved(false);
+  }
+
   useEffect(() => {
     api.getPaymentProviders().then(setProviders).catch(() => setProviders(null));
+  }, []);
+
+  // Prefill from the last order on this device, but never over something the
+  // diner has already started typing.
+  useEffect(() => {
+    let active = true;
+    loadSavedDetails().then((saved) => {
+      if (!active || !saved) return;
+      setHasSaved(true);
+      const current = typed.current;
+      if (current.name || current.phone || current.address || current.notes) return;
+      typed.current = { ...saved };
+      setFields(typed.current);
+      cart.setFulfilment(saved.fulfilment);
+    });
+    return () => {
+      active = false;
+    };
+    // Once, on mount: `cart.setFulfilment` is a stable state setter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // A synchronous guard against a double submit. `busy` is state, so two pay()
@@ -227,8 +297,8 @@ export default function CheckoutScreen() {
     // pay() without going through a button, so the rule has to live here too.
     // Not copied into `error`: the footer already states the gap and follows
     // the fields, whereas `error` would stay red after they were filled in.
-    const { name, phone, address, notes } = typed.current;
-    const gap = orderGap(typed.current);
+    const { fulfilment, name, phone, address, notes } = typed.current;
+    const gap = orderGap(typed.current, cart.lines, shop);
     if (gap) return refuse(gap);
     inFlight.current = true;
     setError(null);
@@ -257,10 +327,12 @@ export default function CheckoutScreen() {
           variantId: l.variant.id,
           quantity: l.quantity,
         })),
+        fulfilment,
         {
           name: clean(name),
           phone: clean(phone),
-          address: clean(address),
+          // A pickup sends no address, and the server would not store one.
+          ...(fulfilment === 'delivery' ? { address: clean(address) } : {}),
           // Trimmed but not cleaned. INVISIBLE also covers U+200C/U+200D,
           // which Persian, Indic scripts and joined emoji need mid-text, and
           // the backend keeps a note as sent. A note that is only whitespace
@@ -270,6 +342,14 @@ export default function CheckoutScreen() {
         },
       );
       placed = true;
+      // The order exists, so these details worked: keep them for next time, or
+      // forget any earlier copy when the diner unticked "Angaben merken".
+      // Best-effort either way; neither may hold up the payment.
+      if (rememberRef.current) {
+        void saveDetails({ fulfilment, name: clean(name), phone: clean(phone), address: clean(address), notes: notes.trim() });
+      } else {
+        void forgetSavedDetails();
+      }
       const { url } = await api.startCheckout(order.id, provider);
       // Checked before anything leaves this screen, so a bad answer neither
       // empties the cart nor sends a window somewhere useless.
@@ -373,7 +453,8 @@ export default function CheckoutScreen() {
   };
 
   const payDescription =
-    'No params. Places the order from the cart and the filled-in fields, or fails with ' +
+    'No params. Places the order from the cart, the chosen Lieferung/Abholung ' +
+    '(buttons checkout-fulfilment-delivery / checkout-fulfilment-pickup) and the filled-in fields, or fails with ' +
     'the German reason it cannot. Returns { orderId, url }. On web the checkout is not ' +
     'opened: the screen moves to the order and the runner opens `url` itself. On native ' +
     'the platform browser opens, as for a tap; on iOS the action then resolves only ' +
@@ -399,14 +480,55 @@ export default function CheckoutScreen() {
     ],
   });
 
-  const total = cart.subtotal + (cart.count > 0 ? DELIVERY_FEE : 0);
-  const contactGap = orderGap(fields);
+  const fee = cart.count > 0 ? deliveryFeeFor(fields.fulfilment) : 0;
+  const total = cart.subtotal + fee;
+  const contactGap = orderGap(fields, cart.lines, shop);
+  const isPickup = fields.fulfilment === 'pickup';
 
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <ThemedText type="eyebrow" style={styles.eyebrow}>Fast geschafft</ThemedText>
-        <ThemedText type="subtitle">Lieferdaten</ThemedText>
+        <ThemedText type="subtitle">Deine Angaben</ThemedText>
+
+        {/* Lieferung / Abholung, as portofino-essen.de offers. */}
+        <View role="radiogroup" aria-label="Lieferung oder Abholung" style={styles.modes}>
+          <ModeOption
+            uiId="checkout-fulfilment-delivery"
+            title="Lieferung"
+            detail={
+              shop?.status.delivery.available
+                ? `${formatEUR(deliveryFeeFor('delivery'))} · bis ${shop.status.delivery.until} Uhr`
+                : formatEUR(deliveryFeeFor('delivery'))
+            }
+            selected={!isPickup}
+            onPress={() => chooseFulfilment('delivery')}
+          />
+          <ModeOption
+            uiId="checkout-fulfilment-pickup"
+            title="Abholung"
+            detail={
+              shop?.status.pickup.available
+                ? `kostenlos · bis ${shop.status.pickup.until} Uhr`
+                : 'kostenlos'
+            }
+            selected={isPickup}
+            onPress={() => chooseFulfilment('pickup')}
+          />
+        </View>
+        {isPickup ? (
+          <ThemedView type="backgroundElement" style={styles.pickupPanel}>
+            <ThemedText type="smallBold">Abholung bei Portofino</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {shop ? `${shop.street}, ${shop.postalCode} ${shop.city}` : 'im Restaurant'}
+            </ThemedText>
+          </ThemedView>
+        ) : null}
+        {shopUnavailable && !shop ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Die Öffnungszeiten konnten gerade nicht geladen werden.
+          </ThemedText>
+        ) : null}
 
         <Field label="Name">
           <BridgeInput
@@ -433,6 +555,7 @@ export default function CheckoutScreen() {
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
         </Field>
+        {isPickup ? null : (
         <Field label="Adresse">
           <BridgeInput
             uiId="checkout-address"
@@ -445,21 +568,63 @@ export default function CheckoutScreen() {
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
         </Field>
+        )}
         {/* Optional, and never part of the pay gate. The order API has always
             stored `customer.notes`; checkout just offered no way to send one. */}
-        <Field label="Hinweis für die Lieferung (optional)">
+        <Field label={isPickup ? 'Hinweis zur Bestellung (optional)' : 'Hinweis für die Lieferung (optional)'}>
           <BridgeInput
             uiId="checkout-notes"
             maxLength={MAX_LENGTH.notes}
-            uiLabel="Hinweis für die Lieferung"
+            uiLabel={isPickup ? 'Hinweis zur Bestellung' : 'Hinweis für die Lieferung'}
             value={fields.notes}
             onChangeText={(value) => update('notes', value)}
             multiline
-            placeholder="z. B. Klingel, Etage, Hintereingang"
+            placeholder={isPickup ? 'z. B. wann du abholst' : 'z. B. Klingel, Etage, Hintereingang'}
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, styles.notesInput, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
         </Field>
+
+        {/* Saved on THIS device only, and only while ticked. */}
+        <View style={styles.remember}>
+          <BridgeButton
+            uiId="checkout-remember"
+            uiLabel="Angaben auf diesem Gerät für die nächste Bestellung merken"
+            role="checkbox"
+            aria-checked={remember}
+            style={styles.rememberRow}
+            onPress={toggleRemember}>
+            <View
+              style={[
+                styles.checkbox,
+                { borderColor: remember ? theme.brandText : theme.textSecondary },
+                remember && { backgroundColor: theme.brand },
+              ]}>
+              {remember ? (
+                <ThemedText type="smallBold" themeColor="onBrand" style={styles.checkmark}>
+                  ✓
+                </ThemedText>
+              ) : null}
+            </View>
+            <View style={styles.rememberText}>
+              <ThemedText type="small">Angaben für die nächste Bestellung merken</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Nur auf diesem Gerät gespeichert, nicht bei uns.
+              </ThemedText>
+            </View>
+          </BridgeButton>
+          {hasSaved ? (
+            <BridgeButton
+              uiId="checkout-forget"
+              uiLabel="Gespeicherte Angaben löschen"
+              style={styles.forget}
+              onPress={() => void forget()}>
+              <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+                Gespeicherte Angaben löschen
+              </ThemedText>
+            </BridgeButton>
+          ) : null}
+        </View>
 
         {providers && (!providers.stripe || !providers.paypal) ? (
           <ThemedText type="small" themeColor="textSecondary">
@@ -526,6 +691,43 @@ export default function CheckoutScreen() {
   );
 }
 
+/** One of the two Lieferung / Abholung choices. */
+function ModeOption({
+  uiId,
+  title,
+  detail,
+  selected,
+  onPress,
+}: {
+  uiId: string;
+  title: string;
+  detail: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <BridgeButton
+      uiId={uiId}
+      uiLabel={title}
+      role="radio"
+      aria-checked={selected}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.mode,
+        {
+          borderColor: selected ? theme.brandText : theme.backgroundSelected,
+          backgroundColor: selected || pressed ? theme.backgroundElement : theme.background,
+        },
+      ]}>
+      <ThemedText type="heading">{title}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {detail}
+      </ThemedText>
+    </BridgeButton>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
@@ -551,4 +753,15 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },
   payBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 52, justifyContent: 'center' },
   eyebrow: { marginBottom: -Spacing.sm },
+  modes: { flexDirection: 'row', gap: Spacing.md },
+  // A 2px border whether selected or not, so choosing does not shift the row.
+  mode: { flex: 1, borderWidth: 2, borderRadius: Radius.card, paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg, minHeight: 64, justifyContent: 'center' },
+  pickupPanel: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.xs },
+  remember: { gap: Spacing.sm },
+  rememberRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, minHeight: 44 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  checkmark: { fontSize: 14, lineHeight: 18 },
+  rememberText: { flex: 1 },
+  forget: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  forgetText: { textDecorationLine: 'underline' },
 });

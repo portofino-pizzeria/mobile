@@ -11,7 +11,8 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError, errorReason } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
-import type { Order } from '@/lib/types';
+import { useShop } from '@/hooks/use-shop';
+import { fulfilmentOf, type Order } from '@/lib/types';
 
 const STATUS_COPY: Record<Order['status'], { emoji: string; title: string; sub: string }> = {
   pending_payment: { emoji: '⏳', title: 'Warten auf Zahlung', sub: 'Schließe die Zahlung ab, um deine Bestellung zu bestätigen.' },
@@ -19,6 +20,11 @@ const STATUS_COPY: Record<Order['status'], { emoji: string; title: string; sub: 
   preparing: { emoji: '👨‍🍳', title: 'In Zubereitung', sub: 'Unser Pizzabäcker ist dran.' },
   ready: { emoji: '🛵', title: 'Unterwegs', sub: 'Deine Bestellung ist auf dem Weg!' },
   cancelled: { emoji: '❌', title: 'Storniert', sub: 'Diese Bestellung wurde storniert.' },
+};
+
+/** The copy that differs for an order the diner collects. */
+const PICKUP_COPY: Partial<Record<Order['status'], { emoji: string; title: string; sub: string }>> = {
+  ready: { emoji: '🛍️', title: 'Abholbereit', sub: 'Deine Bestellung liegt bei uns bereit.' },
 };
 
 /** How often an unpaid order is read again while the diner pays. */
@@ -82,6 +88,7 @@ function OrderView({ id }: { id: string }) {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { shop } = useShop();
   const [order, setOrder] = useState<Order | null>(null);
   // Why the order could not be loaded at all. The screen then offers a way on.
   const [error, setError] = useState<LoadFailure | null>(null);
@@ -159,7 +166,7 @@ function OrderView({ id }: { id: string }) {
         label: 'Report what the order screen is currently showing',
         description:
           'No params. Returns { state: "loading" | "error" | "shown", error, refreshError, ' +
-          'orderId, status, delivery: { name, address, note } }. `error` is the reason shown ' +
+          'orderId, status, fulfilment, delivery: { name, address, note } }. `error` is the reason shown ' +
           'when the order could not be loaded. `refreshError` is set while the latest read ' +
           'failed and the order on screen may be out of date. `orderId`, `status` and ' +
           '`delivery` are null unless state is "shown". A null `delivery.address` is shown ' +
@@ -173,6 +180,7 @@ function OrderView({ id }: { id: string }) {
             refreshError: shownOrder ? stale : null,
             orderId: shownOrder?.id ?? null,
             status: shownOrder?.status ?? null,
+            fulfilment: shownOrder ? fulfilmentOf(shownOrder) : null,
             delivery: shownOrder ? deliveryDetails(shownOrder) : null,
           };
         },
@@ -245,7 +253,8 @@ function OrderView({ id }: { id: string }) {
     );
   }
 
-  const copy = STATUS_COPY[order.status];
+  const isPickup = fulfilmentOf(order) === 'pickup';
+  const copy = (isPickup && PICKUP_COPY[order.status]) || STATUS_COPY[order.status];
   const { name, address, note } = deliveryDetails(order);
 
   return (
@@ -299,6 +308,14 @@ function OrderView({ id }: { id: string }) {
               <ThemedText type="price">{formatEUR(line.unitPrice * line.quantity)}</ThemedText>
             </View>
           ))}
+          <View style={styles.summaryRow}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {isPickup ? 'Abholung' : 'Lieferung'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {formatEUR(order.deliveryFee)}
+            </ThemedText>
+          </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <ThemedText type="smallBold">Gesamt</ThemedText>
             <ThemedText type="price">{formatEUR(order.total)}</ThemedText>
@@ -310,10 +327,16 @@ function OrderView({ id }: { id: string }) {
             block without one reads as complete. */}
         <ThemedView type="backgroundElement" style={styles.summary}>
           <ThemedText type="small" themeColor="textSecondary">
-            Lieferdaten
+            {isPickup ? 'Abholung' : 'Lieferdaten'}
           </ThemedText>
           {name ? <ThemedText type="small">{name}</ThemedText> : null}
-          {address ? (
+          {isPickup ? (
+            // A pickup has no delivery address to be missing; it has a shop.
+            <ThemedText type="small">
+              Abholung bei Portofino
+              {shop ? `, ${shop.street}, ${shop.postalCode} ${shop.city}` : ''}
+            </ThemedText>
+          ) : address ? (
             <ThemedText type="small">{address}</ThemedText>
           ) : (
             <ThemedText type="small" style={{ color: theme.destructive }}>

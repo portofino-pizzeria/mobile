@@ -20,6 +20,15 @@ export function readStoredText(key: string): Promise<string | null> {
   }
 }
 
+export function removeStoredText(key: string): Promise<void> {
+  try {
+    store()?.removeItem(key);
+  } catch {
+    // Best-effort, like every operation here.
+  }
+  return Promise.resolve();
+}
+
 export function writeStoredText(key: string, value: string): Promise<void> {
   try {
     store()?.setItem(key, value);

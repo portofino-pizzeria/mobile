@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config';
-import type { CustomerRequest, Menu, Order, PaymentProvider } from './types';
+import type { CustomerRequest, Fulfilment, Menu, Order, PaymentProvider, ShopInfo } from './types';
 
 /**
  * A non-2xx answer from the API. `status` lets a caller tell a refusal (4xx)
@@ -79,17 +79,23 @@ export const api = {
     return request<Menu>('/api/menu');
   },
 
-  // `customer` is required: checkout refuses an order without a name, phone
-  // number and delivery address, and the order API will as well once
-  // backend#9 lands. Until then the API accepts such an order, so the checkout
-  // gate is the only one.
+  /** The shop's address, phone, printed hours, and whether pickup and
+   *  delivery orders are taken right now — the same answer the order route
+   *  enforces. */
+  async getShop(): Promise<ShopInfo> {
+    return request<ShopInfo>('/api/shop');
+  },
+
+  // The API refuses an order without a name and phone number, a delivery
+  // without an address, and any order its kind is not taken for right now.
   async createOrder(
     items: OrderLineRequest[],
+    fulfilment: Fulfilment,
     customer: CustomerRequest,
   ): Promise<Order> {
     const { order } = await request<{ order: Order }>('/api/orders', {
       method: 'POST',
-      body: JSON.stringify({ items, customer }),
+      body: JSON.stringify({ items, fulfilment, customer }),
     });
     return order;
   },

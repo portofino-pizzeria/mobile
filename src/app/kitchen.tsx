@@ -25,7 +25,7 @@ import {
   setKitchenToken,
   type KitchenStatus,
 } from '@/lib/kitchen';
-import type { Order, OrderStatus } from '@/lib/types';
+import { fulfilmentOf, type Order, type OrderStatus } from '@/lib/types';
 
 const POLL_MS = 5000;
 
@@ -437,7 +437,9 @@ function OrderCard({
   return (
     <ThemedView type="backgroundElement" style={[styles.card, { borderLeftColor: accent }]}>
       <View style={styles.cardTop}>
-        <ThemedText type="smallBold">#{order.id.slice(0, 8)}</ThemedText>
+        <ThemedText type="smallBold">
+          #{order.id.slice(0, 8)} · {fulfilmentOf(order) === 'pickup' ? 'ABHOLUNG' : 'LIEFERUNG'}
+        </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           {minutesAgo(order.createdAt)}
         </ThemedText>
@@ -512,7 +514,7 @@ function OrderCard({
           </BridgeButton>
         ) : (
           <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-            Bereit zur Abholung / Lieferung.
+            {fulfilmentOf(order) === 'pickup' ? 'Bereit zur Abholung.' : 'Bereit zur Lieferung.'}
           </ThemedText>
         )}
         {/* The backend allows no change from ready, so a cancel here could

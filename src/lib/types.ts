@@ -41,6 +41,8 @@ export interface MenuItem {
    *  here has an entry there, possibly an unresolved one. */
   allergenCodes: string[];
   imageUrl?: string;
+  /** Sold only to diners who collect ("für Selbstabholer"). Absent = false. */
+  pickupOnly?: boolean;
 }
 
 /** A legend entry for one allergen code. `resolved: false` means Portofino
@@ -77,6 +79,9 @@ export interface AdminMenu {
 
 export type PaymentProvider = 'stripe' | 'paypal' | 'mock';
 
+/** Lieferung or Abholung. A pickup pays no delivery fee and gives no address. */
+export type Fulfilment = 'delivery' | 'pickup';
+
 export type OrderStatus =
   | 'pending_payment'
   | 'paid'
@@ -104,14 +109,13 @@ export interface CustomerInfo {
   notes?: string;
 }
 
-/** Customer details as an order REQUEST must send them. Checkout refuses an
- *  order without a name, phone number and delivery address, and the API will
- *  as well once backend#9 lands, so a request type with optional fields would
- *  type-check a call that checkout never makes. */
+/** Customer details as an order REQUEST sends them. Name and phone are
+ *  required for every order; the address only for a delivery, which the API
+ *  enforces. */
 export interface CustomerRequest {
   name: string;
   phone: string;
-  address: string;
+  address?: string;
   notes?: string;
 }
 
@@ -122,9 +126,51 @@ export interface Order {
   deliveryFee: number;
   total: number;
   currency: string;
+  /** Absent only from an API that predates pickup, where every order was a
+   *  delivery. Read it through `fulfilmentOf`. */
+  fulfilment?: Fulfilment;
   status: OrderStatus;
   customer?: CustomerInfo;
   payment?: { provider: PaymentProvider; reference?: string; paidAt?: string };
   createdAt: string;
   updatedAt: string;
+}
+
+/** How an order is fulfilled, reading an absent field the way the API meant it. */
+export function fulfilmentOf(order: Pick<Order, 'fulfilment'>): Fulfilment {
+  return order.fulfilment === 'pickup' ? 'pickup' : 'delivery';
+}
+
+/** One service window, as local `HH:MM` strings. */
+export interface ShopWindow {
+  open: string;
+  close: string;
+}
+
+/** Whether one kind of order is taken right now. */
+export interface ShopModeStatus {
+  available: boolean;
+  /** While available: when it stops being taken today (`HH:MM`). */
+  until?: string;
+  /** While not available: when it is next taken. */
+  next?: { date: string; weekday: string; time: string };
+}
+
+/** The GET /api/shop payload. */
+export interface ShopInfo {
+  name: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  phoneDisplay: string;
+  phoneE164: string;
+  timeZone: string;
+  hours: { days: string; hours: string }[];
+  deliveryUntil: string;
+  status: {
+    now: string;
+    today: { date: string; holiday?: string; pickup: ShopWindow | null; delivery: ShopWindow | null };
+    pickup: ShopModeStatus;
+    delivery: ShopModeStatus;
+  };
 }
