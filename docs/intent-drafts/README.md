@@ -14,6 +14,7 @@ tenant, or at `/admin/coord/prompt-documents`.
 | `domain_spec--imagery-and-iconography--APPEND.md` | `domain_spec/imagery-and-iconography` | append (hero photograph), applied v1 → v2 |
 | `domain_spec--imagery-and-iconography--APPEND-2.md` | `domain_spec/imagery-and-iconography` | append (icon and illustration placement, first confirmations), applied v2 → v3 |
 | `domain_spec--imagery-and-iconography--APPEND-3.md` | `domain_spec/imagery-and-iconography` | append (second icon set, Antipasti Misto removed), applied v3 → v4 |
+| `domain_spec--menu--APPEND-ordering-hours-and-pickup.md` | `domain_spec/menu` | append (opening hours, Abholung, device-only saved details), applied v3 → v4 |
 
 The operator supplied a design made in v0 (source in `design/sources/portofino-pizzeria/`)
 to replace the previous visual system. The replace discards the reference-site
