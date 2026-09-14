@@ -218,12 +218,6 @@ export const CATEGORY_ICONS: Readonly<Record<string, RegisteredAsset>> = {
     status: 'confirmed',
     altDe: 'Vorspeisen',
   },
-  'antipasti-misto': {
-    key: 'icons/category/antipasti-misto',
-    source: require('@/assets/icons/category/antipasti-misto.png'),
-    status: 'confirmed',
-    altDe: 'Antipasti Misto',
-  },
   'nudeln': {
     key: 'icons/category/nudeln',
     source: require('@/assets/icons/category/nudeln.png'),
@@ -272,16 +266,34 @@ export const CATEGORY_ICONS: Readonly<Record<string, RegisteredAsset>> = {
     status: 'confirmed',
     altDe: 'Schnitzel',
   },
+  'haehnchenbrust': {
+    key: 'icons/category/haehnchenbrust',
+    source: require('@/assets/icons/category/haehnchenbrust.png'),
+    status: 'confirmed',
+    altDe: 'Hähnchenbrust',
+  },
+  'rumpsteak': {
+    key: 'icons/category/rumpsteak',
+    source: require('@/assets/icons/category/rumpsteak.png'),
+    status: 'confirmed',
+    altDe: 'Rumpsteak',
+  },
   'getraenke': {
     key: 'icons/category/getraenke',
     source: require('@/assets/icons/category/getraenke.png'),
     status: 'confirmed',
     altDe: 'Getränke',
   },
+  'dessert': {
+    key: 'icons/category/dessert',
+    source: require('@/assets/icons/category/dessert.png'),
+    status: 'confirmed',
+    altDe: 'Dessert',
+  },
   'angebote': {
     key: 'icons/category/angebote',
-    source: null,
-    status: 'candidate',
+    source: require('@/assets/icons/category/angebote.png'),
+    status: 'confirmed',
     altDe: 'Angebote',
   },
 };

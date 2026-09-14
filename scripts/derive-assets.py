@@ -55,10 +55,29 @@ PIZZA_CAPTIONS = [
     "SICILIANO", "VENEZIA", "FIRENZE", "SPAGHETTI", "DE POLLO", "PORTOFINO",
     "DE PARMA",
 ]
-ICON_CAPTIONS = [
-    "PIZZA", "VORSPEISEN", "ANTIPASTI MISTO", "NUDELN", "FRISCH AUS DEM OFEN",
-    "MEXIKANISCH", "SALATE", "VEGETARISCHE AUFLÄUFE", "FISCH", "SCHWEINEFILET",
-    "SCHNITZEL", "GETRÄNKE", "ANGEBOTE",
+# The icon sheet, cell by cell in reading order: the printed caption and the
+# category id it depicts. Unlike the pizza sheet, the icon sheet does not
+# follow the menu's category order and carries cells that are not categories
+# (HOME), so the binding is written out here rather than inferred from order.
+# A cell bound to `None` is cut by nobody. The caption still verifies each
+# binding against the category's German label.
+ICON_CELLS: list[tuple[str, str | None]] = [
+    ("HOME", None),
+    ("PIZZA", "pizza"),
+    ("VORSPEISEN", "vorspeisen"),
+    ("NUDELN", "nudeln"),
+    ("FRISCH AUS DEM OFEN", "frisch-aus-dem-ofen"),
+    ("MEXIKANISCH", "mexikanisch"),
+    ("SALATE", "salate"),
+    ("VEGETARISCHE AUFLÄUFE", "vegetarische-auflaeufe"),
+    ("FISCH", "fisch"),
+    ("SCHWEINEFILET", "schweinefilet"),
+    ("SCHNITZEL", "schnitzel"),
+    ("HÄHNCHENBRUST", "haehnchenbrust"),
+    ("RUMPSTEAK", "rumpsteak"),
+    ("GETRÄNKE", "getraenke"),
+    ("DESSERT", "dessert"),
+    ("ANGEBOTE", "angebote"),
 ]
 
 
@@ -168,9 +187,16 @@ def pad(box, img, px=6):
 
 
 def to_tintable(img: Image.Image) -> Image.Image:
-    """Line art on white -> RGBA alpha mask, so the app can tint it."""
-    g = np.asarray(img.convert("L")).astype(int)
-    alpha = np.clip(255 - g, 0, 255).astype(np.uint8)
+    """Line art on paper -> RGBA alpha mask, so the app can tint it.
+
+    Measured from the crop's own border rather than assumed white: an off-white
+    ground (251 on `portofino-icons-3.png`) would otherwise become a faint
+    rectangle of alpha behind every icon.
+    """
+    g = np.asarray(img.convert("L")).astype(float)
+    border = np.concatenate([g[0], g[-1], g[:, 0], g[:, -1]])
+    paper = max(float(np.median(border)), 1.0)
+    alpha = np.clip((paper - g) * 255.0 / paper, 0, 255).astype(np.uint8)
     rgb = np.zeros(g.shape + (3,), dtype=np.uint8)
     return Image.fromarray(np.dstack([rgb, alpha]), mode="RGBA")
 
@@ -184,7 +210,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--menu", default=str(MENU_JSON))
     ap.add_argument("--pizza-sheet", default="pizzas-2.png")
-    ap.add_argument("--icon-sheet", default="portofino-icons-2.png")
+    ap.add_argument("--icon-sheet", default="portofino-icons-3.png")
     args = ap.parse_args()
 
     menu_path = Path(args.menu)
@@ -237,13 +263,17 @@ def main() -> int:
     icon_path = SOURCES / args.icon_sheet
     isheet = Image.open(icon_path)
     iboxes = cells_from_sheet(isheet, "icons")
-    if len(iboxes) != len(ICON_CAPTIONS):
+    if len(iboxes) != len(ICON_CELLS):
         problems.append(f"{args.icon_sheet}: found {len(iboxes)} cells, "
-                        f"expected {len(ICON_CAPTIONS)}")
-    if len(populated) != len(ICON_CAPTIONS):
-        problems.append(f"menu has {len(populated)} populated categories, "
-                        f"sheet has {len(ICON_CAPTIONS)} icons")
-    for (box, caption, cat) in zip(iboxes, ICON_CAPTIONS, populated):
+                        f"expected {len(ICON_CELLS)}")
+    cats_by_id = {c["id"]: c for c in menu["categories"]}
+    for (box, (caption, cat_id)) in zip(iboxes, ICON_CELLS):
+        if cat_id is None:
+            continue
+        cat = cats_by_id.get(cat_id)
+        if cat is None:
+            problems.append(f"icon {caption!r}: no category {cat_id!r} on the menu — ABORT")
+            continue
         if norm(cat["labelDe"]) != norm(caption):
             problems.append(f"icon {caption!r} does not match category "
                             f"{cat['labelDe']!r} ({cat['id']}) — ABORT")
@@ -269,6 +299,7 @@ def main() -> int:
     illustrated = {m for e in images for m in e["maps_to"]}
     uncovered = [i["id"] for i in menu["items"] if i["id"] not in illustrated]
     empty_cats = [c["id"] for c in menu["categories"] if c.get("itemCount", 0) == 0]
+    iconned = {m for e in icons for m in e["maps_to"]}
 
     manifest = {
         "version": 1,
@@ -279,19 +310,27 @@ def main() -> int:
         "images": images,
         "icons": icons,
         "unmapped_menu_items": uncovered,
-        "categories_without_icon": empty_cats,
+        "categories_without_icon": [c["id"] for c in menu["categories"]
+                                    if c["id"] not in iconned],
         "notes": [
             "every entry starts as 'candidate': a human must confirm that each "
             "picture is that dish before it renders, and a re-derived file whose "
             "bytes changed returns to 'candidate'. See the clause "
             "an-image-beside-a-price-is-a-claim in policy/ux-priorities.",
-            "categories_without_icon are the categories publishing zero items; "
-            "an icon for them would be a navigational promise to an empty room.",
+            "an icon for a category publishing zero items is bundled but never "
+            "drawn: the menu renders only sections that have items, so the icon "
+            "waits for the owner's first dish there rather than promising an "
+            "empty room.",
+            "an icon for a category the current sheet does not draw is carried "
+            "from the previous manifest unchanged (same file, crop, source sheet "
+            "and status) rather than dropped.",
         ],
     }
 
     print(f"dish illustrations : {len(images)} / {len(by_number)} pizzas")
-    print(f"category icons     : {len(icons)} / {len(populated)} populated categories")
+    print(f"category icons     : {len(icons)} from {args.icon_sheet}; "
+          f"populated categories without one: "
+          f"{[c['id'] for c in populated if c['id'] not in iconned]}")
     print(f"uncovered items    : {len(uncovered)}")
     print(f"empty categories   : {len(empty_cats)} {empty_cats}")
     sizes = [(e['source']['crop'][2]-e['source']['crop'][0],
@@ -331,13 +370,25 @@ def main() -> int:
         to_tintable(isheet.crop(tuple(entry["source"]["crop"]))).save(out)
         entry["sha256"] = sha256(out)
         carry_review(entry)
+    # A category the current sheet does not draw keeps the icon it already has:
+    # the previous entry, file and review travel over unchanged, provided the
+    # file is still the one that entry describes.
+    for old in previous.values():
+        if not old["key"].startswith("icons/") or set(old["maps_to"]) & iconned:
+            continue
+        f = MOBILE / old["file"]
+        if f.exists() and sha256(f) == old.get("sha256"):
+            icons.append(old)
+            iconned.update(old["maps_to"])
+    manifest["categories_without_icon"] = [c["id"] for c in menu["categories"]
+                                           if c["id"] not in iconned]
 
-    manifest["sources"] = {
-        f"design/sources/{args.pizza_sheet}": {
-            "sha256": sha256(sheet_path), "size": list(sheet.size)},
-        f"design/sources/{args.icon_sheet}": {
-            "sha256": sha256(icon_path), "size": list(isheet.size)},
-    }
+    # Every sheet an entry is cut from, including one a carried entry names.
+    manifest["sources"] = {}
+    for src in sorted({e["source"]["sheet"] for e in images + icons}):
+        path = MOBILE / src
+        manifest["sources"][src] = {"sha256": sha256(path),
+                                    "size": list(Image.open(path).size)}
     mf = MOBILE / "assets" / "manifest.json"
     mf.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
                   encoding="utf-8")
