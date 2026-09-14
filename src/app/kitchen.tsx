@@ -1,7 +1,9 @@
 import { useUIComponent } from '@qontinui/ui-bridge-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,6 +21,7 @@ import { formatEUR } from '@/lib/format';
 import {
   KitchenApiError,
   kitchenApi,
+  loadKitchenToken,
   setKitchenToken,
   type KitchenStatus,
 } from '@/lib/kitchen';
@@ -122,15 +125,22 @@ export default function KitchenScreen() {
 
   // Poll while the screen is open. `load` only ever sets state after an await,
   // but the lint rule cannot see past the async boundary — so the first poll is
-  // scheduled rather than called straight out of the effect body.
+  // scheduled rather than called straight out of the effect body. The stored
+  // token is read first: `load` reads it synchronously off the in-memory
+  // cache, and on native that cache starts empty until this resolves.
   useEffect(() => {
     mounted.current = true;
-    const first = setTimeout(load, 0);
-    const timer = setInterval(load, POLL_MS);
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const first = setTimeout(async () => {
+      await loadKitchenToken();
+      if (!mounted.current) return;
+      load();
+      timer = setInterval(load, POLL_MS);
+    }, 0);
     return () => {
       mounted.current = false;
       clearTimeout(first);
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
     };
   }, [load]);
 
@@ -152,6 +162,15 @@ export default function KitchenScreen() {
         await load();
         return null;
       } catch (e) {
+        // A 401 here means the same thing it means in `load`: the stored
+        // token stopped working. Sending it to the board error would leave it
+        // sitting under the board until the next poll's `load` reroutes it —
+        // route it to the gate immediately instead.
+        if (e instanceof KitchenApiError && e.status === 401) {
+          setNeedsToken(true);
+          setAuthMessage(e.tokenSent ? e.message : null);
+          return e.message;
+        }
         const reason = errorReason(e);
         setError(reason);
         return reason;
@@ -256,12 +275,12 @@ export default function KitchenScreen() {
     ],
   });
 
-  function submitToken() {
+  async function submitToken() {
     // An empty press is not an attempt: it would drop the stored token, clear
     // the previous reason below, and the headerless 401 that follows carries no
     // reason to replace it — leaving the operator with nothing on screen.
     if (!tokenInput.trim()) return;
-    setKitchenToken(tokenInput.trim());
+    await setKitchenToken(tokenInput.trim());
     setTokenInput('');
     setOrders(null);
     // Clear the previous attempt's reason while this one is checked. A second
@@ -270,6 +289,17 @@ export default function KitchenScreen() {
     setAuthMessage(null);
     load();
   }
+
+  // `accessibilityLiveRegion` (below) is Android-only — iOS has no equivalent
+  // prop, so a `authMessage` change there renders silently. Ask VoiceOver to
+  // announce it directly instead; RN docs both APIs as best-effort, so a
+  // silenced or unsupported announcement fails the same way the prop already
+  // does on an unsupported platform.
+  useEffect(() => {
+    if (authMessage && Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(authMessage);
+    }
+  }, [authMessage]);
 
   // --- Token gate (deployed environments) ----------------------------------
   if (needsToken) {
