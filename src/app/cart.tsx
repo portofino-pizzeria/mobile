@@ -30,7 +30,9 @@ export default function CartScreen() {
   if (cart.count === 0) {
     return (
       <ThemedView style={styles.center}>
-        <ThemedText type="subtitle">Dein Warenkorb ist leer</ThemedText>
+        <ThemedText type="subtitle" style={styles.centerText}>
+          Dein Warenkorb ist leer
+        </ThemedText>
         <BridgeButton
           uiId="cart-back-to-menu"
           uiLabel="Zurück zur Speisekarte"
@@ -39,7 +41,7 @@ export default function CartScreen() {
             { backgroundColor: pressed ? theme.brandPressed : theme.brand },
           ]}
           onPress={() => router.replace('/')}>
-          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
+          <ThemedText type="smallBold" themeColor="onBrand">
             Zur Speisekarte
           </ThemedText>
         </BridgeButton>
@@ -52,11 +54,13 @@ export default function CartScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {cart.lines.map(({ item, variant, quantity }) => (
-          <ThemedView
+        {cart.lines.map(({ item, variant, quantity }, index) => (
+          <View
             key={cartLineKey(item.id, variant.id)}
-            type="backgroundElement"
-            style={styles.row}>
+            style={[
+              styles.row,
+              index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.backgroundSelected },
+            ]}>
             <View style={styles.rowInfo}>
               <ThemedText type="heading">
                 {item.number ? `${item.number}  ` : ''}
@@ -75,11 +79,11 @@ export default function CartScreen() {
                 style={({ pressed }) => [
                   styles.stepBtn,
                   pressed
-                    ? { borderColor: theme.brandPressed, backgroundColor: theme.backgroundSelected }
-                    : { borderColor: theme.brand },
+                    ? { borderColor: theme.brand, backgroundColor: theme.brand }
+                    : { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement },
                 ]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
-                <ThemedText type="smallBold" themeColor="brand">−</ThemedText>
+                <ThemedText type="smallBold" themeColor="brandText">−</ThemedText>
               </BridgeButton>
               <ThemedText type="smallBold" style={styles.qty}>
                 {quantity}
@@ -90,20 +94,20 @@ export default function CartScreen() {
                 style={({ pressed }) => [
                   styles.stepBtn,
                   pressed
-                    ? { borderColor: theme.brandPressed, backgroundColor: theme.backgroundSelected }
-                    : { borderColor: theme.brand },
+                    ? { borderColor: theme.brand, backgroundColor: theme.brand }
+                    : { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement },
                 ]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
-                <ThemedText type="smallBold" themeColor="brand">+</ThemedText>
+                <ThemedText type="smallBold" themeColor="brandText">+</ThemedText>
               </BridgeButton>
             </View>
             <ThemedText type="price" style={styles.lineTotal}>
               {formatEUR(variant.price * quantity)}
             </ThemedText>
-          </ThemedView>
+          </View>
         ))}
 
-        <View style={styles.summary}>
+        <View style={[styles.summary, { borderTopColor: theme.backgroundSelected }]}>
           <SummaryRow label="Zwischensumme" value={formatEUR(cart.subtotal)} />
           <SummaryRow label="Lieferung" value={formatEUR(DELIVERY_FEE)} />
           <SummaryRow label="Gesamt" value={formatEUR(total)} bold />
@@ -119,7 +123,7 @@ export default function CartScreen() {
             { backgroundColor: pressed ? theme.brandPressed : theme.brand },
           ]}
           onPress={() => router.push('/checkout')}>
-          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
+          <ThemedText type="smallBold" themeColor="onBrand">
             Zur Kasse · {formatEUR(total)}
           </ThemedText>
         </BridgeButton>
@@ -134,9 +138,8 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
       <ThemedText type={bold ? 'smallBold' : 'small'} themeColor={bold ? 'text' : 'textSecondary'}>
         {label}
       </ThemedText>
-      {/* Every figure in this column is a price, so every one carries the
-          brand red; weight — not hue — is what marks the total. */}
-      <ThemedText type={bold ? 'price' : 'small'} themeColor="brand">
+      {/* Weight, not hue, marks the total — prices are ink in the design. */}
+      <ThemedText type={bold ? 'price' : 'small'} themeColor={bold ? 'text' : 'textSecondary'}>
         {value}
       </ThemedText>
     </View>
@@ -146,15 +149,16 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, padding: Spacing.xl },
-  scroll: { padding: Spacing.lg, gap: Spacing.sm, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.sm },
+  centerText: { textAlign: 'center' },
+  scroll: { paddingHorizontal: Spacing.gutter, paddingVertical: Spacing.lg, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.gutter, gap: Spacing.sm },
   rowInfo: { flex: 1, gap: Spacing.xs },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   stepBtn: { width: 32, height: 32, borderRadius: Radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   qty: { minWidth: 20, textAlign: 'center' },
   lineTotal: { minWidth: 64, textAlign: 'right' },
-  summary: { marginTop: Spacing.lg, gap: Spacing.xs },
+  summary: { marginTop: Spacing.sm, paddingTop: Spacing.lg, gap: Spacing.xs, borderTopWidth: 1 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  footer: { padding: Spacing.lg },
-  primaryBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center' },
+  footer: { paddingHorizontal: Spacing.gutter, paddingVertical: Spacing.lg, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
+  primaryBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 44 },
 });

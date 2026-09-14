@@ -32,19 +32,11 @@ const POLL_MS = 5000;
 /** The statuses the kitchen may set, as the server accepts them. */
 const KITCHEN_STATUSES: readonly KitchenStatus[] = ['preparing', 'ready', 'cancelled'];
 
-// A RED FILL DOES NOT APPEAR ON THIS SCREEN, and the omission is the rule
-// rather than an oversight — see `constants/theme.ts`, "Where a red FILL is
-// allowed". A cook's red must stay available to mean "careful"; the brand red
-// is here in the headings and the prices, which is where the spec puts it.
-//
 // The three lanes the kitchen works through, left to right.
 //
-// These three accents are UNDECLARED by `domain_spec/visual-system` — that
-// document's semantic-colour contract exists but names no status set, and its
-// `Declared UNKNOWN` list is where an alert treatment still sits. They are
-// carried forward as shipped rather than re-chosen here: picking a status
-// palette in code would be authoring intent. They do discriminate their three
-// values, which is the one property the contract does require.
+// These three accents are not in the declared design, which names no status
+// set. They are carried forward as shipped rather than re-chosen here: picking
+// a status palette in code would be authoring intent.
 const LANES: { status: Extract<OrderStatus, 'paid' | 'preparing' | 'ready'>; title: string; accent: string }[] = [
   { status: 'paid', title: 'Neu', accent: '#f5a524' },
   { status: 'preparing', title: 'In Zubereitung', accent: '#635bff' },
@@ -313,7 +305,7 @@ export default function KitchenScreen() {
           {authMessage ? (
             <ThemedText
               type="small"
-              style={{ color: theme.alertUndeclared }}
+              style={{ color: theme.destructive }}
               accessibilityRole="alert"
               accessibilityLiveRegion="polite">
               {authMessage}
@@ -377,7 +369,7 @@ export default function KitchenScreen() {
         </View>
 
         {error ? (
-          <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
+          <ThemedText type="small" style={{ color: theme.destructive }}>
             {error}
           </ThemedText>
         ) : null}
@@ -477,7 +469,7 @@ function OrderCard({
           lieferbar", which asserts a second fact the payload does not carry
           either: an order with no contact block may be a walk-in. */}
       {!order.customer?.name && !order.customer?.phone && !order.customer?.address ? (
-        <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
+        <ThemedText type="small" style={{ color: theme.destructive }}>
           Keine Kontaktdaten hinterlegt
         </ThemedText>
       ) : null}

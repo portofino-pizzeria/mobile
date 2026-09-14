@@ -198,7 +198,7 @@ export default function AdminMenuScreen() {
       <ThemedView style={styles.center}>
         <ActivityIndicator />
         {error ? (
-          <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
+          <ThemedText type="small" style={{ color: theme.destructive }}>
             {error}
           </ThemedText>
         ) : null}

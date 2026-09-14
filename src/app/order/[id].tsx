@@ -205,7 +205,7 @@ function OrderView({ id }: { id: string }) {
                 setError(null);
                 setAttempt((n) => n + 1);
               }}>
-              <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
+              <ThemedText type="smallBold" themeColor="onBrand">
                 Erneut versuchen
               </ThemedText>
             </BridgeButton>
@@ -273,8 +273,8 @@ function OrderView({ id }: { id: string }) {
               mounted so the text is announced when it appears (web and
               Android; iOS has no live regions), and collapsable={false} keeps
               Android from flattening the otherwise prop-less view away.
-              Secondary text rather than the alert colour, for the same reason:
-              it is status, and theme.ts leaves the alert treatment undeclared. */}
+              Secondary text rather than the destructive colour, for the same
+              reason: it is status, not a failure the diner must act on. */}
           <View aria-live="polite" collapsable={false}>
             {refreshError ? (
               <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
@@ -316,7 +316,7 @@ function OrderView({ id }: { id: string }) {
           {address ? (
             <ThemedText type="small">{address}</ThemedText>
           ) : (
-            <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
+            <ThemedText type="small" style={{ color: theme.destructive }}>
               Keine Lieferadresse hinterlegt
             </ThemedText>
           )}
@@ -335,7 +335,7 @@ function OrderView({ id }: { id: string }) {
             { backgroundColor: pressed ? theme.brandPressed : theme.brand },
           ]}
           onPress={() => router.replace('/')}>
-          <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
+          <ThemedText type="smallBold" themeColor="onBrand">
             Zur Speisekarte
           </ThemedText>
         </BridgeButton>
@@ -346,7 +346,7 @@ function OrderView({ id }: { id: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  container: { padding: Spacing.lg, gap: Spacing.xl, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
+  container: { paddingHorizontal: Spacing.gutter, paddingTop: Spacing.lg, gap: Spacing.xl, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   center: { textAlign: 'center', alignItems: 'center', justifyContent: 'center' },
   message: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, gap: Spacing.md, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   hero: { alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xxl },
@@ -354,6 +354,6 @@ const styles = StyleSheet.create({
   summary: { padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.xs },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   totalRow: { marginTop: Spacing.xs },
-  btn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center' },
+  btn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 44 },
   outlineBtn: { borderWidth: 1.5, backgroundColor: 'transparent' },
 });
