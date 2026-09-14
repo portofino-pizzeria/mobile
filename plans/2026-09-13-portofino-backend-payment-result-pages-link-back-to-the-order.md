@@ -1,6 +1,11 @@
 # Portofino backend — the payment result pages lead back to the diner's order, in German (2026-09-13)
 
-> **Status: DRAFT 2026-09-13** — not vetted. Written from coord finding
+> **Status: IN PROGRESS 2026-09-14** — Phase 1 is open as
+> [backend#16](https://github.com/portofino-pizzeria/backend/pull/16), not yet
+> merged or live. Phase 2 waits for it; Phase 3 stays unstarted (needs a
+> decision). See "Progress" at the end.
+>
+> Written from coord finding
 > `7be3c0e5-a68b-4992-a64b-5fa87f50996b` (topic `portofino-checkout`), which the
 > post-merge follow-up to `mobile#17` recorded instead of fixing, because the
 > change is in another repo. That follow-up landed as
@@ -183,3 +188,17 @@ Record the exact steps and results in this file.
   - it sits in the qontinui corpus, the tenancy problem described at the top of this file.
 
   Its author, or the operator, should mark it and move it.
+
+## Progress
+
+### Phase 1 — PR open (2026-09-14)
+
+[backend#16](https://github.com/portofino-pizzeria/backend/pull/16), branch `feat/payment-result-pages-link-to-order`.
+
+- **Implemented as written**, with one deviation. The plan named `README.md`, but README never mentions `PUBLIC_WEB_URL`. The comment was updated in `.env.example`, where the variable is documented, and in `src/config.ts`.
+- **Red first:** all 7 tests in the table were run against unchanged `master` `577f215`, and all 7 failed (English copy, no link). Green after the change: `npm run typecheck` is clean and `npm test` passes 140/140.
+  - Two tests were added beyond the table: the missing-parameter 400s, and near-miss ids (UUID plus `x`, plus a newline, with a prefix).
+- **Independent review:** a fresh-context code-reviewer, given the diff only, reported the change clean.
+- **The GET-marks-paid non-goal is now recorded** as coord finding `0c586160`. It is worse than the plan says: `/checkout/mock` stays registered even when Stripe is enabled, so once real payments are live it would be a free way to skip paying.
+- **Correction to "Verification" step 2:** the backend deploy no longer waits at a required reviewer gate. `72c56e9` on backend `master` ("remove the human approval gate on production deploys") removed it. So merge and live are still separate events, but no approval sits between them.
+- **Still owed:** observe it live (health `commit` = the merge commit, then `curl /checkout/cancel?order_id=<uuid>`), then resolve finding `7be3c0e5`, citing the PR.
