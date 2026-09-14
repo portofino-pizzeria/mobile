@@ -442,7 +442,9 @@ jobs:
   # The other half of the alarm: a deploy that succeeds after one that failed
   # closes the open issue, naming the run and the commit that recovered, so an
   # open `Web deploy failed` issue always means the last deploy of main's head
-  # did not prove itself live.
+  # did not prove itself live — or a rollback is in effect, since
+  # web-site-current.yml raises the same issue when the site differs from
+  # main's head for any reason.
   #
   # Only a deploy of main's HEAD counts as recovery. A rollback dispatch
   # (`ref=<older sha>`) succeeds too, but leaves main's head — the commit whose
