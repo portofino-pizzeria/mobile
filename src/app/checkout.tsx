@@ -405,6 +405,7 @@ export default function CheckoutScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ThemedText type="eyebrow" style={styles.eyebrow}>Fast geschafft</ThemedText>
         <ThemedText type="subtitle">Lieferdaten</ThemedText>
 
         <Field label="Name">
@@ -471,7 +472,7 @@ export default function CheckoutScreen() {
         ) : null}
 
         {error ? (
-          <ThemedText type="small" style={{ color: theme.alertUndeclared }}>
+          <ThemedText type="small" style={{ color: theme.destructive }}>
             {error.message}
           </ThemedText>
         ) : null}
@@ -498,9 +499,9 @@ export default function CheckoutScreen() {
           onTap={() => pay('stripe')}
           onBridgePress={() => void payRef.current('stripe', true)}>
           {busy === 'stripe' ? (
-            <ActivityIndicator color={theme.onBrand} />
+            <ActivityIndicator color="#ffffff" />
           ) : (
-            <ThemedText type="smallBold" style={{ color: theme.onBrand }}>
+            <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
               Mit Karte bezahlen (Stripe)
             </ThemedText>
           )}
@@ -528,7 +529,7 @@ export default function CheckoutScreen() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="smallBold">
         {label}
       </ThemedText>
       {children}
@@ -538,15 +539,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { padding: Spacing.lg, gap: Spacing.lg, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
+  scroll: { paddingHorizontal: Spacing.gutter, paddingVertical: Spacing.xl, gap: Spacing.lg, maxWidth: MaxContentWidth, width: '100%', alignSelf: 'center' },
   field: { gap: Spacing.xs },
   input: { borderWidth: 1, borderRadius: Radius.field, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, fontSize: 16 },
   // Room for about three lines, so the optional note reads as a text area
   // rather than one more single-line field, with the text starting at the top
   // on Android.
   notesInput: { minHeight: 88, verticalAlign: 'top' },
-  footer: { padding: Spacing.lg, gap: Spacing.sm },
+  footer: { paddingHorizontal: Spacing.gutter, paddingVertical: Spacing.lg, gap: Spacing.sm, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   contactGap: { textAlign: 'center' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs },
   payBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 52, justifyContent: 'center' },
+  eyebrow: { marginBottom: -Spacing.sm },
 });

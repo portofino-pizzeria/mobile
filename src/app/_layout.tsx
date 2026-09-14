@@ -1,11 +1,7 @@
 import { UIBridgeNativeProvider } from '@qontinui/ui-bridge-native';
-import { Jost_400Regular, Jost_500Medium, Jost_600SemiBold } from '@expo-google-fonts/jost';
-import { LeagueGothic_400Regular } from '@expo-google-fonts/league-gothic';
-import { Oswald_600SemiBold } from '@expo-google-fonts/oswald';
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useMemo } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -16,42 +12,22 @@ import { createTcpServerAdapter } from '@/lib/ui-bridge-server-adapter';
 import { CartProvider } from '@/state/cart';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const theme = useTheme();
 
-  // Header chrome, per `domain_spec/visual-system`: the page ground, with a
-  // brand-red title. The red is a foreground colour here, not a bar fill —
-  // "It is the colour of headings and prices, not primarily of buttons and
-  // bars."
-  //
-  // Read from the THEME, never from `Brand` directly: pinning
-  // `backgroundColor` to the literal white put a white header bar over a black
-  // screen body on every route in dark mode.
+  // Header chrome, per the v0 design's `.portofino-header`: a white bar with a
+  // hairline under it (`border-b border-gray-200`) and ink serif titles. The
+  // menu screen replaces the title with the gold wordmark.
   const headerScreenOptions = {
     headerStyle: { backgroundColor: theme.background },
-    headerTintColor: theme.brand,
+    headerShadowVisible: true,
+    headerTintColor: theme.text,
     headerTitleStyle: {
-      fontFamily: Type.displayBold,
+      fontFamily: Type.serif,
       fontSize: 20,
-      color: theme.brand,
+      color: theme.text,
     },
+    contentStyle: { backgroundColor: theme.background },
   };
-
-  // The declared faces.
-  const [, fontError] = useFonts({
-    LeagueGothic_400Regular,
-    Oswald_600SemiBold,
-    Jost_400Regular,
-    Jost_500Medium,
-    Jost_600SemiBold,
-  });
-  // Not gated on — an unloaded family falls back to the platform face, which
-  // is worse-looking but never blank, so the app renders rather than holding a
-  // splash on a font fetch. But a failure that is never surfaced is a silent
-  // downgrade to the exact template look this change removed, so say so in dev.
-  if (__DEV__ && fontError) {
-    console.warn('[theme] a declared font failed to load:', fontError);
-  }
 
   // The control server runs only in native dev builds. `serverAdapter` binds the
   // HTTP surface to react-native-tcp-socket; web has no TCP server, so omit it.
@@ -69,7 +45,8 @@ export default function RootLayout() {
       config={{ serverPort: UI_BRIDGE_PORT }}
       serverAdapter={serverAdapter}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        {/* Light only: the design declares `color-scheme: light`. */}
+        <ThemeProvider value={DefaultTheme}>
           <CartProvider>
             <AnimatedSplashOverlay />
             <Stack screenOptions={headerScreenOptions}>

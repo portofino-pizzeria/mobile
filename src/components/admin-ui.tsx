@@ -19,22 +19,14 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-// All three are UNDECLARED by `domain_spec/visual-system`, which says of the
-// alert treatment: "Until then, alerts are UNDECLARED, not 'use the brand
-// red'." They are the values this editor already shipped; DANGER is now
-// single-sourced from the token file so the gap has one address.
+// DANGER is the design's declared `--destructive`, single-sourced from the
+// token file. WARNING and OK are not in the design: they are the values this
+// editor already shipped, kept literal so they do not read as declared.
 //
-// Note what this means for THIS screen, and why the primary button here is
-// deliberately NOT brand red: an owner surface already spends a red on
-// "careful". Adding a second, adjacent red for "save" would collapse the one
-// distinction the spec's semantic contract insists on — "a hue is chosen from
-// what it OBLIGES A READER TO DO". Red stays danger here.
-// DANGER is a FILL, and fills on this screen do not switch per scheme, so
-// reading the light palette at module scope is correct here rather than
-// incidental. Text that needs the same colour reads `theme.alertUndeclared`.
-// WARNING and OK stay literal: hoisting them would put two more undeclared
-// values in the token file and read as the tenant having chosen them.
-export const DANGER = Colors.light.alertUndeclared;
+// With the palette now gold, the primary action here is a gold fill like on
+// the guest screens: gold and the destructive red no longer sit adjacent, so
+// "save" and "careful" stay distinct without keeping the primary ink.
+export const DANGER = Colors.destructive;
 export const WARNING = '#b25e00';
 export const OK = '#177245';
 
@@ -59,9 +51,9 @@ export function AdminButton({
 }) {
   const theme = useTheme();
   const background =
-    tone === 'primary' ? theme.text : tone === 'danger' ? DANGER : 'transparent';
+    tone === 'primary' ? theme.brand : tone === 'danger' ? DANGER : 'transparent';
   const color =
-    tone === 'primary' ? theme.background : tone === 'danger' ? theme.onBrand : theme.text;
+    tone === 'primary' ? theme.onBrand : tone === 'danger' ? theme.onDestructive : theme.text;
 
   return (
     <BridgeButton

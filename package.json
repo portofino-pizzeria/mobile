@@ -3,9 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo-google-fonts/jost": "^0.4.2",
-    "@expo-google-fonts/league-gothic": "^0.4.2",
-    "@expo-google-fonts/oswald": "^0.4.2",
     "@expo/ui": "~56.0.18",
     "@qontinui/ui-bridge-native": "^0.6.11",
     "expo": "~56.0.12",

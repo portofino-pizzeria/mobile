@@ -48,11 +48,10 @@ const styles = StyleSheet.create({
   backgroundSolidColor: {
     ...StyleSheet.absoluteFill,
     // The native splash's own background (`app.json` -> expo-splash-screen),
-    // continued for one animation frame so the hand-off is seamless. It is
-    // still the Expo template's blue, and the plan's S6 says why: the splash
-    // needs a MARK before it can carry the brand, and recolouring the
-    // template artwork would make the scaffold look deliberate.
-    backgroundColor: '#208AEF',
+    // continued for one animation frame so the hand-off is seamless. White is
+    // the design's page ground and theme colour; the splash artwork itself is
+    // still the template's until the app has a mark (the plan's S6).
+    backgroundColor: '#ffffff',
     zIndex: 1000,
   },
 });
