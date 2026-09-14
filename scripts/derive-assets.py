@@ -34,6 +34,7 @@ import argparse
 import hashlib
 import io
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -349,7 +350,11 @@ def main() -> int:
     if mf_prev.exists():
         prev = json.loads(mf_prev.read_text(encoding="utf-8"))
         previous = {e["key"]: e for e in prev.get("images", []) + prev.get("icons", [])}
-        manifest["notes"] = list(dict.fromkeys(manifest["notes"] + prev.get("notes", [])))
+        # The script's own notes are rewritten every run; only dated notes a
+        # person added ("YYYY-MM-DD: ...") travel over, so a note the script
+        # has stopped emitting cannot outlive the rule it described.
+        dated = [n for n in prev.get("notes", []) if re.match(r"\d{4}-\d{2}-\d{2}:", n)]
+        manifest["notes"] = list(dict.fromkeys(manifest["notes"] + dated))
 
     def carry_review(entry: dict) -> None:
         old = previous.get(entry["key"])
@@ -373,8 +378,15 @@ def main() -> int:
     # A category the current sheet does not draw keeps the icon it already has:
     # the previous entry, file and review travel over unchanged, provided the
     # file is still the one that entry describes.
+    # ...and only while that category is still on the menu and the sheet the
+    # entry was cut from is still in the repo. A removed category's icon is
+    # never resurrected just because its file was left on disk.
+    menu_cat_ids = {c["id"] for c in menu["categories"]}
     for old in previous.values():
-        if not old["key"].startswith("icons/") or set(old["maps_to"]) & iconned:
+        if (not old["key"].startswith("icons/")
+                or set(old["maps_to"]) & iconned
+                or not set(old["maps_to"]) <= menu_cat_ids
+                or not (MOBILE / old["source"]["sheet"]).exists()):
             continue
         f = MOBILE / old["file"]
         if f.exists() and sha256(f) == old.get("sha256"):

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-14T11:31:25Z",
+  "generated_at": "2026-09-14T11:37:16Z",
   "generated_by": "scripts/derive-assets.py",
   "spec": "coord domain_spec/imagery-and-iconography (tenant pizzeria)",
   "join_keys": {
@@ -1064,7 +1064,6 @@
     "every entry starts as 'candidate': a human must confirm that each picture is that dish before it renders, and a re-derived file whose bytes changed returns to 'candidate'. See the clause an-image-beside-a-price-is-a-claim in policy/ux-priorities.",
     "an icon for a category publishing zero items is bundled but never drawn: the menu renders only sections that have items, so the icon waits for the owner's first dish there rather than promising an empty room.",
     "an icon for a category the current sheet does not draw is carried from the previous manifest unchanged (same file, crop, source sheet and status) rather than dropped.",
-    "categories_without_icon are the categories publishing zero items; an icon for them would be a navigational promise to an empty room.",
     "2026-09-14: the operator confirmed the 29 dish illustrations (reviewed beside each dish's number, name and toppings) and the 15 category icons of portofino-icons-3.png. antipasti-misto was removed from the menu (backend data/menu.json), and its icon with it."
   ],
   "sources": {
