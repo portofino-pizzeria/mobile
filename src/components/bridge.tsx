@@ -22,7 +22,14 @@ type BridgeButtonProps = Omit<PressableProps, 'onPress'> & {
   onPress?: () => void;
 };
 
-export function BridgeButton({ uiId, uiLabel, onPress, children, ...rest }: BridgeButtonProps) {
+export function BridgeButton({
+  uiId,
+  uiLabel,
+  onPress,
+  onLayout: callerOnLayout,
+  children,
+  ...rest
+}: BridgeButtonProps) {
   const { ref, onLayout, bridgeProps } = useUIElement({
     id: uiId,
     type: 'button',
@@ -47,7 +54,17 @@ export function BridgeButton({ uiId, uiLabel, onPress, children, ...rest }: Brid
     },
   });
   return (
-    <Pressable ref={ref} onLayout={onLayout} {...bridgeProps} onPress={onPress} {...rest}>
+    // The Bridge's `onLayout` is what records the element's rect, so a caller's
+    // own `onLayout` runs beside it rather than replacing it.
+    <Pressable
+      ref={ref}
+      {...bridgeProps}
+      onPress={onPress}
+      {...rest}
+      onLayout={(e) => {
+        onLayout(e);
+        callerOnLayout?.(e);
+      }}>
       {children}
     </Pressable>
   );
@@ -58,7 +75,14 @@ type BridgeInputProps = TextInputProps & {
   uiLabel: string;
 };
 
-export function BridgeInput({ uiId, uiLabel, value, onChangeText, ...rest }: BridgeInputProps) {
+export function BridgeInput({
+  uiId,
+  uiLabel,
+  value,
+  onChangeText,
+  onLayout: callerOnLayout,
+  ...rest
+}: BridgeInputProps) {
   const { ref, onLayout, bridgeProps } = useUIElement({
     id: uiId,
     type: 'input',
@@ -75,11 +99,14 @@ export function BridgeInput({ uiId, uiLabel, value, onChangeText, ...rest }: Bri
   return (
     <TextInput
       ref={ref}
-      onLayout={onLayout}
       {...bridgeProps}
       value={value}
       onChangeText={onChangeText}
       {...rest}
+      onLayout={(e) => {
+        onLayout(e);
+        callerOnLayout?.(e);
+      }}
     />
   );
 }

@@ -83,7 +83,11 @@ export default function CartScreen() {
                     : { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement },
                 ]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
-                <ThemedText type="smallBold" themeColor="brandText">−</ThemedText>
+                {({ pressed }) => (
+                  <ThemedText type="smallBold" themeColor={pressed ? 'onBrand' : 'brandText'}>
+                    −
+                  </ThemedText>
+                )}
               </BridgeButton>
               <ThemedText type="smallBold" style={styles.qty}>
                 {quantity}
@@ -98,7 +102,11 @@ export default function CartScreen() {
                     : { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement },
                 ]}
                 onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
-                <ThemedText type="smallBold" themeColor="brandText">+</ThemedText>
+                {({ pressed }) => (
+                  <ThemedText type="smallBold" themeColor={pressed ? 'onBrand' : 'brandText'}>
+                    +
+                  </ThemedText>
+                )}
               </BridgeButton>
             </View>
             <ThemedText type="price" style={styles.lineTotal}>
