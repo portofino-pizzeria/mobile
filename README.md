@@ -127,13 +127,15 @@ not by the publish step's exit code.
   re-running a past run replays its commit and is not a rollback.
 - **Failure:** the run opens (or comments on) a `Web deploy failed` issue; the
   next successful deploy of `main`'s head closes it (a rollback does not). An
-  open one means the last deploy of `main` did not prove itself live.
+  open one means the last deploy of `main` did not prove itself live, or a
+  rollback is in effect.
 - **Watchdog:** `.github/workflows/web-site-current.yml` re-asks every half
   hour whether the live `build-sha` is `main`'s head and whether the bundle the
   page references is served as JavaScript, and raises the same issue when
-  not. It exists because the deploy's own alarm dies with the deploy's run: on
-  2026-09-13 a hosted-runner outage stopped both, and `main`'s head was not
-  live for six hours with nothing saying so. A deliberate rollback trips it
+  not (or when the site stops answering). It exists because the deploy's own
+  alarm dies with the deploy's run: on 2026-09-13 a hosted-runner outage
+  stopped both, and `main`'s head was not live for six hours with nothing
+  saying so. A deliberate rollback trips it
   too — that is the invariant above, not a false alarm — and the roll-forward
   closes it.
 - Infrastructure (bucket, distribution, the OIDC role and the SSM parameters)
