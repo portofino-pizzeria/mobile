@@ -132,12 +132,12 @@ not by the publish step's exit code.
 - **Watchdog:** `.github/workflows/web-site-current.yml` re-asks every half
   hour whether the live `build-sha` is `main`'s head and whether the bundle the
   page references is served as JavaScript, and raises the same issue when
-  not (or when the site stops answering). It exists because the deploy's own
-  alarm dies with the deploy's run: on 2026-09-13 a hosted-runner outage
-  stopped both, and `main`'s head was not live for six hours with nothing
-  saying so. A deliberate rollback trips it
-  too — that is the invariant above, not a false alarm — and the roll-forward
-  closes it.
+  not (or when the site stops answering), and closes it again on the first
+  tick that finds the site current. It exists because the deploy's own alarm
+  dies with the deploy's run: on 2026-09-13 a hosted-runner outage stopped
+  both, and `main`'s head was not live for six hours with nothing saying so.
+  A deliberate rollback trips it too — that is the invariant above, not a
+  false alarm — and the roll-forward closes it.
 - Infrastructure (bucket, distribution, the OIDC role and the SSM parameters)
   is provisioned by the sibling `infra` repo and is never copied into this one.
   The design and its rationale: `plans/2026-09-10-automatic-deployment.md`.
