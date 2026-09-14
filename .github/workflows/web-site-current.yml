@@ -77,7 +77,10 @@ jobs:
       # on retries, and a deploy that lands inside that gap must not produce
       # "site serves the old sha, head is the new one, no run in flight" — a
       # false alarm. Read the head first and a push in the gap reads as
-      # current, to be caught one tick later.
+      # current, to be caught one tick later. What remains is a push whose
+      # whole deploy completes inside the site read — seconds against a
+      # four-minute deploy — which the verdict step closes by re-reading the
+      # head once before it alarms on a sha mismatch.
       - name: Read main's head and the deploy queue
         id: head
         env:
@@ -105,11 +108,15 @@ jobs:
           # dispatch shows up here too (its headSha is main's head, the branch
           # it was dispatched on) and is waited for the same way; once it
           # completes the site differs from the head and the next tick alarms,
-          # which is the documented invariant. `createdAt` is what tells a run
-          # that is deploying from one that is stuck.
+          # which is the documented invariant. The start time is what tells a
+          # run that is deploying from one that is stuck. `startedAt`, not
+          # `createdAt`: a re-run keeps the run's creation time and moves only
+          # its start, so measuring from creation would read a two-minute-old
+          # re-run of a run that failed two hours ago as stuck. A run that has
+          # never started carries its creation time as its start.
           OLDEST_CREATED="$(gh run list --workflow deploy-web.yml --branch main --limit 20 \
-            --json headSha,status,createdAt \
-            --jq '[.[] | select(.headSha == env.HEAD_SHA and (.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")) | .createdAt] | sort | first // empty')"
+            --json headSha,status,createdAt,startedAt \
+            --jq '[.[] | select(.headSha == env.HEAD_SHA and (.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")) | (.startedAt // .createdAt)] | sort | first // empty')"
           if [ -z "$OLDEST_CREATED" ]; then
             echo "in_flight=none" >> "$GITHUB_OUTPUT"
             echo "no deploy of $HEAD_SHA is queued or running"
@@ -198,6 +205,8 @@ jobs:
       - name: Decide whether the site is current
         id: verdict
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           HEAD_SHA: ${{ steps.head.outputs.sha }}
           HEAD_AGE_MINUTES: ${{ steps.head.outputs.age_minutes }}
           IN_FLIGHT: ${{ steps.head.outputs.in_flight }}
@@ -215,12 +224,20 @@ jobs:
           elif [ "$BUNDLE" = "missing" ]; then
             alarm="the live page references no /_expo/static/js/web bundle — the site is blank"
           elif [ "$BUNDLE" != "ok" ]; then
-            alarm="the live page references a bundle that is not served as JavaScript — the site is blank"
+            alarm="the live page references a bundle that is served as HTML or with a non-JavaScript content type — the site is blank"
           elif [ "$LIVE_SHA" != "$HEAD_SHA" ]; then
             # main moved and the site did not follow. Before calling that a
             # failure, rule out a deploy that is simply still running, and a
             # head so fresh its run has not been created yet (GitHub's queue can
-            # lag a push).
+            # lag a push). First, though: is the site ahead of the head we read,
+            # because a push landed and deployed during the site read? Then it
+            # is current, and the next tick measures it properly.
+            if [ "$LIVE_SHA" = "$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')" ]; then
+              echo "verdict=current" >> "$GITHUB_OUTPUT"
+              echo "head=$LIVE_SHA" >> "$GITHUB_OUTPUT"
+              echo "main moved to $LIVE_SHA during this tick and the site already serves it."
+              exit 0
+            fi
             case "$IN_FLIGHT" in
               running)
                 echo "verdict=in_flight" >> "$GITHUB_OUTPUT"
@@ -243,6 +260,7 @@ jobs:
 
           if [ -z "$alarm" ]; then
             echo "verdict=current" >> "$GITHUB_OUTPUT"
+            echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
             echo "$SITE_URL serves main's head ($HEAD_SHA) and its bundle is JavaScript."
             exit 0
           fi
@@ -301,14 +319,20 @@ jobs:
       # open alarm the bot raised, naming what it saw — including a rollback's
       # alarm once the roll-forward has landed. Same list-and-close loop as
       # notify-recovery, same author match, so a stranger's issue is never
-      # touched.
+      # touched. One case notify-recovery would never close and this does: a
+      # rollback dispatch that FAILED leaves the site on main's head, so the
+      # `Deploy of <older sha> failed` issue it raised is closed here as
+      # recovered — the site is current, which is what the issue's absence
+      # promises.
       - name: Close the alarm when the site is current
         if: steps.verdict.outputs.verdict == 'current'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          HEAD_SHA: ${{ steps.head.outputs.sha }}
+          # The head the site was proved against — step 1's, or the re-read one
+          # when main moved during the tick.
+          HEAD_SHA: ${{ steps.verdict.outputs.head }}
         run: |
           set -euo pipefail
           OPEN="$(gh issue list --state open --limit 100 \
