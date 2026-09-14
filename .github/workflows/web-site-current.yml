@@ -1,0 +1,187 @@
+name: Web site current
+
+# Asks, on a clock, the one question the deploy pipeline exists to answer:
+# is https://portofino-essen.com/ serving the tip of `main`, and does the page
+# it serves actually work?
+#
+# Why a second workflow when deploy-web.yml already proves every deploy and
+# raises a `Web deploy failed` issue when it cannot: the alarm there lives in
+# the SAME run as the deploy, so whatever stops the deploy from running stops
+# the alarm too. Measured 2026-09-13: the push deploy of c25c2d4 (run
+# 34748395985) never started — "The job was not started because it repeatedly
+# failed to be acquired (5 attempts)", a GitHub-side runner outage — and
+# `notify-failure` died the same way. No issue was opened. `main`'s head was not
+# live, and nothing said so, for six hours, until the next unrelated push
+# happened to deploy it. That is the stale-site invisibility the plan set out
+# to remove (plans/2026-09-10-automatic-deployment.md, "Decisions taken during
+# vetting": a failed deploy must not be as invisible as a stale site).
+#
+# This job runs on the same hosted runners, so it shares the outage — but not
+# the moment. It re-asks every half hour, and the first tick that acquires a
+# runner raises the alarm. "Invisible until the next push" becomes "invisible
+# until the next tick", and the alarm no longer depends on the failing run.
+#
+# It reads the site and GitHub; it deploys nothing and never touches S3.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SITE_URL: https://portofino-essen.com
+  # A push deploy takes about four minutes end to end. A head younger than
+  # this, with no deploy run visible for it yet, is a queue delay, not drift.
+  HEAD_GRACE_MINUTES: 15
+  TITLE: Web deploy failed
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Read the live site
+        id: live
+        run: |
+          set -euo pipefail
+          # `|| true` on every extraction: an unreachable site or a page with no
+          # marker is a finding for the step below, not a crash here.
+          HTML="$(curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SITE_URL/" || true)"
+          if [ -z "$HTML" ]; then
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::$SITE_URL/ did not answer."
+            exit 0
+          fi
+          echo "reachable=true" >> "$GITHUB_OUTPUT"
+
+          LIVE="$(printf '%s' "$HTML" \
+            | grep -o -m1 '<meta name="build-sha" content="[^"]*"' \
+            | sed 's/.*content="//; s/"$//' || true)"
+          echo "sha=${LIVE:-<none>}" >> "$GITHUB_OUTPUT"
+          echo "live build-sha: ${LIVE:-<none>}"
+
+          # The marker says which build the HTML is; it does not say the page
+          # works. Both 403 and 404 are rewritten to /index.html with HTTP 200,
+          # so a missing bundle is served as HTML, the browser parses HTML as
+          # JavaScript, and the page is blank. Fetch what the page references
+          # and prove it is JavaScript — the same check deploy-web.yml makes
+          # once, at deploy time, made continuously.
+          BUNDLE="$(printf '%s' "$HTML" \
+            | grep -o '/_expo/static/js/web/[^"]*\.js' | head -1 || true)"
+          BUNDLE_OK=false
+          if [ -n "$BUNDLE" ]; then
+            CT="$(curl -fsS --max-time 30 -o bundle.live.js -w '%{content_type}' "$SITE_URL$BUNDLE" || true)"
+            case "$CT" in
+              *javascript*)
+                if ! head -c 512 bundle.live.js | grep -qi '<!doctype\|<html'; then
+                  BUNDLE_OK=true
+                fi
+                ;;
+            esac
+            rm -f bundle.live.js
+            echo "bundle $BUNDLE served as '${CT:-<no answer>}'"
+          else
+            echo "index.html references no /_expo/static/js/web bundle"
+          fi
+          echo "bundle_ok=$BUNDLE_OK" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether the site is current
+        id: verdict
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          # For a schedule or a default-branch dispatch this is main's head.
+          HEAD_SHA: ${{ github.sha }}
+          REACHABLE: ${{ steps.live.outputs.reachable }}
+          LIVE_SHA: ${{ steps.live.outputs.sha }}
+          BUNDLE_OK: ${{ steps.live.outputs.bundle_ok }}
+        run: |
+          set -euo pipefail
+          alarm=""
+
+          if [ "$REACHABLE" != "true" ]; then
+            # One missed fetch is not an outage — a transient edge error at the
+            # tick would otherwise open an issue every time it happens. Let the
+            # next tick decide; two in a row is still under an hour.
+            echo "verdict=unreachable" >> "$GITHUB_OUTPUT"
+            echo "$SITE_URL did not answer this tick; not alarming on one miss."
+            exit 0
+          fi
+
+          if [ "$BUNDLE_OK" != "true" ]; then
+            alarm="the live page references a bundle that is not served as JavaScript — the site is blank"
+          elif [ "$LIVE_SHA" != "$HEAD_SHA" ]; then
+            # main moved and the site did not follow. Before calling that a
+            # failure, rule out a deploy that is simply still running.
+            IN_FLIGHT="$(gh run list --workflow deploy-web.yml --branch main --limit 20 \
+              --json headSha,status \
+              --jq '[.[] | select(.headSha == env.HEAD_SHA and (.status == "queued" or .status == "in_progress" or .status == "waiting"))] | length')"
+            if [ "${IN_FLIGHT:-0}" -gt 0 ]; then
+              echo "verdict=in_flight" >> "$GITHUB_OUTPUT"
+              echo "A deploy of $HEAD_SHA is queued or running; not drift yet."
+              exit 0
+            fi
+            # A run that has not been created at all yet (GitHub's queue can
+            # lag a push by minutes) looks the same as one that never will be.
+            # Give a fresh head its grace period before reading it as a failure.
+            COMMITTED_AT="$(gh api "repos/$GH_REPO/commits/$HEAD_SHA" --jq '.commit.committer.date')"
+            AGE_MINUTES=$(( ( $(date -u +%s) - $(date -u -d "$COMMITTED_AT" +%s) ) / 60 ))
+            if [ "$AGE_MINUTES" -lt "$HEAD_GRACE_MINUTES" ]; then
+              echo "verdict=grace" >> "$GITHUB_OUTPUT"
+              echo "$HEAD_SHA is $AGE_MINUTES min old and has no deploy run yet; within the grace period."
+              exit 0
+            fi
+            alarm="main's head $HEAD_SHA is not live: the site serves $LIVE_SHA and no deploy of the head is running"
+          fi
+
+          if [ -z "$alarm" ]; then
+            echo "verdict=current" >> "$GITHUB_OUTPUT"
+            echo "$SITE_URL serves main's head ($HEAD_SHA) and its bundle is JavaScript."
+            exit 0
+          fi
+          echo "verdict=stale" >> "$GITHUB_OUTPUT"
+          echo "reason=$alarm" >> "$GITHUB_OUTPUT"
+          echo "::error::$alarm"
+
+      - name: Raise or update the alarm
+        if: steps.verdict.outputs.verdict == 'stale'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+          LIVE_SHA: ${{ steps.live.outputs.sha }}
+          REASON: ${{ steps.verdict.outputs.reason }}
+        run: |
+          set -euo pipefail
+          # The same issue deploy-web.yml's notify-failure opens, by the same
+          # title and the same author match, so there is ever one alarm — and
+          # deploy-web.yml's notify-recovery closes it on the next successful
+          # deploy of main's head, exactly as it closes its own. Listed rather
+          # than searched, for the reason given there: the search index lags.
+          BODY="Watchdog: $REASON. Live build-sha \`$LIVE_SHA\`, main \`$HEAD_SHA\`. Run: $RUN_URL"
+          EXISTING="$(gh issue list --state open --limit 100 \
+            --json number,title,author \
+            --jq '[.[] | select(.title == env.TITLE and .author.login == "app/github-actions") | .number][0] // empty')"
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$TITLE" --body "$BODY"
+            exit 0
+          fi
+          # Every half hour of the same stale state would otherwise add the same
+          # comment. Comment only when the pair (live, head) changed since the
+          # last one — a new head that also failed to ship is news; the same
+          # head still not shipped is not.
+          LAST="$(gh issue view "$EXISTING" --json comments,body \
+            --jq '([.body] + [.comments[].body]) | last')"
+          if printf '%s' "$LAST" | grep -qF "Live build-sha \`$LIVE_SHA\`, main \`$HEAD_SHA\`"; then
+            echo "#$EXISTING already records live=$LIVE_SHA head=$HEAD_SHA; nothing new to say."
+            exit 0
+          fi
+          gh issue comment "$EXISTING" --body "$BODY"
