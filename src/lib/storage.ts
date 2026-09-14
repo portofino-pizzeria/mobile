@@ -1,11 +1,11 @@
 import { File, Paths } from 'expo-file-system';
 
 // A tiny text key/value store, native half. `storage.web.ts` is the web half
-// and uses localStorage, the precedent set by `kitchen.ts` — but localStorage
-// does not exist on iOS/Android, and this app ships both, so the native side
-// keeps one small file per key in the app's document directory (document, not
-// cache: an offline menu that the OS may evict under storage pressure is not an
-// offline menu).
+// and uses localStorage — but localStorage does not exist on iOS/Android, and
+// this app ships both, so the native side keeps one small file per key in the
+// app's document directory (document, not cache: an offline menu that the OS
+// may evict under storage pressure is not an offline menu). `kitchen.ts` and
+// `admin.ts` both keep their staff/owner credential here for the same reason.
 //
 // Every operation is best-effort. Persistence here is a convenience, never a
 // correctness dependency, so a failure reads as "nothing stored" instead of

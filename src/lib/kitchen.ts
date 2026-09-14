@@ -1,5 +1,6 @@
 import { ApiError } from './api';
 import { API_BASE_URL } from './config';
+import { readStoredText, writeStoredText } from './storage';
 import type { Order } from './types';
 
 // The kitchen dashboard is a staff tool. The backend requires a shared token
@@ -7,8 +8,11 @@ import type { Order } from './types';
 // backend with no token configured answers 401 to everything rather than
 // serving order data unauthenticated (backend/src/routes/kitchen.ts). Local
 // dev opts out with KITCHEN_AUTH_DISABLED=1 on the backend side; there is
-// nothing to configure here. The operator enters the token once and we persist
-// it in the browser (web is the primary target for this screen).
+// nothing to configure here. The operator enters the token once and it is
+// persisted in the same tiny key/value store the offline menu cache and the
+// owner's menu-editor credential use (`./storage`) — on web that is
+// localStorage, on a phone a file in the app's document directory, so a
+// native build can authenticate too instead of sending no token at all.
 //
 // A 401 therefore has two causes the screen must tell apart: the token was
 // wrong, or the server has none at all — and in the second case no entry can
@@ -20,32 +24,21 @@ import type { Order } from './types';
 
 const TOKEN_KEY = 'portofino.kitchenToken';
 
-/** localStorage, or null where it is absent or blocked. With site data
- *  blocked, even reading the global throws, so the probe is guarded too. */
-function tokenStore(): Storage | null {
-  try {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-  } catch {
-    return null;
-  }
+/** Read once at start-up, then kept here so every request is synchronous. */
+let cachedToken = '';
+
+export async function loadKitchenToken(): Promise<string> {
+  cachedToken = (await readStoredText(TOKEN_KEY)) ?? '';
+  return cachedToken;
 }
 
 export function getKitchenToken(): string {
-  try {
-    return tokenStore()?.getItem(TOKEN_KEY) ?? '';
-  } catch {
-    return '';
-  }
+  return cachedToken;
 }
 
-export function setKitchenToken(token: string): void {
-  try {
-    const store = tokenStore();
-    if (token) store?.setItem(TOKEN_KEY, token);
-    else store?.removeItem(TOKEN_KEY);
-  } catch {
-    // Not persisted: the operator enters the token again on the next visit.
-  }
+export async function setKitchenToken(token: string): Promise<void> {
+  cachedToken = token;
+  await writeStoredText(TOKEN_KEY, token);
 }
 
 /** An HTTP error that carries the status so the UI can react to 401 → prompt.

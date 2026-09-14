@@ -1,7 +1,6 @@
 // A tiny text key/value store, web half — see `storage.ts` for the native half
-// and the rationale. localStorage is the same mechanism `kitchen.ts` uses, and
-// it can throw (private mode, blocked site data) as well as be absent, so both
-// are handled.
+// and the rationale. localStorage can throw (private mode, blocked site data)
+// as well as be absent, so both are handled.
 
 /** localStorage, or null where it is absent or blocked. With site data
  *  blocked, even reading the global throws, so the probe is guarded too. */
