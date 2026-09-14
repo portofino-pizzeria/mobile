@@ -730,7 +730,8 @@ function CategoryIcon({ categoryId, size, color }: { categoryId: string; size: n
   return (
     <RNImage
       source={icon.source as ImageSourcePropType}
-      style={{ height: size, width: size * 1.5, tintColor: color }}
+      style={{ height: size, width: size * 1.5 }}
+      tintColor={color}
       resizeMode="contain"
       accessible={false}
     />

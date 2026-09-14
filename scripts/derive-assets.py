@@ -281,8 +281,9 @@ def main() -> int:
         "unmapped_menu_items": uncovered,
         "categories_without_icon": empty_cats,
         "notes": [
-            "status is 'candidate' for every entry: a human must confirm that "
-            "each picture is that dish before it renders. See the clause "
+            "every entry starts as 'candidate': a human must confirm that each "
+            "picture is that dish before it renders, and a re-derived file whose "
+            "bytes changed returns to 'candidate'. See the clause "
             "an-image-beside-a-price-is-a-claim in policy/ux-priorities.",
             "categories_without_icon are the categories publishing zero items; "
             "an icon for them would be a navigational promise to an empty room.",
