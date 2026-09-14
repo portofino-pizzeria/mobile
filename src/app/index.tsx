@@ -318,12 +318,18 @@ export default function MenuScreen() {
     scrollRef.current?.scrollTo({ y: listY.current + y - tabsHeight, animated: true });
   }
 
-  function onScroll(offsetY: number) {
+  function onScroll(offsetY: number, viewportHeight: number, contentHeight: number) {
     const reading = offsetY + tabsHeight + 1;
     let current: string | null = sections[0]?.id ?? null;
     for (const section of sections) {
       const y = sectionY.current.get(section.id);
       if (y !== undefined && listY.current + y <= reading) current = section.id;
+    }
+    // At the bottom of the page the last sections can never reach the reading
+    // line — they are shorter than the screen. Scrolled to the end, the tab a
+    // press is heading for, or else the last one, is the current one.
+    if (offsetY + viewportHeight >= contentHeight - 1) {
+      current = jumpTarget.current?.id ?? sections[sections.length - 1]?.id ?? current;
     }
     const jump = jumpTarget.current;
     if (jump) {
@@ -497,7 +503,11 @@ export default function MenuScreen() {
               uiId={`menu-tab-${section.id}`}
               uiLabel={`Zu ${section.label} springen`}
               onLayout={(e) => tabX.current.set(section.id, e.nativeEvent.layout.x)}
-              style={[styles.tab, { borderBottomColor: active ? theme.brand : 'transparent' }]}
+              role="tab"
+              aria-selected={active}
+              // The gold TEXT colour, not the fill gold: the underline is the
+              // active state's indicator and needs 3:1 (the fill gold is 2.23:1).
+              style={[styles.tab, { borderBottomColor: active ? theme.brandText : 'transparent' }]}
               onPress={() => scrollToSection(section.id)}>
               <ThemedText type="smallBold" themeColor={active ? 'text' : 'textSecondary'}>
                 {section.label}
@@ -648,7 +658,13 @@ export default function MenuScreen() {
         ref={scrollRef}
         stickyHeaderIndices={[stickyIndex]}
         scrollEventThrottle={32}
-        onScroll={(e) => onScroll(e.nativeEvent.contentOffset.y)}>
+        onScroll={(e) =>
+          onScroll(
+            e.nativeEvent.contentOffset.y,
+            e.nativeEvent.layoutMeasurement.height,
+            e.nativeEvent.contentSize.height,
+          )
+        }>
         {blocks}
       </ScrollView>
 
@@ -676,7 +692,7 @@ export default function MenuScreen() {
 }
 
 /** `PORTOFINO.` — the design's wordmark: the gold serif, and an ink full stop
- *  (white on the dark footer). A logotype, so the gold carries no contrast
+ *  (gold on the dark footer, as in `footer.tsx`). A logotype, so the gold carries no contrast
  *  requirement. */
 function Wordmark({ onDark = false }: { onDark?: boolean }) {
   const theme = useTheme();
