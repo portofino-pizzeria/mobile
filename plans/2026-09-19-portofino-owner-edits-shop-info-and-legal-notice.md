@@ -1,6 +1,14 @@
 # Portofino — the owner edits the restaurant's facts (hours, special days, address, legal notice), and their edits survive a deploy (2026-09-19)
 
-> **Status: DRAFT 2026-09-19.** Not vetted.
+> **Status: VETTED 2026-09-19, against backend `origin/master` `bdaaeac` (and mobile `origin/main` `d64d05d`).**
+> Every `file:line` re-read; D1–D6, the API and the phase gates survive with
+> corrections. Defects found: 11. Auto-fixed: 11. Surfaced for user: 0 (the
+> owner's own facts under "Open questions" were already the operator's).
+> Key fixes: shop defaults seeded from code because the test harness truncates
+> every table; `/api/health` must not query the DB; the Ruhetag is derived
+> from the week, not `weekday === 2`; refusal names the day's delivery close;
+> seed-once marker instead of "insert when empty"; three unstacked PRs.
+> History: authored DRAFT 2026-09-19 (mobile PR #30).
 >
 > **Repos:**
 > - `portofino-pizzeria/backend` leads (Phases 0–3).
@@ -23,6 +31,27 @@
 > **Why this file is in `mobile/plans`:** Portofino plans live here, not in
 > `qontinui-dev-notes/plans` (`c97dfc70`), because the plan scanner cannot
 > express tenancy.
+
+## Discovered prior art and vet corrections (2026-09-19)
+
+Every `file:line` in the plan was re-read at backend `bdaaeac` and mobile
+`d64d05d`. The `shop.ts` line numbers, `index.ts:59`, `seed.ts:122` /
+`:130-133`, the `index.tsx:678-718` footer, `PATCH /api/admin/menu/items/:id`
+(`admin-menu.ts:191`), `confirmNoAllergens` and `requireOwnerAuth` are all
+correct. What the vet changed, and why:
+
+| Piece | Location | What it means for this plan |
+|---|---|---|
+| The test harness truncates **every** public table before **every** test | backend `test/support/setup.ts:36-67` (`truncateAll`, derived from `pg_tables`) | Rows a migration inserts are gone before the first test runs. So the shop defaults cannot live only in a migration; they are seeded from code (`seedShop()`), and the harness calls it after the truncate. See D2. |
+| The order-time refusal is in the **service**, not the route | backend `src/lib/order-service.ts:90` (`createOrder`) | Phase 1 loads the rules there. `routes/orders.ts` never calls `shopStatus`. |
+| `payments.ts` re-check | backend `src/routes/payments.ts:98` | Correct as written; it reads the same loader. |
+| `/api/health` is App Runner's health check and must not touch the DB | backend `src/app.ts:56-61`, `src/index.ts:11-13`, `test/health.test.ts:1-4, 29-34` | D6's `legal` field is served from an in-process cache, never from a query in the request path. See D6. |
+| The Ruhetag is hard-coded as **Tuesday** | backend `src/lib/shop.ts:193` (`weekday === 2`) | Once the owner edits the week, "Ruhetag" means "a weekday the weekly hours close", not "Tuesday". See D2. |
+| The delivery refusal prints the constant `DELIVERY_UNTIL` | backend `src/lib/shop.ts:266`; mobile `src/hooks/use-shop.ts` `closedReason` (same sentence, from `shop.deliveryUntil`) | With special days, the last delivery differs per day. Both sentences must use the day's delivery close. |
+| `npm run db:seed` already exists | backend `package.json` `scripts.db:seed` | After D1 it is the insert-if-never-seeded path; `db:reseed` is added beside it. |
+| The shop footer only renders when `/api/shop` answered | mobile `src/app/index.tsx` (`if (shop) { … }` around the contact band) | The Impressum link must sit **outside** that branch, so it is reachable when the API is down. |
+| `@expo/ui` and no time-picker dependency | mobile `package.json` | The editor's times are chosen from a fixed list in 15-minute steps, built from `AdminButton`; no new dependency, identical on web and native. |
+| The repo is landed by coord (`app/qontinui-merge-orchestrator`), linear history | both repos' merged PRs | Stacked PRs lose checks (`knowledge-base/qontinui-specific/stacked-prs.md`). The PR split under "Phases" is changed to avoid stacking. |
 
 ## Why
 
@@ -93,16 +122,33 @@ decisions, not assumptions, and each is also written into `domain_spec/menu`
 
 ### D1 — Seed once. After that the database is the source of truth.
 
-- `seedMenu()` inserts only when `menu_items` is empty (a fresh database). If
-  any row exists, it returns without writing and logs
-  `Menu already present (N items) — not reseeding`.
+- `seedMenu()` seeds **once per database**. A new table
+  `dataset_seeds (name text primary key, seeded_at timestamptz not null)`
+  records it:
+  - no `menu` row and `menu_items` empty → load `data/menu.json` and insert the
+    `menu` row, in one transaction;
+  - no `menu` row but `menu_items` has rows (every database that exists today)
+    → insert the `menu` row only, and log
+    `Menu already present (N items) — not reseeding`;
+  - a `menu` row exists → return without writing, even if the owner has since
+    deleted every item.
+  **Resolved (robustness):** "insert when `menu_items` is empty" alone would
+  resurrect the whole captured menu on the next deploy after an owner empties
+  it. The marker says "seeded once" and never compares datasets, so it cannot
+  bring the erasure back the way a dataset-version marker would.
 - The full reset stays available as an explicit, local-only command:
-  `npm run db:reseed -- --force`. It refuses to run when `NODE_ENV=production`
-  unless `--i-know-this-erases-owner-edits` is passed.
+  `npm run db:reseed -- --force`. It deletes the four menu tables, reloads them
+  and rewrites the `menu` marker. It refuses to run without `--force`, and when
+  `NODE_ENV=production` unless `--i-know-this-erases-owner-edits` is also
+  passed. The existing `npm run db:seed` stays and runs the seed-once path.
 - **The replacement for "edit menu.json and redeploy":**
   - Before cutover, a dataset correction ships as a **data migration**. That is
-    an idempotent SQL file under `drizzle/`, reviewed like any other migration,
-    and it runs once.
+    an idempotent SQL file under `drizzle/` (created with
+    `npx drizzle-kit generate --custom --name=<what>` so it is in the journal),
+    reviewed like any other migration, and it runs once. **The same PR edits
+    `data/menu.json` the same way**: on a fresh database the migrations run
+    before the seed, so a data migration alone would act on an empty table and
+    the seed would then bring the old row back.
   - After cutover, the owner makes such corrections in the editor.
   - `data/menu.json` stays in the repository as the fresh-database bootstrap
     and as the test fixture. Its header note (`data/README` or the loader
@@ -115,45 +161,82 @@ decisions, not assumptions, and each is also written into `domain_spec/menu`
 
 ### D2 — Restaurant facts move to tables, seeded once from today's constants
 
-The migration creates the tables and inserts **exactly today's constants**, so
-that on the day this deploys, `GET /api/shop` returns byte-for-byte what it
-returns now. The values come from the footer of `portofino-essen.de`
+The migration creates the tables. **The values are seeded from code, not by
+the migration** (vet correction): the constants move into
+`src/lib/shop-defaults.ts` as `DEFAULT_SHOP_RULES`, and `seedShop()` inserts
+them — the profile row, the 7 weekdays and the two D4 rows, in one
+transaction — only when the `shop_profile` row is absent. `initDatabase`
+(`src/index.ts:53`) calls it after `seedMenu()`, and the test harness calls it
+after its per-test truncate (`test/support/setup.ts:63-67`). **Resolved
+(robustness):** the harness truncates every public table before every test, so
+migration-inserted rows would never be seen by a test, and a fresh database and
+a test database now reach the same state by the same code path.
+
+The seeded values are **exactly today's constants**, so that on the day this
+deploys, `GET /api/shop` returns every field it returns now with the same
+value. The values come from the footer of `portofino-essen.de`
 (2026-09-14), which `domain_spec/menu` v4 names as the authority. They do not
 come from `menu.json` `openingHours`, which that spec marks as superseded.
 
+**If the rules cannot be loaded** (no `shop_profile` row, or the database is
+unreachable), the loader throws a 503 with a German message. Orders and the
+payment re-check are then refused: the side that cannot take an order for a
+closed kitchen.
+
 | Table | Columns |
 |---|---|
-| `shop_profile` (one row, `id = 1`, `CHECK (id = 1)`) | `name`, `street`, `postal_code`, `city`, `phone_display`, `phone_e164`, `email` (nullable), `delivery_until` (`HH:MM`), `holiday_open`, `holiday_close`, `ruhetag_beats_holiday` (bool), and the legal fields from D6, plus `version` (int) and `updated_at` |
+| `shop_profile` (one row, `id = 1`, `CHECK (id = 1)`) | `name`, `street`, `postal_code`, `city`, `phone_display`, `phone_e164`, `email` (nullable), `delivery_until` (`HH:MM`), `holiday_open`, `holiday_close`, `ruhetag_beats_holiday` (bool), and the legal fields from D6 (`legal_owner_name`, `legal_form`, `vat_id`, `register_court`, `register_number`, all nullable, and `legal_confirmed_at` timestamptz nullable), plus `version` (int) and `updated_at` |
 | `shop_weekly_hours` | `weekday` 1–7 (PK); `open` and `close`, both NULL together meaning Ruhetag, enforced by a `CHECK` |
-| `shop_special_days` | `id`; exactly one of `date` (a one-off date, `YYYY-MM-DD`) or `month_day` (`MM-DD`, recurring every year); `closed` (bool); `open`, `close` and `delivery_until` (nullable, required when not `closed`); `note` (German, shown to diners) |
+| `shop_special_days` | `id`; exactly one of `date` (a one-off date, `YYYY-MM-DD`) or `month_day` (`MM-DD`, recurring every year); `closed` (bool); `open`, `close` and `delivery_until` (nullable, required when not `closed`, except the recurring `open = NULL` case in D4); `note` (German, shown to diners); `confirmed` (bool, default `true`; the two D4 rows are seeded `false` and any owner save sets it `true`). Partial unique indexes on `date` and on `month_day` enforce D5 rule 2's "no two rows for the same day". |
+| `admin_changes` | `id`, `entity` (`'shop'`), `before` jsonb, `after` jsonb, `at`. `before`/`after` are **whole-shop snapshots** (profile, weekly, special days); see D5 rule 6. |
 
 - `shop.ts` keeps its exported functions: `shopStatus`, `refusalFor`, `hoursOn`,
   `berlinTime` and `nrwHolidays`. Instead of constants, they read a
   `ShopRules` value that is loaded from the tables.
-- The rules are loaded once per request, in the route. The pure functions stay
-  pure and take the rules as an argument. That keeps `shop.test.ts`
-  table-driven and free of database access.
+- The rules are loaded once per request, by `loadShopRules()` in a new
+  `src/lib/shop-rules.ts`, called from `routes/shop.ts`,
+  `lib/order-service.ts:90` and `routes/payments.ts:98`. The pure functions
+  stay pure and take the rules as a **required** argument (no default: a
+  default would be a second source of truth). `shop.test.ts` stays
+  table-driven and free of database access by passing `DEFAULT_SHOP_RULES`.
 - **Order of resolution for a date:**
   1. a dated special day;
   2. a recurring special day;
   3. a public holiday, which follows `ruhetag_beats_holiday`;
   4. the weekday.
-- **The Ruhetag rule applies to special days too.** A recurring special day that
-  falls on a Tuesday leaves the Ruhetag in place. Only a *dated* special day,
-  which the owner typed for that specific date, can open a Tuesday. Priority:
-  the side that cannot leave food uncooked, the same reasoning
-  `domain_spec/menu` v4 gives for holidays.
+- **"Ruhetag" means a weekday the weekly hours close, not "Tuesday".** Today's
+  code tests `weekday === 2` (`shop.ts:193`); once the owner edits the week,
+  that is derived from `shop_weekly_hours`.
+- **The Ruhetag rule applies to special days too, under the same setting.**
+  While `ruhetag_beats_holiday` is `true`, neither a public holiday nor a
+  recurring special day opens a Ruhetag. Only a *dated* special day, which the
+  owner typed for that specific date, can open one. Priority: the side that
+  cannot leave food uncooked, the same reasoning `domain_spec/menu` v4 gives
+  for holidays. **Resolved (clean code):** one setting governs both, rather
+  than a second flag nobody would find.
+- A recurring special day whose resolved window is empty (its `close` is at or
+  before the weekday's normal opening) is a closed day, and the preview says
+  so.
+- `refusalFor()` names the **day's** delivery close, not the constant
+  `DELIVERY_UNTIL`, so "Lieferungen nehmen wir heute nur bis 13:30 Uhr an"
+  is right on Heiligabend.
 
 ### D3 — What diners are shown and what the server enforces come from the same rows
 
 Today `HOURS_DISPLAY` (`:272`) is hand-written text sitting beside `WEEKLY`, the
 table the server enforces. The two can disagree. It becomes a function,
 `displayHours(rules)`:
-- it groups weekdays with identical windows ("Montag, Mittwoch – Freitag");
-- it appends the public-holiday row;
-- it lists Ruhetage.
+- it groups weekdays with identical windows. A run of three or more
+  consecutive weekdays is written as a range ("Mittwoch – Freitag"); anything
+  else is joined with ", " ("Montag, Mittwoch – Freitag"; "Samstag, Sonntag");
+- the public-holiday window is **merged into the group with the same window**
+  as " und Feiertage" ("Samstag, Sonntag und Feiertage", which is what today's
+  constant prints); only when no group matches does it get its own
+  "Feiertage" row;
+- it lists Ruhetage last.
 
-A test asserts that, with the seeded rules, its output equals today's constant.
+A test asserts that, with `DEFAULT_SHOP_RULES`, its output deep-equals today's
+`HOURS_DISPLAY` (`shop.ts:272-276`), which the test keeps as a literal.
 
 The owner edits **times, never sentences**, so the printed hours cannot drift
 from the enforced ones.
@@ -187,7 +270,10 @@ enforced on the server and pinned by a test.
 
 1. **Each part is saved whole.** One request sends all 7 weekdays, or all the
    profile fields. There are no per-field writes, so no request can leave the
-   week half-updated.
+   week half-updated. **"Urlaub eintragen" is one request too:**
+   `POST /special-days` takes `days: [...]` (1–62 entries) and writes them in
+   one transaction, so a holiday is never half-entered and bumps `version`
+   once.
 2. **Impossible states are refused:**
    - a time that is not `HH:MM`;
    - `close <= open` (a window across midnight is refused);
@@ -200,6 +286,10 @@ enforced on the server and pinned by a test.
    `confirmNoAllergens`.
 4. **The phone number must parse to a dialable German number.** `phone_e164` is
    derived on the server from `phone_display`; the client does not send it.
+   A small local normaliser (no new dependency) strips spaces, `-`, `–`, `/`
+   and brackets, turns a leading `0` or `0049` into `+49`, and requires 6–13
+   digits after `+49` with no leading `0`. It must map `02054 – 15 88 3` to
+   `+49205415883` (today's constant).
    The reason: a wrong number is *"a silent, total failure"* of tap-to-call
    (`domain_spec/menu`).
 5. **Optimistic concurrency.** Every write carries the `version` it was read at.
@@ -207,8 +297,13 @@ enforced on the server and pinned by a test.
    gespeichert – bitte neu laden").
 6. **One transaction per write, plus a history row.** Each write adds a row to
    `admin_changes` (`entity`, `before` jsonb, `after` jsonb, `at`) inside the
-   same transaction. `POST /api/admin/shop/undo` restores the most recent
-   `before` value, through the same validation.
+   same transaction. `before` and `after` are whole-shop snapshots, so one
+   undo reverses any kind of write (a special day created, a week changed).
+   `POST /api/admin/shop/undo { version }` restores the most recent `before`
+   in one transaction and records the undo as a change of its own (so a second
+   undo is a redo). It checks the structural invariants (times, windows,
+   uniqueness), but not the "no dated day in the past" rule, which applies to
+   new entries only; otherwise undo would fail after midnight.
 7. **A preview before saving.** `POST /api/admin/shop/preview` runs a draft
    through `shopStatus()` and `displayHours()` without writing anything. It
    returns what a diner would see today and on the next 7 days.
@@ -223,7 +318,11 @@ mistake is found and fixed.
 - **Route and reachability.** `mobile/src/app/impressum.tsx` serves `/impressum`
   on web, and the same screen on native.
   - It is linked from the menu's shop footer (`src/app/index.tsx:678-718`) and
-    from checkout.
+    from checkout. The menu link sits **outside** the `if (shop)` branch that
+    renders the contact band, so it is there even when `/api/shop` fails.
+  - When the API has no `legal` object (an older backend) or cannot be
+    reached, the page says so in German and offers a retry; it never shows
+    invented facts.
   - The law requires the notice to be *"leicht erkennbar, unmittelbar
     erreichbar"*: at most two taps from any screen, with the word
     "Impressum" as the link text.
@@ -255,8 +354,17 @@ mistake is found and fixed.
     has its own confirmation: "Diese Angaben sind korrekt und vollständig".
   - While `legal_owner_name` or `email` is NULL, the page still renders what is
     known, **and** `/api/health` reports `legal: "incomplete"` with the list of
-    missing fields. The deploy pipeline logs a warning; it does not fail the
-    deploy.
+    missing fields (`legalMissing`). The deploy pipeline logs a warning; it
+    does not fail the deploy.
+  - **`/api/health` must not query the database** (it is App Runner's health
+    check and answers before the DB is up: `src/index.ts:11-13`). So `legal` is
+    read from an in-process cache: filled at the end of `initDatabase`,
+    updated by every profile/legal write on this instance, and refreshed in the
+    background at most once a minute when a health read finds it older than
+    that (the refresh never blocks or fails the health response). Before the
+    first load it reads `legal: "unknown"`. **Resolved (robustness):** a health
+    check that can fail on the database would take the service out of
+    rotation for a legal-notice gap.
   - **Store submission and the website cutover are blocked** while it reads
     `incomplete`. A public app without a complete Impressum can draw a
     warning letter from competitors (*Abmahnung*). That risk falls on the
@@ -274,11 +382,12 @@ tokens) is unchanged.
 
 ```
 GET    /api/admin/shop                     → { profile, weekly[7], specialDays[], version }
-PUT    /api/admin/shop/profile             { …profile, version }
+PUT    /api/admin/shop/profile             { name, street, postalCode, city, phoneDisplay, version }
 PUT    /api/admin/shop/hours               { weekly[7], deliveryUntil, holidayOpen, holidayClose,
                                              ruhetagBeatsHoliday, confirmAllClosed?, version }
-PUT    /api/admin/shop/legal               { legalOwnerName, legalForm, email, vatId?, …, version }
-POST   /api/admin/shop/special-days        { date | monthDay, closed | open/close/deliveryUntil, note, version }
+PUT    /api/admin/shop/legal               { legalOwnerName, legalForm, email, vatId?, registerCourt?,
+                                             registerNumber?, confirmed: true, version }
+POST   /api/admin/shop/special-days        { days: [{ date | monthDay, closed | open/close/deliveryUntil, note }], version }
 PATCH  /api/admin/shop/special-days/:id    { …, version }
 DELETE /api/admin/shop/special-days/:id    ?version=
 POST   /api/admin/shop/preview             draft → { display, days[8]: ShopStatus-shaped }
@@ -287,6 +396,10 @@ POST   /api/admin/shop/undo                { version }
 
 - `version` is a single counter on `shop_profile`. Every shop write increases
   it, including writes to hours and special days.
+- `email` has one writer, `PUT /legal` (it is an Impressum fact); the profile
+  write does not carry it. `PUT /legal` requires `confirmed: true` (the
+  "Diese Angaben sind korrekt und vollständig" box) and stamps
+  `legal_confirmed_at`.
 - `GET /api/shop` keeps every field it returns today. It **adds**:
   - `specialDays`, meaning special days in the next 30 days, so the menu can
     say "Silvester: geöffnet bis 18:00 Uhr" ahead of time;
@@ -296,44 +409,82 @@ POST   /api/admin/shop/undo                { version }
 
 ## Phases
 
-The riskiest phase comes first. Each phase ships as its own PR.
+The riskiest phase comes first.
+
+**PR split (vet correction).** The plan said "each phase ships as its own PR".
+Both repos are landed by coord, and a PR stacked on another PR's branch loses
+checks (`knowledge-base/qontinui-specific/stacked-prs.md`). Phases 1–3 cannot
+compile without each other's migration and loader, and Phases 4–5 edit the same
+`types.ts` / `api.ts`. **Resolved (robustness):** three PRs, each based on the
+default branch, none stacked:
+
+| PR | Repo | Phases | Waits for |
+|---|---|---|---|
+| A | backend | 0 | nothing (independent, riskiest) |
+| B | backend | 1, 2, 3, with one migration (`0005`) for all shop tables including the legal columns | A: A's migration is `0004` (`dataset_seeds`) and the drizzle journal is linear, so B is branched from A's head, based on `master`, and labelled `coord:downstream-of=backend#<A>` (full checks, landing order enforced) |
+| C | mobile | 4, 5 | B (label `coord:downstream-of=backend#<B>`), so the web never calls routes the API does not have |
+
+Each PR body carries `Plan: <stem> phases: <n,…>`.
 
 ### Phase 0 — Stop the reseed at boot (backend)
 
-- `seedMenu()`: insert only when the menu table is empty (D1).
-- Add `npm run db:reseed` with its guards.
-- Add the header note to `data/menu.json` or its loader.
-- Update `README.md` and `TESTING.md` wherever they say that boot reseeds.
+- `seedMenu()`: seed once per database, recorded in `dataset_seeds` (D1).
+- Add `npm run db:reseed` with its guards; keep `npm run db:seed`.
+- Add the header note to the loader (`src/db/menu-dataset.ts`) and a
+  `data/README.md`: editing `menu.json` changes nothing in a database that has
+  been seeded.
+- Update `README.md` wherever it says that boot reseeds (`:246-252`,
+  `:274-284`, the "Owner menu edits are not protected" limit). `TESTING.md`
+  does not mention boot reseeding; leave it unless the harness changes.
 - **Gate:**
-  - a new test in `test/seed.test.ts`: edit an item through
+  - a new test in `test/seed.test.ts` (new file): seed, edit an item through
     `PATCH /api/admin/menu/items/:id`, call `seedMenu()` again as a boot would,
     and check that the edit is still there;
-  - a second test: on an empty database, the seed still loads the full
-    dataset;
+  - on an empty database, the seed still loads the full dataset and writes the
+    marker;
+  - a database with items but no marker (today's production) gets the marker
+    and no rewrite;
+  - after the owner deletes every item, `seedMenu()` does not bring them back;
+  - `db:reseed` without `--force` refuses;
   - `npm test` and `npm run typecheck` are green.
 
 ### Phase 1 — Shop tables, read from the database, nothing changes for diners (backend)
 
-- Add the migration: the tables from D2, the seed values from today's
-  constants, and the two D4 rows.
-- Make `shop.ts` take its rules as an argument (`ShopRules`).
-- Load the rules in `routes/shop.ts`, `routes/orders.ts` and
-  `routes/payments.ts`. The re-check when payment starts (`bdaaeac`) must read
-  the same rules.
-- Add `displayHours()`.
+- Add the migration: the tables from D2 (DDL only).
+- Add `src/lib/shop-defaults.ts` (`DEFAULT_SHOP_RULES`: today's constants plus
+  the two D4 rows) and `seedShop()`; call it from `initDatabase` and from the
+  test harness after the truncate (`test/support/setup.ts`).
+- Make `shop.ts` take its rules as a required argument (`ShopRules`), derive
+  the Ruhetag from the weekly hours, and make `refusalFor` name the day's
+  delivery close.
+- Load the rules (`loadShopRules()`) in `routes/shop.ts`,
+  `lib/order-service.ts:90` and `routes/payments.ts:98`. The re-check when
+  payment starts (`bdaaeac`) must read the same rules.
+- Add `displayHours()` and remove the `HOURS_DISPLAY` constant.
+- `GET /api/shop` adds `specialDays` (the next 30 days).
 - **Gate:**
-  - `test/shop.test.ts`, `test/fulfilment.test.ts`, `test/orders.test.ts` and
+  - `test/fulfilment.test.ts`, `test/orders.test.ts` and
     `test/payments.test.ts` pass **unchanged**, which shows diners see no
     difference;
-  - a snapshot test shows that `GET /api/shop` at a pinned time returns the
-    same body before and after;
+  - `test/shop.test.ts` keeps every expectation; its only change is passing
+    `DEFAULT_SHOP_RULES` to the pure functions (they cannot pass unchanged once
+    the rules are an argument);
+  - a snapshot test pins the `GET /api/shop` body at a pinned time as a
+    literal captured from `bdaaeac`, and asserts every field in it is
+    unchanged (only `specialDays`, and in Phase 3 `legal`, are added);
   - new tests: Heiligabend on a Wednesday refuses delivery at 13:31 and pickup
-    at 14:00; Heiligabend on a Tuesday stays a Ruhetag; a dated special day
-    that opens a Tuesday takes orders.
+    at 14:00, and the delivery refusal names 13:30; Heiligabend on a Tuesday
+    stays a Ruhetag; a dated special day that opens a Tuesday takes orders;
+    moving the Ruhetag to Monday makes Monday refuse and Tuesday take orders;
+    with no `shop_profile` row, `POST /api/orders` is refused with 503.
 
 ### Phase 2 — The owner's shop API (backend)
 
 - Add the routes above, with every rule from D5 and the `admin_changes` history.
+- Move `requireOwnerAuth` from `routes/admin-menu.ts:43` to
+  `src/lib/owner-auth.ts`; both route files import it. Its German messages
+  name the editor generically ("Der Inhaber-Editor …") since it now guards
+  two surfaces.
 - **Gate:** `test/admin-shop.test.ts`, with one test per D5 rule, plus:
   - the guard fails closed when the token is unset;
   - a special day marked closed makes `POST /api/orders` return the German
@@ -344,13 +495,17 @@ The riskiest phase comes first. Each phase ships as its own PR.
 
 ### Phase 3 — Impressum data and health reporting (backend)
 
-- Add the legal columns (in the Phase 1 migration if Phase 1 has not merged
-  yet, otherwise in their own migration).
+- The legal columns are in the Phase 1 migration (same PR B).
 - Add `PUT /api/admin/shop/legal`, `GET /api/shop` `legal`, and `/api/health`
-  `legal`.
-- Make the deploy workflow log a warning on `incomplete`.
-- **Gate:** tests for the health field in both states, and for the `vat_id` and
-  register fields that are omitted when unset.
+  `legal` / `legalMissing` from the in-process cache (D6).
+- Make the deploy workflow (`.github/workflows/deploy.yml`, beside the
+  kitchen-guard assertion) log a `::warning::` on `incomplete` and on
+  `unknown`; it never fails the deploy on this field.
+- **Gate:** tests for the health field in all three states (`unknown` before
+  the cache loads, `incomplete` with the missing list, `complete`), that
+  `/api/health` issues no query (it still answers with the pool pointed at an
+  unreachable host, or with the loader stubbed to throw), and for the `vat_id`
+  and register fields that are omitted when unset.
 
 ### Phase 4 — Admin UI (mobile)
 
@@ -364,7 +519,8 @@ The riskiest phase comes first. Each phase ships as its own PR.
      - The Heiligabend and Silvester rows are shown with their *Vorbelegt*
        badge until confirmed.
   2. **Öffnungszeiten:** 7 rows, each with a Geöffnet/Ruhetag switch and time
-     pickers (no free-text times), plus "Lieferung bis" and the holiday
+     pickers (no free-text times: a fixed list in 15-minute steps built from
+     `AdminButton`, no new dependency), plus "Lieferung bis" and the holiday
      hours. Above the save button sits "So sehen es Ihre Gäste", fed by
      `/preview`.
   3. **Adresse & Telefon:** a confirmation step before saving, and a
@@ -378,12 +534,19 @@ The riskiest phase comes first. Each phase ships as its own PR.
 - **Gate:**
   - `npm run lint` and `npx tsc --noEmit` are clean;
   - a UI Bridge-driven run on native: set Silvester to close at 17:00, save,
-    see the change in the preview and in `GET /api/shop`, undo it.
+    see the change in the preview and in `GET /api/shop`, undo it. This needs
+    a device or emulator with the dev build and a backend carrying PR B; where
+    neither is available the gate is reported **not run**, with the reason,
+    never as passed.
 
 ### Phase 5 — The Impressum page, and the special-day line for diners (mobile)
 
-- Add `src/app/impressum.tsx`, the footer link and the checkout link.
+- Add `src/app/impressum.tsx`, the footer link (outside the `if (shop)`
+  branch) and the checkout link.
 - The menu's status line shows the next special day within 7 days.
+- `closedReason` (`src/hooks/use-shop.ts`) names the day's delivery close
+  (`status.today.delivery?.close`, falling back to `deliveryUntil`), matching
+  the server's `refusalFor`.
 - **Gate:**
   - lint and typecheck are clean;
   - the web export contains `/impressum`;
@@ -420,6 +583,10 @@ tier `allow_with_notification` requires, and it:
 
 The draft is kept at
 `mobile/docs/intent-drafts/domain_spec--menu--APPEND-owner-shop-facts.md`.
+
+**Done before the vet:** applied as `domain_spec/menu` v4 → v5 and announced by
+finding `5d247a1e-df90-4500-a36c-b569ed2af0f4`. Implementation must not append
+it again.
 
 ## Risks
 
