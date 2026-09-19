@@ -171,9 +171,13 @@ function describeSpecial(day: Pick<AdminSpecialDay, 'closed' | 'open' | 'close' 
   return `${open}–${day.close ?? '?'} Uhr · ${delivery}`;
 }
 
+/**
+ * The label a day carries when the owner types none. It is a NAME, never a
+ * sentence with a time in it: the server appends the hours it enforces, so a
+ * later change of the closing time can never leave a stale promise behind.
+ */
 function suggestedNote(form: DayForm): string {
-  if (form.closed) return 'Heute geschlossen';
-  return `Geöffnet bis ${form.close} Uhr`;
+  return form.closed ? 'Geschlossen' : 'Andere Zeiten';
 }
 
 /** Why a set of hours cannot be saved, or null. */
@@ -1772,7 +1776,8 @@ function VacationEditor({
       />
       <AdminField
         uiId="shop-vacation-note"
-        label="Hinweis für Gäste"
+        label="Kurzer Hinweis für Gäste"
+        hint="Nur der Anlass, z. B. „Betriebsurlaub“. Die Uhrzeiten hängt die App selbst an."
         value={form.note}
         onChangeText={(note) => onChange({ ...form, note })}
       />
@@ -1916,8 +1921,8 @@ function DayEditor({
       )}
       <AdminField
         uiId="shop-day-note"
-        label="Hinweis für Gäste"
-        hint="Steht in der App, z. B. „Silvester: geöffnet bis 18:00 Uhr“."
+        label="Kurzer Hinweis für Gäste"
+        hint="Nur der Anlass, z. B. „Silvester“ oder „Betriebsausflug“. Die Uhrzeiten hängt die App selbst an."
         placeholder={suggestedNote(form)}
         value={form.note}
         onChangeText={(note) => onChange({ ...form, note })}
