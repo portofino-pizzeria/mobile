@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton } from '@/components/bridge';
+import { MascotPass } from '@/components/mascot-pass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing, Type } from '@/constants/theme';
@@ -30,6 +31,7 @@ import {
   type ResolvedArt,
 } from '@/lib/dish-art';
 import { formatEUR } from '@/lib/format';
+import { homeMascot } from '@/lib/mascots';
 import { formatCacheAge, readCachedMenu, writeCachedMenu } from '@/lib/menu-cache';
 import type {
   AllergenLegendEntry,
@@ -447,8 +449,8 @@ export default function MenuScreen() {
       <View style={[styles.column, wide && styles.heroWide]}>
         <View style={[styles.heroImageWrap, wide && styles.heroImageWide]}>
           <Image
-            source={require('../../assets/images/hero-pizza.jpg')}
-            alt="Pizza Margherita auf einem Holztisch"
+            source={require('../../assets/images/home-hero.jpg')}
+            alt="Das Portofino-Maskottchen läuft mit Kochmütze und Pizzakarton durch die Kettwiger Altstadt"
             style={styles.heroImage}
             contentFit="cover"
           />
@@ -769,6 +771,9 @@ export default function MenuScreen() {
         }>
         {blocks}
       </ScrollView>
+
+      {/* Above the cart bar when it is showing, so it never covers it. */}
+      <MascotPass id="home-mascot" animation={homeMascot} stopAt={0.5} bottom={cart.count > 0 ? 96 : Spacing.sm} />
 
       {cart.count > 0 ? (
         <SafeAreaView edges={['bottom']} style={styles.cartBarWrap} pointerEvents="box-none">

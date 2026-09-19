@@ -6,6 +6,17 @@ they disagree, the served one wins and this copy is stale. Read it with
 `/policy get domain_spec visual-system` from a session bound to the `pizzeria`
 tenant, or at `/admin/coord/prompt-documents`.
 
+## 2026-09-19 — the pizza mascot and the Kettwig hero (NOT YET APPLIED)
+
+| File | Document | Operation |
+|---|---|---|
+| `domain_spec--visual-system--APPEND-mascot.md` | `domain_spec/visual-system` | append (owner-ordered mascot exception to `## Motion`), **not yet written** |
+| `domain_spec--imagery-and-iconography--APPEND-4.md` | `domain_spec/imagery-and-iconography` | append (hero photograph replaced by the Kettwig mascot illustration), **not yet written** |
+
+The app already ships both. Until they are written to the served documents, the
+served `## Motion` ("nothing auto-advances") and hero section disagree with the
+app, and the served documents win.
+
 ## 2026-09-14 — the v0 design replaces the visual system
 
 | File | Document | Operation |

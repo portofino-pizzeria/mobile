@@ -1,15 +1,18 @@
 import { useUIComponent } from '@qontinui/ui-bridge-native';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton } from '@/components/bridge';
+import { MascotPass } from '@/components/mascot-pass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
+import { cartMascot } from '@/lib/mascots';
 import { cartLineKey, useCart } from '@/state/cart';
 
 
@@ -17,6 +20,7 @@ export default function CartScreen() {
   const theme = useTheme();
   const router = useRouter();
   const cart = useCart();
+  const [footerHeight, setFooterHeight] = useState(0);
 
   useUIComponent({
     id: 'cart',
@@ -130,7 +134,10 @@ export default function CartScreen() {
         </View>
       </ScrollView>
 
-      <SafeAreaView edges={['bottom']} style={styles.footer}>
+      <SafeAreaView
+        edges={['bottom']}
+        style={styles.footer}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
         <BridgeButton
           uiId="cart-checkout"
           uiLabel="Zur Kasse"
@@ -144,6 +151,19 @@ export default function CartScreen() {
           </ThemedText>
         </BridgeButton>
       </SafeAreaView>
+
+      {/* Stands on the checkout button's top edge, at the left, and points
+          along it. The button's top is the footer's height less its top
+          padding; the extra step sinks the Lottie's empty margin under the
+          feet. Waits for the footer's height so it lands on the button. */}
+      {footerHeight > 0 ? (
+        <MascotPass
+          id="cart-mascot"
+          animation={cartMascot}
+          stopAt={0.22}
+          bottom={footerHeight - Spacing.lg - Spacing.sm}
+        />
+      ) : null}
     </ThemedView>
   );
 }
