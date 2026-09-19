@@ -26,6 +26,11 @@ import { Mascot } from '@/constants/theme';
  * the `Mascot` cadence only while the screen is focused, a tap hides it for
  * the rest of the session, and with reduced motion it stands still at its
  * stop instead of walking.
+ *
+ * A mascot either keeps that cadence (`repeat`, the default) or waits to be
+ * called by a `trigger` — the taco walks on when the guest reaches the
+ * Mexikanisch section, not on a timer. Only one mascot is ever on screen: the
+ * first to start holds the stage until it has walked off.
  */
 
 export type MascotAnimation = {
@@ -50,14 +55,21 @@ type Props = {
   stopAt: number;
   /** Distance of the mascot's feet from the bottom of the screen. */
   bottom: number;
+  /** False: no cadence of its own; it only walks on when `trigger` changes. */
+  repeat?: boolean;
+  /** Each new value asks for one pass. Ignored while a pass is running. */
+  trigger?: number;
 };
 
 /** Mascots the guest tapped away. Kept for the app session, not persisted. */
 const hiddenThisSession = new Set<string>();
 
+/** The mascot currently walking, so two never share the screen. */
+let onStage: string | null = null;
+
 type Cue = { segment: [number, number]; loop: boolean };
 
-export function MascotPass({ id, animation, stopAt, bottom }: Props) {
+export function MascotPass({ id, animation, stopAt, bottom, repeat = true, trigger = 0 }: Props) {
   const reduceMotion = useReducedMotion();
   const { width: screenWidth } = useWindowDimensions();
   const width = Math.min(Mascot.width, screenWidth * 0.45);
@@ -90,9 +102,10 @@ export function MascotPass({ id, animation, stopAt, bottom }: Props) {
     timer.current = null;
     cancelAnimation(x);
     phase.current = 'idle';
+    if (onStage === id) onStage = null;
     lottie.current?.pause();
     setCue(null);
-  }, [x]);
+  }, [id, x]);
 
   const walkDuration = useCallback(
     (distance: number) => (distance / (width * Mascot.walkSpeedPerWidth)) * 1000,
@@ -106,9 +119,12 @@ export function MascotPass({ id, animation, stopAt, bottom }: Props) {
     setCue({ segment: animation.walk, loop: true });
     const done = () => {
       phase.current = 'idle';
+      if (onStage === id) onStage = null;
       lottie.current?.pause();
       setCue(null);
-      schedule.current(Mascot.repeatMinMs + Math.random() * (Mascot.repeatMaxMs - Mascot.repeatMinMs));
+      if (repeat) {
+        schedule.current(Mascot.repeatMinMs + Math.random() * (Mascot.repeatMaxMs - Mascot.repeatMinMs));
+      }
     };
     x.set(withTiming(
       screenWidth + 10,
@@ -118,7 +134,7 @@ export function MascotPass({ id, animation, stopAt, bottom }: Props) {
         if (finished) scheduleOnRN(done);
       },
     ));
-  }, [animation.walk, screenWidth, walkDuration, x]);
+  }, [animation.walk, id, repeat, screenWidth, walkDuration, x]);
 
   const startGag = useCallback(() => {
     phase.current = 'gag';
@@ -126,6 +142,13 @@ export function MascotPass({ id, animation, stopAt, bottom }: Props) {
   }, [animation.gag]);
 
   const pass = useCallback(() => {
+    // One mascot at a time. A mascot on a cadence tries again shortly; a
+    // triggered one lets the moment go rather than queue up behind.
+    if (onStage && onStage !== id) {
+      if (repeat) schedule.current(Mascot.stageBusyRetryMs);
+      return;
+    }
+    onStage = id;
     phase.current = 'in';
     x.set(offLeft);
     setCue({ segment: animation.walk, loop: true });
@@ -137,7 +160,7 @@ export function MascotPass({ id, animation, stopAt, bottom }: Props) {
         if (finished) scheduleOnRN(startGag);
       },
     ));
-  }, [animation.walk, offLeft, startGag, stopX, walkDuration, x]);
+  }, [animation.walk, id, offLeft, repeat, startGag, stopX, walkDuration, x]);
 
   useEffect(() => {
     schedule.current = (delayMs: number) => {
@@ -162,10 +185,22 @@ export function MascotPass({ id, animation, stopAt, bottom }: Props) {
         x.set(stopX);
         return undefined;
       }
-      schedule.current(Mascot.firstPassDelayMs);
+      if (repeat) schedule.current(Mascot.firstPassDelayMs);
       return stop;
-    }, [hidden, ready, reduceMotion, stop, stopX, x]),
+    }, [hidden, ready, reduceMotion, repeat, stop, stopX, x]),
   );
+
+  // A trigger asks for one pass. The first render is not a request, and a
+  // trigger that arrives mid-pass is dropped by `pass` itself.
+  const lastTrigger = useRef(trigger);
+  useEffect(() => {
+    if (trigger === lastTrigger.current) return;
+    lastTrigger.current = trigger;
+    if (hidden || !ready || reduceMotion) return;
+    // On a short timer, not straight away: it lets the section settle under
+    // the reading position first, and keeps the pass out of the render pass.
+    schedule.current(Mascot.triggerDelayMs);
+  }, [hidden, ready, reduceMotion, trigger]);
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }] }));
 

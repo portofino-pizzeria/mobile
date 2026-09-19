@@ -6,11 +6,20 @@ they disagree, the served one wins and this copy is stale. Read it with
 `/policy get domain_spec visual-system` from a session bound to the `pizzeria`
 tenant, or at `/admin/coord/prompt-documents`.
 
+## 2026-09-19 — owner-authored shop facts, special days, Impressum (APPLIED)
+
+| File | Document | Operation |
+|---|---|---|
+| `domain_spec--menu--APPEND-owner-shop-facts.md` | `domain_spec/menu` | append, applied v4 → v5, announced by finding `5d247a1e-df90-4500-a36c-b569ed2af0f4` |
+
+Written from a pizzeria-bound device credential (paired from an operator code),
+for plan `plans/2026-09-19-portofino-owner-edits-shop-info-and-legal-notice.md`.
+
 ## 2026-09-19 — the pizza mascot and the Kettwig hero (NOT YET APPLIED)
 
 | File | Document | Operation |
 |---|---|---|
-| `domain_spec--visual-system--APPEND-mascot.md` | `domain_spec/visual-system` | append (owner-ordered mascot exception to `## Motion`), **not yet written** |
+| `domain_spec--visual-system--APPEND-mascot.md` | `domain_spec/visual-system` | append (owner-ordered mascot exception to `## Motion`; covers the pizza and the taco), **not yet written** |
 | `domain_spec--imagery-and-iconography--APPEND-4.md` | `domain_spec/imagery-and-iconography` | append (hero photograph replaced by the Kettwig mascot illustration), **not yet written** |
 
 The app already ships both. Until they are written to the served documents, the

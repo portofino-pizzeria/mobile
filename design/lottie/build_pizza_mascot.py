@@ -13,6 +13,10 @@ frame 0, so the app goes straight back to looping `walk`:
 
   assets/lottie/pizza-cart.json  `point` 144-330: skid stop + dust, lean in, point at the
                                  checkout button + finger jabs, wink + sparkles, happy hop.
+  assets/lottie/taco-mexican.json `ole` 144-340: the taco, traced from
+                                 design/sources/taco-character.jpg, tips its
+                                 sombrero, dances two sways and throws an ole.
+                                 It plays when the guest reaches Mexikanisch.
   assets/lottie/pizza-home.json  `toss`  144-360: chef hat and scarf on. Tosses a
                                  pepperoni out of frame, shuffles under it, catches it in
                                  its mouth (gulp, hat pops, blush), thumbs up + wink.
@@ -267,11 +271,11 @@ arm_r = [(0, -20), (18, 20), (36, -20)]
 BLINK = (100, 106)
 
 
-def eyelid(name, ind, eye, size, shut_ranges):
+def eyelid(name, ind, eye, size, shut_ranges, face=FACE):
     """A face-coloured cover that scales shut, plus a closed-eye curve that is
     shown only while the cover is fully shut."""
     cx, cy = eye
-    cover = group([ellipse(cx, cy, *size), fill_item(FACE)])
+    cover = group([ellipse(cx, cy, *size), fill_item(face)])
     curve = group([path_item([([cx - 44, cy + 4], [0, 0], [18, 20]),
                               ([cx + 44, cy + 4], [-18, 20], [0, 0])]), stroke_item(OUTLINE, 11)])
     sy, op = [(0, [100, 0, 100])], [(0, 0, "hold")]
@@ -300,12 +304,13 @@ def sparkles(parent, tip, beats, first_ind):
               r=anim([(0, 0), (t0, 0), (t0 + 30, 90), (END, 90)]))
 
 
-def legs(extra_l, extra_r, extra_s=()):
+def legs(extra_l, extra_r, extra_s=(), part="pizza-leg.svg", pivot=LEG_PIVOT,
+         hips=(HIP_L, HIP_R)):
     """Legs hang off MOVE, not the body, so they do not rock with it."""
-    shapes = svg_shapes("pizza-leg.svg", limb=True)
-    for name, ind, hip, rot, lift, extra in (("leg L", 50, HIP_L, leg_l, lift_l, extra_l),
-                                             ("leg R", 51, HIP_R, leg_r, lift_r, extra_r)):
-        layer(name, ind, MOVE, shapes=shapes, a=LEG_PIVOT, p=hip,
+    shapes = svg_shapes(part, limb=True)
+    for name, ind, hip, rot, lift, extra in (("leg L", 50, hips[0], leg_l, lift_l, extra_l),
+                                             ("leg R", 51, hips[1], leg_r, lift_r, extra_r)):
+        layer(name, ind, MOVE, shapes=shapes, a=pivot, p=hip,
               r=walk(rot, extra=extra), s=walk(lift, extra=list(extra_s) + [(END, [100, 100, 100])]))
 
 
@@ -491,6 +496,100 @@ def build_home():
         "leg L", "leg R", "move", "root"])
 
 
+# --- taco: sombrero, hat tip, a little dance, ole ----------------------------
+# Landmarks of the taco traces (5x), measured the way the pizza's were.
+T_BODY_ANCHOR, T_BODY_CENTRE = (455, 645), (455, 335)
+T_HIP_L, T_HIP_R = (-125, 265), (105, 265)
+T_LEG_PIVOT = (95, 15)
+T_ARM_PIVOT = (30, 195)
+T_THUMB_PIVOT, T_THUMB_TIP = (30, 250), (230, 35)
+T_HAT_ANCHOR = (307, 300)          # centre of the sombrero's brim
+T_SHOULDER_L, T_SHOULDER_R = (140, 350), (755, 350)
+T_EYE_L, T_EYE_R = (437, 300), (585, 295)
+T_SHELL = "#F9C233"                # the shell, for the eyelids
+# The arm art lies diagonally, so hanging it down needs a base angle; the
+# mirrored left arm turns the other way.
+T_ARM_BASE_L, T_ARM_BASE_R = -75, 75
+
+
+def build_taco():
+    begin(340, 700, 560)
+    STOP, TIP, TIP_BACK, DANCE, OLE, WINK, SETTLE = 158, 178, 196, 200, 292, 300, 320
+    HAT_AT, HAT_ROT = (470, 150), -8
+    SWAY = 30  # frames per sway of the dance
+
+    layer("root", ROOT, p=(300, 290), s=(42, 42))
+
+    sway_p = [(DANCE + n * SWAY, [(-38 if n % 2 == 0 else 38), 6, 0]) for n in range(4)]
+    layer("move", MOVE, ROOT,
+          p=walk([(t, xyz(v)) for t, v in bounce], extra=[
+              (STOP, [0, 0, 0]), (TIP, [0, 8, 0]), (TIP_BACK, [0, 0, 0])] + sway_p + [
+              (OLE - 8, [0, 10, 0]), (OLE, [0, -26, 0]), (OLE + 12, [0, 0, 0]),
+              (SETTLE, [0, 0, 0]), (END, [0, 34, 0])]),
+          r=anim([(0, 0), (WALK_END, 0), (STOP, 0), (TIP, 7), (TIP_BACK, 0)]
+                 + [(DANCE + n * SWAY, (-7 if n % 2 == 0 else 7)) for n in range(4)]
+                 + [(OLE, 0), (END, 0)]))
+
+    layer("body", BODY, MOVE, shapes=svg_shapes("taco-body.svg", limb=False),
+          a=T_BODY_ANCHOR, p=(0, T_BODY_ANCHOR[1] - T_BODY_CENTRE[1]),
+          s=anim([(0, [100, 100, 100]), (WALK_END, [100, 100, 100]), (STOP, [100, 100, 100]),
+                  (TIP, [102, 98, 100]), (TIP_BACK, [100, 100, 100]), (OLE - 8, [106, 94, 100]),
+                  (OLE, [94, 108, 100]), (OLE + 12, [100, 100, 100]), (END, [100, 100, 100])]),
+          r=walk(rock, extra=[(STOP, 0), (TIP, 4), (TIP_BACK, 0), (OLE, 0), (END, -3)]))
+
+    # The sombrero rides along, lifts for the hat tip, and leans against the sways.
+    hat_x, hat_y = HAT_AT
+    layer("hat", 5, BODY, shapes=svg_shapes("taco-hat.svg", limb=False), a=T_HAT_ANCHOR, s=(96, 96),
+          p=vec3([(0, HAT_AT), (STOP, HAT_AT), (TIP, (hat_x + 70, hat_y - 210)),
+                  (TIP_BACK, HAT_AT), (OLE - 8, HAT_AT), (OLE, (hat_x, hat_y - 60)),
+                  (OLE + 12, HAT_AT), (END, HAT_AT)]),
+          r=walk([(0, HAT_ROT + 1), (6, HAT_ROT + 4), (24, HAT_ROT - 4), (36, HAT_ROT + 1)], extra=[
+              (STOP, HAT_ROT), (TIP, HAT_ROT - 26), (TIP_BACK, HAT_ROT)]
+              + [(DANCE + n * SWAY, HAT_ROT + (5 if n % 2 == 0 else -5)) for n in range(4)]
+              + [(OLE, HAT_ROT), (END, HAT_ROT + 1)]))
+
+    eyelid("eyelid L", 10, T_EYE_L, (104, 150), [BLINK], face=T_SHELL)
+    eyelid("eyelid R", 12, T_EYE_R, (98, 150), [BLINK, (WINK, WINK + 16)], face=T_SHELL)
+
+    THUMB_ARM = 20
+    sparkles(THUMB_ARM, T_THUMB_TIP, [(60, -40, 58, WINK), (-30, -100, 42, WINK + 8),
+                                      (110, 20, 36, WINK + 16)], 30)
+    layer("thumb arm", THUMB_ARM, BODY, shapes=svg_shapes("taco-arm-thumb.svg", limb=True),
+          a=T_THUMB_PIVOT, p=T_SHOULDER_R, s=(118, 118),
+          r=anim([(OLE, 40), (OLE + 10, -18), (OLE + 18, -4), (WINK + 20, -10),
+                  (SETTLE - 4, 40), (END, 40)]),
+          o=anim([(0, 0, "hold"), (OLE, 100, "hold"), (SETTLE, 0, "hold"), (END, 0)]))
+
+    # Arms: the right one lifts the hat, then both swing out through the dance.
+    arm_shapes = svg_shapes("taco-arm.svg", limb=True)
+    dance_r = [(DANCE + n * SWAY, T_ARM_BASE_R - (70 if n % 2 == 0 else 20)) for n in range(4)]
+    dance_l = [(DANCE + n * SWAY, T_ARM_BASE_L + (20 if n % 2 == 0 else 70)) for n in range(4)]
+    layer("arm R", 21, BODY, shapes=arm_shapes, a=T_ARM_PIVOT, p=T_SHOULDER_R,
+          r=walk([(t, T_ARM_BASE_R + v) for t, v in arm_r], extra=[
+              (STOP, T_ARM_BASE_R), (TIP, T_ARM_BASE_R - 120), (TIP_BACK, T_ARM_BASE_R)] + dance_r
+              + [(OLE - 4, T_ARM_BASE_R - 110), (SETTLE, T_ARM_BASE_R), (END, T_ARM_BASE_R - 20)]),
+          o=anim([(0, 100, "hold"), (OLE, 0, "hold"), (SETTLE, 100, "hold"), (END, 100)]))
+    layer("arm L", 22, BODY, shapes=arm_shapes, a=T_ARM_PIVOT, p=T_SHOULDER_L, s=(-100, 100),
+          r=walk([(t, T_ARM_BASE_L - v) for t, v in arm_l], extra=[
+              (STOP, T_ARM_BASE_L), (TIP, T_ARM_BASE_L + 30), (TIP_BACK, T_ARM_BASE_L)] + dance_l
+              + [(OLE - 4, T_ARM_BASE_L + 110), (SETTLE, T_ARM_BASE_L), (END, T_ARM_BASE_L + 20)]))
+
+    # Feet keep the beat: a lift on each sway, and a two-footed hop on the ole.
+    dance_leg_l = [(DANCE + n * SWAY, (14 if n % 2 == 0 else -2)) for n in range(4)]
+    dance_leg_r = [(DANCE + n * SWAY, (2 if n % 2 == 0 else -14)) for n in range(4)]
+    dance_lift = [(DANCE + n * SWAY - 8, [100, (88 if n % 2 else 100), 100]) for n in range(1, 4)]
+    legs([(STOP, 6), (TIP, 6), (TIP_BACK, 6)] + dance_leg_l + [(OLE, 16), (SETTLE, 6), (END, 30)],
+         [(STOP, -6), (TIP, -6), (TIP_BACK, -6)] + dance_leg_r + [(OLE, -16), (SETTLE, -6), (END, -30)],
+         [(STOP, [100, 100, 100])] + dance_lift + [(OLE, [100, 92, 100]), (OLE + 12, [100, 100, 100])],
+         part="taco-leg.svg", pivot=T_LEG_PIVOT, hips=(T_HIP_L, T_HIP_R))
+
+    write("taco-mexican.json", "Taco mascot (Mexican menu)", "ole", [
+        "sparkle 1", "sparkle 2", "sparkle 3", "thumb arm", "arm R", "arm L", "hat",
+        "eyelid L line", "eyelid L", "eyelid R line", "eyelid R", "body",
+        "leg L", "leg R", "move", "root"])
+
+
 if __name__ == "__main__":
     build_cart()
     build_home()
+    build_taco()
