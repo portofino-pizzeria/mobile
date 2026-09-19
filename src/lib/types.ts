@@ -156,6 +156,57 @@ export interface ShopModeStatus {
   next?: { date: string; weekday: string; time: string };
 }
 
+/** One date's hours as the server resolves them (weekly hours, NRW public
+ *  holidays and the owner's special days). */
+export interface ShopDayHours {
+  /** `YYYY-MM-DD`, Berlin. */
+  date: string;
+  /** ISO weekday, 1 = Montag … 7 = Sonntag. */
+  weekday: number;
+  /** The NRW public holiday on this date, if any. */
+  holiday?: string;
+  /** The note of the owner's special day that decided this date, e.g.
+   *  "Heiligabend: geöffnet bis 14:00 Uhr". */
+  special?: string;
+  /** Open..close; null = closed all day. */
+  pickup: ShopWindow | null;
+  /** Open..the day's delivery close; null = no delivery that day. */
+  delivery: ShopWindow | null;
+}
+
+/** The legal notice facts (Impressum), as `GET /api/shop` returns them. A
+ *  null or absent field is a fact the owner has not entered yet — it is shown
+ *  as a gap, never filled in. */
+export interface ShopLegal {
+  ownerName: string | null;
+  legalForm: string | null;
+  email: string | null;
+  vatId?: string;
+  registerCourt?: string;
+  registerNumber?: string;
+  /** ownerName and email are both set. */
+  complete: boolean;
+  /** The names of the fields still missing, e.g. ["legalOwnerName", "email"]. */
+  missing: string[];
+}
+
+/** The live status part of `GET /api/shop` (and of the owner's preview). */
+export interface ShopStatus {
+  now: string;
+  today: {
+    date: string;
+    weekday?: number;
+    holiday?: string;
+    /** The special day's note, when one decided today's hours. Absent from
+     *  an older API. */
+    special?: string;
+    pickup: ShopWindow | null;
+    delivery: ShopWindow | null;
+  };
+  pickup: ShopModeStatus;
+  delivery: ShopModeStatus;
+}
+
 /** The GET /api/shop payload. */
 export interface ShopInfo {
   name: string;
@@ -167,10 +218,82 @@ export interface ShopInfo {
   timeZone: string;
   hours: { days: string; hours: string }[];
   deliveryUntil: string;
-  status: {
-    now: string;
-    today: { date: string; holiday?: string; pickup: ShopWindow | null; delivery: ShopWindow | null };
-    pickup: ShopModeStatus;
-    delivery: ShopModeStatus;
-  };
+  status: ShopStatus;
+  /** The dates in the next 30 days (today included) whose hours a special day
+   *  decided, in date order. Absent from an older API. */
+  specialDays?: ShopDayHours[];
+  /** The Impressum facts. Absent from an older API. */
+  legal?: ShopLegal;
+}
+
+// --- The owner's restaurant editor (GET /api/admin/shop) --------------------
+
+/** One weekday of the regular week. `open` and `close` both null = Ruhetag. */
+export interface AdminWeekday {
+  /** ISO weekday, 1 = Montag … 7 = Sonntag. */
+  weekday: number;
+  open: string | null;
+  close: string | null;
+}
+
+/** A special day: a dated one (`date`) or a recurring one (`monthDay`,
+ *  every year). Exactly one of the two is set. */
+export interface AdminSpecialDay {
+  id: number;
+  date: string | null;
+  monthDay: string | null;
+  closed: boolean;
+  /** Null on a recurring row = the weekday's normal opening. */
+  open: string | null;
+  close: string | null;
+  deliveryUntil: string | null;
+  note: string;
+  /** False = a default nobody has checked yet ("Vorbelegt – bitte prüfen"). */
+  confirmed: boolean;
+}
+
+export interface AdminShopProfile {
+  name: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  phoneDisplay: string;
+  /** Derived by the server from `phoneDisplay`; never sent by the app. */
+  phoneE164: string;
+  deliveryUntil: string;
+  holidayOpen: string;
+  holidayClose: string;
+  ruhetagBeatsHoliday: boolean;
+}
+
+export interface AdminShopLegal {
+  legalOwnerName: string | null;
+  legalForm: string | null;
+  email: string | null;
+  vatId: string | null;
+  registerCourt: string | null;
+  registerNumber: string | null;
+  /** ISO timestamp of the last confirmed save. */
+  confirmedAt: string | null;
+}
+
+/** The GET /api/admin/shop payload; every shop write answers with it too. */
+export interface AdminShop {
+  /** Sent back with every write; a stale one is refused with a 409. */
+  version: number;
+  canUndo: boolean;
+  profile: AdminShopProfile;
+  legal: AdminShopLegal;
+  /** 7 rows, weekday 1..7. */
+  weekly: AdminWeekday[];
+  /** Dated rows in the past are included. */
+  specialDays: AdminSpecialDay[];
+}
+
+/** The POST /api/admin/shop/preview answer: what diners would see. */
+export interface ShopPreview {
+  display: { days: string; hours: string }[];
+  status: ShopStatus;
+  /** Today and the next 7 days. */
+  days: ShopDayHours[];
 }
