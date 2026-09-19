@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
+import { addDays, formatDayShort } from '@/lib/shop-dates';
 import type { Fulfilment, ShopInfo } from '@/lib/types';
 
 /** How often the open/closed status is read again while a screen is open. A
@@ -56,7 +57,25 @@ export function closedReason(shop: ShopInfo, mode: Fulfilment): string | null {
   if (s.available) return null;
   const when = s.next ? ` Wieder möglich ab ${s.next.weekday}, ${s.next.time} Uhr.` : '';
   if (mode === 'delivery' && shop.status.pickup.available) {
-    return `Lieferungen nehmen wir heute nur bis ${shop.deliveryUntil} Uhr an. Abholung ist noch bis ${shop.status.pickup.until} Uhr möglich.${when}`;
+    // The day's own delivery close (a special day can end delivery early),
+    // as the server's refusal names it; the regular one only from an older API.
+    const deliveryClose = shop.status.today.delivery?.close ?? shop.deliveryUntil;
+    return `Lieferungen nehmen wir heute nur bis ${deliveryClose} Uhr an. Abholung ist noch bis ${shop.status.pickup.until} Uhr möglich.${when}`;
   }
   return `Wir haben gerade geschlossen und nehmen keine Bestellungen an.${when}`;
+}
+
+/**
+ * The next special day in the coming week, as a line for diners, e.g.
+ * "Heiligabend: geöffnet bis 14:00 Uhr (Mi, 24.12.)". Null when there is none,
+ * or when the API predates special days.
+ */
+export function upcomingSpecialDay(shop: ShopInfo): string | null {
+  const today = shop.status.today.date;
+  const until = addDays(today, 7);
+  const next = (shop.specialDays ?? []).find(
+    (d) => d.special && d.date >= today && d.date < until,
+  );
+  if (!next?.special) return null;
+  return `${next.special} (${formatDayShort(next.date)})`;
 }
