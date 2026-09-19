@@ -55,6 +55,7 @@ export default function RootLayout() {
               <Stack.Screen name="checkout" options={{ title: 'Kasse' }} />
               <Stack.Screen name="order/[id]" options={{ title: 'Deine Bestellung' }} />
               <Stack.Screen name="kitchen" options={{ title: 'Küche' }} />
+              <Stack.Screen name="impressum" options={{ title: 'Impressum' }} />
               <Stack.Screen name="admin/index" options={{ title: 'Verwaltung' }} />
               <Stack.Screen name="admin/restaurant" options={{ title: 'Restaurant & Öffnungszeiten' }} />
               <Stack.Screen name="admin/item/[id]" options={{ title: 'Gericht' }} />

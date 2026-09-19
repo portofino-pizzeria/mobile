@@ -20,7 +20,7 @@ import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing, Type } from '@/constants/theme';
-import { useShop } from '@/hooks/use-shop';
+import { upcomingSpecialDay, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, errorReason } from '@/lib/api';
 import {
@@ -386,6 +386,7 @@ export default function MenuScreen() {
             Erneut versuchen
           </ThemedText>
         </BridgeButton>
+        <ImpressumLink />
       </ThemedView>
     );
   }
@@ -465,6 +466,11 @@ export default function MenuScreen() {
             Pizza, Pasta und mehr — direkt bei Portofino in Essen bestellen.
           </ThemedText>
           {shop ? <OpenStatus shop={shop} /> : null}
+          {shop && upcomingSpecialDay(shop) ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {upcomingSpecialDay(shop)}
+            </ThemedText>
+          ) : null}
           <BridgeButton
             uiId="hero-to-menu"
             uiLabel="Speisekarte entdecken"
@@ -749,6 +755,9 @@ export default function MenuScreen() {
         <ThemedText type="small" themeColor="onFooterMuted">
           © {new Date().getFullYear()} Portofino Pizzeria · Essen
         </ThemedText>
+        {/* Outside the contact band's `if (shop)`: the legal notice is
+            reachable even when `/api/shop` did not answer. */}
+        <ImpressumLink onDark />
       </View>
     </View>,
   );
@@ -849,6 +858,26 @@ function OpenStatus({ shop }: { shop: NonNullable<ReturnType<typeof useShop>['sh
         {text}
       </ThemedText>
     </View>
+  );
+}
+
+/** The link to the legal notice, with the word the law expects: "Impressum". */
+function ImpressumLink({ onDark = false }: { onDark?: boolean }) {
+  const router = useRouter();
+  return (
+    <BridgeButton
+      uiId="menu-impressum"
+      uiLabel="Impressum"
+      role="link"
+      style={styles.link}
+      onPress={() => router.push('/impressum')}>
+      <ThemedText
+        type="small"
+        themeColor={onDark ? 'onFooterMuted' : 'brandText'}
+        style={styles.linkText}>
+        Impressum
+      </ThemedText>
+    </BridgeButton>
   );
 }
 
