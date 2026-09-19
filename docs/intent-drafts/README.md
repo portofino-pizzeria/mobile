@@ -6,6 +6,15 @@ they disagree, the served one wins and this copy is stale. Read it with
 `/policy get domain_spec visual-system` from a session bound to the `pizzeria`
 tenant, or at `/admin/coord/prompt-documents`.
 
+## 2026-09-19 — owner-authored shop facts, special days, Impressum (APPLIED)
+
+| File | Document | Operation |
+|---|---|---|
+| `domain_spec--menu--APPEND-owner-shop-facts.md` | `domain_spec/menu` | append, applied v4 → v5, announced by finding `5d247a1e-df90-4500-a36c-b569ed2af0f4` |
+
+Written from a pizzeria-bound device credential (paired from an operator code),
+for plan `plans/2026-09-19-portofino-owner-edits-shop-info-and-legal-notice.md`.
+
 ## 2026-09-14 — the v0 design replaces the visual system
 
 | File | Document | Operation |
