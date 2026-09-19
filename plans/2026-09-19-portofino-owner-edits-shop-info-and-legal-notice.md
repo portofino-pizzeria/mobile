@@ -1,11 +1,33 @@
 # Portofino — the owner edits the restaurant's facts (hours, special days, address, legal notice), and their edits survive a deploy (2026-09-19)
 
-> **Status: IN PROGRESS 2026-09-19.** Implementation started by
-> session da329290 (/vet-imp). Phase tasks: 6 (PRs A, B, C). Started from
-> VETTED 2026-09-19 against backend `origin/master` `bdaaeac` / mobile
-> `origin/main` `d64d05d` (11 defects found, 11 auto-fixed, 0 surfaced).
-> History: authored DRAFT 2026-09-19 (mobile PR #30).
+> **Status: IN PROGRESS 2026-09-20.** Every phase is implemented, verified and
+> proposed; nothing has landed yet, because coord is the merge authority.
+> Started by session da329290 (`/vet-imp`) from VETTED 2026-09-19 against
+> backend `origin/master` `bdaaeac` / mobile `origin/main` `d64d05d` (11
+> defects found, 11 auto-fixed, 0 surfaced).
 >
+> | PR | Phases | Head | State |
+> |---|---|---|---|
+> | `portofino-pizzeria/backend#19` | 0 | `a81da55` | open, CI green |
+> | `portofino-pizzeria/backend#20` | 1, 2, 3 | `df7ae38` | open, CI green, `coord:downstream-of=backend#19` |
+> | `portofino-pizzeria/mobile#32` | 4, 5 | `7fd27d2` | open, CI green, `coord:downstream-of=backend#20` |
+> | `portofino-pizzeria/mobile#30` | the plan itself | `f7d220a` | open |
+>
+> **Verified before proposing:** backend `npm run typecheck` clean and
+> `npm test` 245 tests green (185 after Phase 0, 175 at the base); mobile
+> `npx tsc --noEmit`, `npm run lint` and `npx expo export -p web`
+> (`dist/impressum.html`) clean; and a live run on an Android emulator against
+> this backend, driven over the UI Bridge: one tap from the menu opens the
+> Impressum with the served data, and the owner's editor set Silvester to close
+> at 17:00, saw it in the preview and in `GET /api/shop`, and undid it.
+> Coord gates `86c4e770`, `01d7660f`, `5fea1b6b` watch the three PRs to
+> landing.
+>
+> **One defect was found by that emulator run and fixed before the PRs opened:**
+> a special day stored its own sentence („Silvester: geöffnet bis 18:00 Uhr“),
+> so moving the closing time left the app promising the old one. The row now
+> carries a label and the server composes the sentence from the hours it
+> enforces (D3).
 > **Repos:**
 > - `portofino-pizzeria/backend` leads (Phases 0–3).
 > - `portofino-pizzeria/mobile` follows (Phases 4–5).
@@ -402,6 +424,26 @@ POST   /api/admin/shop/undo                { version }
   - `legal`.
 - `mobile/src/lib/types.ts` `ShopInfo` gets the same additions, as optional
   fields, so that an older app keeps working against the newer API.
+
+### The response shapes, fixed at implementation start
+
+Both repos were built against one written contract so the mobile client could
+be implemented in parallel with the API:
+
+- `GET /api/shop` keeps every field it serves today and adds `specialDays:
+  DayHours[]` (every date in the next 30 days whose hours a special day
+  decided, each carrying its `special` note) and `legal: { ownerName,
+  legalForm, email, vatId?, registerCourt?, registerNumber?, complete,
+  missing[] }`.
+- Every admin route answers the whole `AdminShop` object —
+  `{ version, canUndo, profile, legal, weekly[7], specialDays[] }` — so the
+  editor never has to merge a partial response.
+- `POST /preview` answers `{ display, status, days: DayHours[8] }` and writes
+  nothing.
+- On an open special day, `deliveryUntil: null` means "no own value": the
+  profile-wide `deliveryUntil` applies, clamped to that day's `close`.
+- `/api/health` adds `legal: "complete" | "incomplete" | "unknown"` and
+  `legalMissing[]`.
 
 ## Phases
 
