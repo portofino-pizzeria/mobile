@@ -142,6 +142,28 @@ export const Motion = {
   control: 150,
 } as const;
 
+/**
+ * The pizza mascot: the ONE exception to "nothing auto-advances" and to the
+ * single 150 ms duration, ordered by the owner (2026-09-19; drafted in
+ * `docs/intent-drafts/domain_spec--visual-system--APPEND-mascot.md`). Its terms
+ * are what make it admissible, so they live here as values, not as habits of
+ * one component: home and cart only, repeats only while that screen is
+ * focused, a tap hides it for the session (WCAG 2.2.2), and reduced motion
+ * stands it still.
+ */
+export const Mascot = {
+  /** Largest on-screen width; it is also capped at 45% of the screen. */
+  width: 150,
+  /** Walking speed as a multiple of its own width per second — the pace at
+   *  which the feet in the Lottie walk cycle do not slide. */
+  walkSpeedPerWidth: 0.36,
+  /** Delay before the first pass after the screen opens. */
+  firstPassDelayMs: 1500,
+  /** A later pass comes back after a random delay in this range. */
+  repeatMinMs: 30_000,
+  repeatMaxMs: 60_000,
+} as const;
+
 /** `max-w-4xl` — the content column cap on wide screens (tablet, web). The
  *  kitchen board is a lane layout and does not cap. */
 export const MaxContentWidth = 896;
