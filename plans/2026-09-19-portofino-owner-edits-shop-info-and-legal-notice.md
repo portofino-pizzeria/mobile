@@ -1,13 +1,9 @@
 # Portofino — the owner edits the restaurant's facts (hours, special days, address, legal notice), and their edits survive a deploy (2026-09-19)
 
-> **Status: VETTED 2026-09-19, against backend `origin/master` `bdaaeac` (and mobile `origin/main` `d64d05d`).**
-> Every `file:line` re-read; D1–D6, the API and the phase gates survive with
-> corrections. Defects found: 11. Auto-fixed: 11. Surfaced for user: 0 (the
-> owner's own facts under "Open questions" were already the operator's).
-> Key fixes: shop defaults seeded from code because the test harness truncates
-> every table; `/api/health` must not query the DB; the Ruhetag is derived
-> from the week, not `weekday === 2`; refusal names the day's delivery close;
-> seed-once marker instead of "insert when empty"; three unstacked PRs.
+> **Status: IN PROGRESS 2026-09-19.** Implementation started by
+> session da329290 (/vet-imp). Phase tasks: 6 (PRs A, B, C). Started from
+> VETTED 2026-09-19 against backend `origin/master` `bdaaeac` / mobile
+> `origin/main` `d64d05d` (11 defects found, 11 auto-fixed, 0 surfaced).
 > History: authored DRAFT 2026-09-19 (mobile PR #30).
 >
 > **Repos:**
