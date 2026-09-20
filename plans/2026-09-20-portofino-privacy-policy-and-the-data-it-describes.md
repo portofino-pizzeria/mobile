@@ -4,17 +4,31 @@
 >
 > | Phase | State | Where |
 > |---|---|---|
-> | 1 — the order read stops leaking (backend half) | PROPOSED | backend PR, commit `ca0abc8` |
+> | 1 — the order read stops leaking (backend half) | PROPOSED | [backend#23](https://github.com/portofino-pizzeria/backend/pull/23), `ca0abc8` |
 > | 1 — the thin mobile half (`my-orders.ts`) | **NOT DONE** | see below |
-> | 2 — retention and erasure mechanics | PROPOSED | backend PR, commit `17e31ba` |
-> | 3 — log minimisation (backend half) | PROPOSED | backend PR, commit `7fd5866` |
-> | 3 — log retention (infra half) | PROPOSED | infra PR, commit `4d03a15` |
-> | 4 — the data-subject endpoints | PROPOSED | backend PR, commit `73e27ce` |
+> | 2 — retention and erasure mechanics | PROPOSED | backend#23, `17e31ba` |
+> | 3 — log minimisation (backend half) | PROPOSED | backend#23, `7fd5866` |
+> | 3 — log retention (infra half) | PROPOSED | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
+> | 4 — the data-subject endpoints | PROPOSED | backend#23, `73e27ce` |
+> | — review fixes across 1-4 | PROPOSED | backend#23, `a59fee1` |
 > | 5 — the page, its text, the intent correction | **BLOCKED** | mobile#32 still OPEN |
 > | 6 — the admin section | **BLOCKED** | mobile#32 still OPEN |
 >
+> This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33).
+>
+> **Pre-PR review.** An independent agent read the whole backend diff before
+> backend#23 opened and raised **13 findings**; all are closed in `a59fee1`.
+> Four mattered: the journal `when` hazard below (high); missing
+> `drizzle/meta/` snapshots, which would have made the next `drizzle-kit
+> generate` emit a migration that fails on apply; the phone number in the
+> request log, below; and a TOCTOU in `forget` that could have erased the
+> address of a delivery the kitchen had just started. It found nothing in four
+> categories it probed specifically — SQL injection in the phone search, any
+> unauthorised path to the token or the customer block, the advisory-lock and
+> marker logic, and the month/year arithmetic.
+>
 > **Gates run 2026-09-20, on a real local Postgres (`backend-db-1`, postgres:16):**
-> `npm test` **243 passed / 14 files** (baseline at `a81da55` was 185/11), and
+> `npm test` **247 passed / 15 files** (baseline at `a81da55` was 185/11), and
 > `npx tsc --noEmit` clean, after each of the four phases. Infra:
 > `terraform fmt -check -recursive -diff` exit 0 and `terraform validate`
 > *Success* on Terraform **1.15.8** — the version `infra/.github/workflows/ci.yml`
@@ -40,13 +54,26 @@
 >   branch too**, byte-identical to backend#22's copy, because `owner-auth.ts`
 >   does not exist on `origin/master` — it is part of #22. Identical content
 >   means the two land without conflicting.
-> - **Migration numbering.** `0006_order_access_token.sql` and
->   `0007_retention.sql`, leaving `0005` free for backend#22's
->   `0005_shop_facts.sql` exactly as D3 says. The journal keeps `idx` in step
->   with the filename (4, then 6, then 7); drizzle applies by journal order, so
->   the gap is inert. **`drizzle/meta/_journal.json` will still conflict with
->   #22** — both append to one array — and the resolution is to keep all three
->   entries in index order.
+> - **The phone search is `POST /api/admin/orders/search` with the number in the
+>   BODY**, not D5's `GET …?phone=…`. The request logger keeps `url` on every
+>   incoming request, so a query parameter would write a diner's phone number
+>   into the very CloudWatch logs D4 exists to minimise — on the request whose
+>   whole purpose is to honour that diner's privacy rights. It is D3's own
+>   argument about the order token, applied to the same data one surface over.
+>   **D5's wording should be corrected to match.**
+> - ⚠️ **Migration numbering, and a real hazard D3 did not see.**
+>   `0006_order_access_token.sql` and `0007_retention.sql`, leaving `0005` free
+>   for backend#22 as D3 says. But **"the gap is inert" is only half true.**
+>   drizzle's migrator reads the NEWEST applied row and applies every journal
+>   entry whose `when` is strictly greater
+>   (`drizzle-orm/pg-core/dialect.js`). backend#22's `0005_shop_facts` carries
+>   `when: 1789855087555`, **below** this branch's — so on a database that has
+>   applied 0006/0007, #22's 0005 is **silently skipped**, with no error, and
+>   `shop_profile`'s legal columns never appear. No choice of `when` survives
+>   both merge orders. **Whichever of the two branches merges SECOND must
+>   renumber its migration and re-stamp its `when` above everything already in
+>   the journal.** Written into the 0006 header; a test asserts the journal's
+>   `when` values are sorted and that tags and files correspond.
 > - **Phase 3's infra probe found SIX log groups, not two.** See the Phase 3
 >   note below; four are orphans Terraform cannot reach, and they are an
 >   operator item.
