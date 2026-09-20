@@ -15,7 +15,6 @@ tenant, or at `/admin/coord/prompt-documents`.
 Written from a pizzeria-bound device credential (paired from an operator code),
 for plan `plans/2026-09-19-portofino-owner-edits-shop-info-and-legal-notice.md`.
 
-<<<<<<< HEAD
 ## 2026-09-19 — the pizza mascot and the Kettwig hero (NOT YET APPLIED)
 
 | File | Document | Operation |
@@ -27,8 +26,6 @@ The app already ships both. Until they are written to the served documents, the
 served `## Motion` ("nothing auto-advances") and hero section disagree with the
 app, and the served documents win.
 
-=======
->>>>>>> 2fdf0d2 (docs(plans): plan owner-edited shop facts, special days and the Impressum (DRAFT))
 ## 2026-09-14 — the v0 design replaces the visual system
 
 | File | Document | Operation |

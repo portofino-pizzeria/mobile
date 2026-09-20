@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "base_sha": "69692a748660656e1ec91a909d8e80db97e8a04c",
+  "ours_sha": "5113ef5b185a9801a8ab582cd84fa94e8f376ca3",
+  "theirs_sha": "3768b3bd0a12ce68746d25e8a481035abfde9215",
+  "entries": [
+    {
+      "path": "docs/intent-drafts/README.md",
+      "base_oid": "68911dfde5602034b68696dc1832fb6a3a3c6ee1",
+      "ours_oid": "8b2ebec8e951ab6a7b105d5e5073865a2524442a",
+      "theirs_oid": "c5089ce783fe649a4cd16742a649de1d11b80d10",
+      "base_path": "docs/intent-drafts/README.md.base",
+      "ours_path": "docs/intent-drafts/README.md.ours",
+      "theirs_path": "docs/intent-drafts/README.md.theirs",
+      "hunks": [
+        "<<<<<<< HEAD\n## 2026-09-19 — the pizza mascot and the Kettwig hero (NOT YET APPLIED)\n\n| File | Document | Operation |\n|---|---|---|\n| `domain_spec--visual-system--APPEND-mascot.md` | `domain_spec/visual-system` | append (owner-ordered mascot exception to `## Motion`; covers the pizza and the taco), **not yet written** |\n| `domain_spec--imagery-and-iconography--APPEND-4.md` | `domain_spec/imagery-and-iconography` | append (hero photograph replaced by the Kettwig mascot illustration), **not yet written** |\n\nThe app already ships both. Until they are written to the served documents, the\nserved `## Motion` (\"nothing auto-advances\") and hero section disagree with the\napp, and the served documents win.\n\n=======\n>>>>>>> 2fdf0d2 (docs(plans): plan owner-edited shop facts, special days and the Impressum (DRAFT))\n"
+      ]
+    }
+  ]
+}
