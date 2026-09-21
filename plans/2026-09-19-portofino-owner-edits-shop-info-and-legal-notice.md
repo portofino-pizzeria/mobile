@@ -1,42 +1,39 @@
 # Portofino — the owner edits the restaurant's facts (hours, special days, address, legal notice), and their edits survive a deploy (2026-09-19)
 
-> **Status: IN PROGRESS 2026-09-20.** Every phase is implemented, verified and
-> proposed; Phase 0 has landed and the rest sit in coord's merge train (coord
-> is the sole merge authority — nothing here was merged by hand).
-> Started by session da329290 (`/vet-imp`) from VETTED 2026-09-19 against
-> backend `origin/master` `bdaaeac` / mobile `origin/main` `d64d05d` (11
-> defects found, 11 auto-fixed, 0 surfaced).
+> **Status: SHIPPED 2026-09-20.** All six phases are live. backend
+> `origin/master`: `a81da55` (Phase 0, seed once — `#19`), `51cf227` + `5ac7046`
+> (Phases 1–3, the shop tables, the owner's API and the Impressum data — `#22`,
+> which replaced `#20`). mobile `origin/main`: `09ea669`, `d0b771f`, `e86dd7b`
+> (Phases 4–5, the restaurant editor and the Impressum page — `#32`, landed by
+> coord as a rebase fast-forward, which is why GitHub shows it Closed rather
+> than Merged). Vetted 2026-09-19 against backend `bdaaeac` / mobile `d64d05d`
+> (11 defects found, 11 auto-fixed, 0 surfaced); implemented by session
+> da329290 (`/vet-imp`).
 >
-> | PR | Phases | Head | State |
-> |---|---|---|---|
-> | `portofino-pizzeria/backend#19` | 0 | `a81da55` | **MERGED** 2026-09-19 23:50 UTC |
-> | `portofino-pizzeria/backend#22` | 1, 2, 3 | `5ac7046` | open, CI green, in the merge train |
-> | `portofino-pizzeria/backend#21` | 3 (the deploy warning only) | `a1d6448` | open, **needs an operator override**: `.github/workflows/**` is a tenant escalate path |
-> | `portofino-pizzeria/mobile#32` | 4, 5 | `7fd27d2` | open, CI green, `coord:downstream-of=backend#22` |
-> | `portofino-pizzeria/mobile#30` | the plan itself | `6b139a9` | open |
+> **One residual, and it is the only thing still open:**
+> `portofino-pizzeria/backend#21` — the deploy workflow's `::warning::` when
+> `/api/health` reports `legal: incomplete`. `.github/workflows/**` is a tenant
+> escalate path, so coord answers `block_hard / awaiting_operator_override` and
+> it needs an operator to land. Nothing else depends on it: it only warns, and
+> it can never fail a deploy.
 >
-> `backend#20` carried phases 1–3 first and was **closed unmerged**: one commit
-> on its branch had edited `.github/workflows/deploy.yml`, and coord blocks the
-> whole PR on that (`escalate-path-matched`, `block_hard`) even after the change
-> is taken back out. `#22` is the identical tree cut fresh from `master`, and
-> the workflow change is `#21` — the one PR an operator has to look at.
->
-> **Verified before proposing:** backend `npm run typecheck` clean and
-> `npm test` 245 tests green (185 after Phase 0, 175 at the base); mobile
-> `npx tsc --noEmit`, `npm run lint` and `npx expo export -p web`
-> (`dist/impressum.html`) clean; and a live run on an Android emulator against
-> this backend, driven over the UI Bridge: one tap from the menu opens the
-> Impressum with the served data, and the owner's editor set Silvester to close
-> at 17:00, saw it in the preview and in `GET /api/shop`, and undid it.
-> Coord gates `86c4e770` (#19, cleared by the merge), `e7834c6c` (#22),
-> `502abc15` (#21) and `5fea1b6b` (mobile#32) watch the PRs to landing;
-> `01d7660f` failed with the closed #20, which is the honest record.
->
-> **One defect was found by that emulator run and fixed before the PRs opened:**
-> a special day stored its own sentence („Silvester: geöffnet bis 18:00 Uhr“),
-> so moving the closing time left the app promising the old one. The row now
-> carries a label and the server composes the sentence from the hours it
+> **Verified before it shipped:** backend `npm run typecheck` clean and
+> `npm test` 245 tests green (175 at the base); mobile `npx tsc --noEmit`,
+> `npm run lint` and `npx expo export -p web` (`dist/impressum.html`) clean;
+> and a live run on an Android emulator over the UI Bridge — one tap from the
+> menu opened the Impressum with the served data, and the owner's editor set
+> Silvester to close at 17:00, saw it in the preview and in `GET /api/shop`,
+> and undid it. That run found the one defect this implementation shipped a fix
+> for: a special day stored its own sentence („Silvester: geöffnet bis 18:00
+> Uhr“), so moving the closing time left the app promising the old one. The row
+> now carries a label and the server composes the sentence from the hours it
 > enforces (D3).
+>
+> **Still owed by the owner** (nothing in code can supply it): the real
+> Heiligabend and Silvester hours, and the five Impressum facts. Store
+> submission and the website cutover stay blocked while `/api/health` reports
+> `legal: incomplete`. The Datenschutzerklärung remains out of scope and blocks
+> cutover the same way.
 > **Repos:**
 > - `portofino-pizzeria/backend` leads (Phases 0–3).
 > - `portofino-pizzeria/mobile` follows (Phases 4–5).
