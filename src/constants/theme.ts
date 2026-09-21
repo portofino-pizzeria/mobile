@@ -162,6 +162,10 @@ export const Mascot = {
   /** A later pass comes back after a random delay in this range. */
   repeatMinMs: 30_000,
   repeatMaxMs: 60_000,
+  /** Only one mascot walks at a time; the other waits this long and retries. */
+  stageBusyRetryMs: 8_000,
+  /** Pause between reaching a section and its own mascot walking on. */
+  triggerDelayMs: 250,
 } as const;
 
 /** `max-w-4xl` — the content column cap on wide screens (tablet, web). The

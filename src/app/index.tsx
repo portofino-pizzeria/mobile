@@ -21,7 +21,7 @@ import { MascotPass } from '@/components/mascot-pass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing, Type } from '@/constants/theme';
-import { useShop } from '@/hooks/use-shop';
+import { upcomingSpecialDay, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, errorReason } from '@/lib/api';
 import {
@@ -31,7 +31,7 @@ import {
   type ResolvedArt,
 } from '@/lib/dish-art';
 import { formatEUR } from '@/lib/format';
-import { homeMascot } from '@/lib/mascots';
+import { homeMascot, tacoMascot } from '@/lib/mascots';
 import { formatCacheAge, readCachedMenu, writeCachedMenu } from '@/lib/menu-cache';
 import type {
   AllergenLegendEntry,
@@ -312,6 +312,22 @@ export default function MenuScreen() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const activeId = activeSection ?? sections[0]?.id ?? null;
 
+  /** The Mexican section, matched by the API's own id or label rather than a
+   *  hardcoded category: the taco is that section's mascot. */
+  const mexicanId = useMemo(
+    () => sections.find((s) => /mexik/i.test(s.id) || /mexik/i.test(s.label))?.id ?? null,
+    [sections],
+  );
+  /** Bumped each time the guest ARRIVES at that section, so the taco walks on
+   *  once per visit to it rather than on every scroll event inside it. */
+  const [tacoCue, setTacoCue] = useState(0);
+  const wasMexican = useRef(false);
+  useEffect(() => {
+    const there = mexicanId !== null && activeId === mexicanId;
+    if (there && !wasMexican.current) setTacoCue((n) => n + 1);
+    wasMexican.current = there;
+  }, [activeId, mexicanId]);
+
   useEffect(() => {
     if (!activeId) return;
     const x = tabX.current.get(activeId);
@@ -388,6 +404,7 @@ export default function MenuScreen() {
             Erneut versuchen
           </ThemedText>
         </BridgeButton>
+        <ImpressumLink />
       </ThemedView>
     );
   }
@@ -467,6 +484,11 @@ export default function MenuScreen() {
             Pizza, Pasta und mehr — direkt bei Portofino in Essen bestellen.
           </ThemedText>
           {shop ? <OpenStatus shop={shop} /> : null}
+          {shop && upcomingSpecialDay(shop) ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {upcomingSpecialDay(shop)}
+            </ThemedText>
+          ) : null}
           <BridgeButton
             uiId="hero-to-menu"
             uiLabel="Speisekarte entdecken"
@@ -751,6 +773,9 @@ export default function MenuScreen() {
         <ThemedText type="small" themeColor="onFooterMuted">
           © {new Date().getFullYear()} Portofino Pizzeria · Essen
         </ThemedText>
+        {/* Outside the contact band's `if (shop)`: the legal notice is
+            reachable even when `/api/shop` did not answer. */}
+        <ImpressumLink onDark />
       </View>
     </View>,
   );
@@ -772,8 +797,19 @@ export default function MenuScreen() {
         {blocks}
       </ScrollView>
 
-      {/* Above the cart bar when it is showing, so it never covers it. */}
+      {/* Above the cart bar when it is showing, so it never covers it. Only
+          one mascot walks at a time; the taco waits for its own section. */}
       <MascotPass id="home-mascot" animation={homeMascot} stopAt={0.5} bottom={cart.count > 0 ? 96 : Spacing.sm} />
+      {mexicanId ? (
+        <MascotPass
+          id="taco-mascot"
+          animation={tacoMascot}
+          stopAt={0.5}
+          bottom={cart.count > 0 ? 96 : Spacing.sm}
+          repeat={false}
+          trigger={tacoCue}
+        />
+      ) : null}
 
       {cart.count > 0 ? (
         <SafeAreaView edges={['bottom']} style={styles.cartBarWrap} pointerEvents="box-none">
@@ -854,6 +890,26 @@ function OpenStatus({ shop }: { shop: NonNullable<ReturnType<typeof useShop>['sh
         {text}
       </ThemedText>
     </View>
+  );
+}
+
+/** The link to the legal notice, with the word the law expects: "Impressum". */
+function ImpressumLink({ onDark = false }: { onDark?: boolean }) {
+  const router = useRouter();
+  return (
+    <BridgeButton
+      uiId="menu-impressum"
+      uiLabel="Impressum"
+      role="link"
+      style={styles.link}
+      onPress={() => router.push('/impressum')}>
+      <ThemedText
+        type="small"
+        themeColor={onDark ? 'onFooterMuted' : 'brandText'}
+        style={styles.linkText}>
+        Impressum
+      </ThemedText>
+    </BridgeButton>
   );
 }
 

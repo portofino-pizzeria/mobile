@@ -19,7 +19,7 @@ for plan `plans/2026-09-19-portofino-owner-edits-shop-info-and-legal-notice.md`.
 
 | File | Document | Operation |
 |---|---|---|
-| `domain_spec--visual-system--APPEND-mascot.md` | `domain_spec/visual-system` | append (owner-ordered mascot exception to `## Motion`), **not yet written** |
+| `domain_spec--visual-system--APPEND-mascot.md` | `domain_spec/visual-system` | append (owner-ordered mascot exception to `## Motion`; covers the pizza and the taco), **not yet written** |
 | `domain_spec--imagery-and-iconography--APPEND-4.md` | `domain_spec/imagery-and-iconography` | append (hero photograph replaced by the Kettwig mascot illustration), **not yet written** |
 
 The app already ships both. Until they are written to the served documents, the

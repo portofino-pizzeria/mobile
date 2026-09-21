@@ -17,8 +17,11 @@ import { readStoredText, writeStoredText } from './storage';
 import type {
   AdminMenu,
   AdminMenuItem,
+  AdminShop,
+  AdminWeekday,
   AllergenLegendEntry,
   MenuCategory,
+  ShopPreview,
 } from './types';
 
 const TOKEN_KEY = 'portofino.ownerMenuToken';
@@ -95,6 +98,144 @@ export interface ItemDraft {
   available?: boolean;
   variants: VariantDraft[];
 }
+
+// --- The restaurant's facts (hours, special days, address, Impressum) --------
+//
+// Every write carries the `version` the screen read, and answers with the
+// whole `AdminShop` as it now stands. A stale version answers 409 with the
+// server's German sentence.
+
+export interface ShopProfileDraft {
+  name: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  /** As printed. The dialable form is derived by the server. */
+  phoneDisplay: string;
+}
+
+export interface ShopHoursDraft {
+  weekly: AdminWeekday[];
+  deliveryUntil: string;
+  holidayOpen: string;
+  holidayClose: string;
+  ruhetagBeatsHoliday: boolean;
+}
+
+export interface ShopLegalDraft {
+  legalOwnerName: string;
+  legalForm: string;
+  email: string;
+  vatId?: string;
+  registerCourt?: string;
+  registerNumber?: string;
+}
+
+/** One special day as the editor sends it: a date OR a month-day, and either
+ *  closed or its own hours. */
+export interface SpecialDayDraft {
+  date?: string;
+  monthDay?: string;
+  closed: boolean;
+  open?: string;
+  close?: string;
+  deliveryUntil?: string;
+  note: string;
+}
+
+/** Any part left out is the stored value. `specialDays`, when given, replaces
+ *  the stored list for the preview only. */
+export interface ShopPreviewDraft {
+  weekly?: AdminWeekday[];
+  deliveryUntil?: string;
+  holidayOpen?: string;
+  holidayClose?: string;
+  ruhetagBeatsHoliday?: boolean;
+  specialDays?: (SpecialDayDraft & { id?: number })[];
+}
+
+export const adminShopApi = {
+  async get(): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop');
+  },
+
+  async saveProfile(draft: ShopProfileDraft, version: number): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ ...draft, version }),
+    });
+  },
+
+  /** All 7 weekdays in one request. Closing every day needs
+   *  `confirmAllClosed`, which the server insists on. */
+  async saveHours(
+    draft: ShopHoursDraft,
+    version: number,
+    confirmAllClosed = false,
+  ): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop/hours', {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...draft,
+        ...(confirmAllClosed ? { confirmAllClosed: true } : {}),
+        version,
+      }),
+    });
+  },
+
+  /** Only ever sent with the owner's "korrekt und vollständig" confirmation. */
+  async saveLegal(draft: ShopLegalDraft, version: number): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop/legal', {
+      method: 'PUT',
+      body: JSON.stringify({ ...draft, confirmed: true, version }),
+    });
+  },
+
+  /** 1..62 days in one transaction — a holiday is never half-entered. */
+  async addSpecialDays(days: SpecialDayDraft[], version: number): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop/special-days', {
+      method: 'POST',
+      body: JSON.stringify({ days, version }),
+    });
+  },
+
+  /** The whole row; saving it marks it as checked by the owner. */
+  async updateSpecialDay(
+    id: number,
+    day: SpecialDayDraft,
+    version: number,
+  ): Promise<AdminShop> {
+    return areq<AdminShop>(`/api/admin/shop/special-days/${encodeURIComponent(String(id))}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ...day, version }),
+    });
+  },
+
+  async deleteSpecialDay(id: number, version: number): Promise<AdminShop> {
+    return areq<AdminShop>(
+      `/api/admin/shop/special-days/${encodeURIComponent(String(id))}?version=${encodeURIComponent(
+        String(version),
+      )}`,
+      { method: 'DELETE' },
+    );
+  },
+
+  /** What diners would see with this draft. Writes nothing. */
+  async preview(draft: ShopPreviewDraft): Promise<ShopPreview> {
+    return areq<ShopPreview>('/api/admin/shop/preview', {
+      method: 'POST',
+      body: JSON.stringify(draft),
+    });
+  },
+
+  /** Reverses the most recent shop write (a second undo is a redo). */
+  async undo(version: number): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop/undo', {
+      method: 'POST',
+      body: JSON.stringify({ version }),
+    });
+  },
+};
 
 export const adminApi = {
   /** The whole menu including the items diners cannot see. */

@@ -653,6 +653,17 @@ export default function CheckoutScreen() {
             {error.message}
           </ThemedText>
         ) : null}
+
+        <BridgeButton
+          uiId="checkout-impressum"
+          uiLabel="Impressum"
+          role="link"
+          style={styles.forget}
+          onPress={() => router.push('/impressum')}>
+          <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+            Impressum
+          </ThemedText>
+        </BridgeButton>
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>

@@ -51,6 +51,9 @@ export default function AdminMenuScreen() {
   const [renameValue, setRenameValue] = useState('');
 
   const menuRef = useRef<AdminMenu | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  /** Where the menu overview starts inside the scroll content. */
+  const menuHeadingY = useRef(0);
 
   const load = useCallback(async () => {
     try {
@@ -156,10 +159,11 @@ export default function AdminMenuScreen() {
     return (
       <ThemedView style={styles.center}>
         <View style={styles.tokenCard}>
-          <ThemedText type="subtitle">Speisekarte bearbeiten</ThemedText>
+          <ThemedText type="subtitle">Verwaltung</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Bitte das Kennwort für den Speisekarten-Editor eingeben. Es wird auf
-            diesem Gerät gespeichert, damit Sie es nur einmal brauchen.
+            Bitte das Kennwort der Verwaltung eingeben — für die Speisekarte und für
+            Restaurant & Öffnungszeiten. Es wird auf diesem Gerät gespeichert, damit Sie
+            es nur einmal brauchen.
           </ThemedText>
           {error ? (
             <Notice tone="error" title="Zugang nicht möglich">
@@ -227,8 +231,31 @@ export default function AdminMenuScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.headerBlock}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
+        {/* The two things the owner edits. The menu overview is this screen
+            itself; the restaurant's facts have their own. */}
+        <View style={styles.entries}>
+          <AdminButton
+            uiId="admin-section-menu"
+            title="Speisekarte"
+            tone="primary"
+            onPress={() => scrollRef.current?.scrollTo({ y: menuHeadingY.current, animated: true })}
+          />
+          <AdminButton
+            uiId="admin-section-restaurant"
+            title="Restaurant & Öffnungszeiten"
+            onPress={() => router.push('/admin/restaurant')}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Öffnungszeiten, Sondertage und Urlaub, Adresse und Telefon, Impressum.
+          </ThemedText>
+        </View>
+
+        <View
+          style={styles.headerBlock}
+          onLayout={(e) => {
+            menuHeadingY.current = e.nativeEvent.layout.y;
+          }}>
           <ThemedText type="subtitle">Speisekarte</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {menu.items.length} Gerichte in {categories.length} Kategorien.
@@ -462,6 +489,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   headerBlock: { gap: Spacing.xs },
+  entries: { gap: Spacing.sm },
   tokenCard: { width: '100%', maxWidth: 420, gap: Spacing.lg },
   categoryCard: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.sm },
   categoryHead: {
