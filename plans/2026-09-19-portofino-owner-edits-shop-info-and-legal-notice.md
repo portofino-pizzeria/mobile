@@ -1,8 +1,9 @@
 # Portofino — the owner edits the restaurant's facts (hours, special days, address, legal notice), and their edits survive a deploy (2026-09-19)
 
-> **Status: IN PROGRESS 2026-09-20.** Every phase is implemented, verified and
-> proposed; Phase 0 has landed and the rest sit in coord's merge train (coord
-> is the sole merge authority — nothing here was merged by hand).
+> **Status: SHIPPED 2026-09-24.** Every phase landed; coord's merge train
+> carried each PR (coord is the sole merge authority — nothing here was merged
+> by hand). Confirmed by reading `coord_pr_status` for every row below, not
+> assumed from an earlier snapshot.
 > Started by session da329290 (`/vet-imp`) from VETTED 2026-09-19 against
 > backend `origin/master` `bdaaeac` / mobile `origin/main` `d64d05d` (11
 > defects found, 11 auto-fixed, 0 surfaced).
@@ -10,16 +11,22 @@
 > | PR | Phases | Head | State |
 > |---|---|---|---|
 > | `portofino-pizzeria/backend#19` | 0 | `a81da55` | **MERGED** 2026-09-19 23:50 UTC |
-> | `portofino-pizzeria/backend#22` | 1, 2, 3 | `5ac7046` | open, CI green, in the merge train |
-> | `portofino-pizzeria/backend#21` | 3 (the deploy warning only) | `a1d6448` | open, **needs an operator override**: `.github/workflows/**` is a tenant escalate path |
-> | `portofino-pizzeria/mobile#32` | 4, 5 | `7fd27d2` | open, CI green, `coord:downstream-of=backend#22` |
-> | `portofino-pizzeria/mobile#30` | the plan itself | `6b139a9` | open |
+> | `portofino-pizzeria/backend#22` | 1, 2, 3 | `5ac7046` | **MERGED** 2026-09-20 07:35 UTC (`5ac70466`) |
+> | `portofino-pizzeria/backend#21` | 3 (the deploy warning only) | `a1d6448` | closed unmerged (rebase-stalled after the operator override); superseded by **`backend#28`**, **MERGED** 2026-09-21 08:18 UTC (`e8f1c38d`) |
+> | `portofino-pizzeria/mobile#32` | 4, 5 | `7fd27d2` | **MERGED** 2026-09-20 04:34 UTC (`e86dd7b4`) — this document's own post-merge follow-up found no unwired code in #32 itself |
+> | `portofino-pizzeria/mobile#30` | the plan itself | `6b139a9` | closed unmerged (`merge_resolution_discarded` — a merge commit on its branch discarded conflict resolutions on rebase-replay); superseded by **`mobile#34`**, **MERGED** 2026-09-21 08:16 UTC (`288e1a69`), which squash-landed this file |
 >
 > `backend#20` carried phases 1–3 first and was **closed unmerged**: one commit
 > on its branch had edited `.github/workflows/deploy.yml`, and coord blocks the
 > whole PR on that (`escalate-path-matched`, `block_hard`) even after the change
 > is taken back out. `#22` is the identical tree cut fresh from `master`, and
 > the workflow change is `#21` — the one PR an operator has to look at.
+>
+> **Follows on:** `[[2026-09-20-portofino-privacy-policy-and-the-data-it-describes]]`
+> named this plan's mobile PR as its own hard dependency for Phases 5–6 (the
+> Datenschutz page and its admin section need `impressum.tsx` and
+> `ShopInfo.legal`, both of which exist only from mobile#32 on). With mobile#32
+> merged, that plan's Phases 5–6 are unblocked.
 >
 > **Verified before proposing:** backend `npm run typecheck` clean and
 > `npm test` 245 tests green (185 after Phase 0, 175 at the base); mobile

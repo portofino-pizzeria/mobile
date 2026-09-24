@@ -1,20 +1,44 @@
 # Portofino — the privacy policy (Datenschutzerklärung), and fixing the four things it would otherwise have to confess (2026-09-20)
 
-> **Status: PARTIAL 2026-09-20 — Phases 1-4 built and proposed; Phases 5-6 BLOCKED.**
+> **Status: IN PROGRESS 2026-09-24 — Phases 1-4 MERGED; Phase 1's mobile half,**
+> **5 and 6 built by this plan's post-merge follow-up session and proposed;**
+> **one deliverable of Phase 5 stays owed (below).**
 >
 > | Phase | State | Where |
 > |---|---|---|
-> | 1 — the order read stops leaking (backend half) | PROPOSED | [backend#23](https://github.com/portofino-pizzeria/backend/pull/23), `ca0abc8` |
-> | 1 — the thin mobile half (`my-orders.ts`) | **NOT DONE** | see below |
-> | 2 — retention and erasure mechanics | PROPOSED | backend#23, `17e31ba` |
-> | 3 — log minimisation (backend half) | PROPOSED | backend#23, `7fd5866` |
-> | 3 — log retention (infra half) | PROPOSED | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
-> | 4 — the data-subject endpoints | PROPOSED | backend#23, `73e27ce` |
-> | — review fixes across 1-4 | PROPOSED | backend#23, `a59fee1` |
-> | 5 — the page, its text, the intent correction | **BLOCKED** | mobile#32 still OPEN |
-> | 6 — the admin section | **BLOCKED** | mobile#32 still OPEN |
+> | 1 — the order read stops leaking (backend half) | **MERGED** | backend#23 superseded by [backend#26](https://github.com/portofino-pizzeria/backend/pull/26), `9fd5c98` |
+> | 1 — the thin mobile half (`my-orders.ts`) | **DONE** | this session — `src/lib/my-orders.ts`, `api.ts` (token round-trip), `checkout.tsx`, `order/[id].tsx` (the `customerRedacted` third branch) |
+> | 2 — retention and erasure mechanics | **MERGED** | backend#26 |
+> | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
+> | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
+> | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
+> | 5 — the page, its text, the intent correction | **DONE except the intent correction** | this session — `mobile/src/app/datenschutz.tsx`; see "Owed", below |
+> | 6 — the admin section | **DONE** | this session — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts` |
 >
-> This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33).
+> This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33) (merged).
+>
+> **Why Phase 1's mobile half stopped being optional.** Once backend#26 merged
+> (2026-09-21) and deployed, `GET /api/orders/:id` started returning
+> `customerRedacted: true` to every caller that sends no token — which was
+> every mobile build, since nothing wrote or sent one. The order-status screen
+> (`order/[id].tsx`) could not tell that apart from a delivery order with a
+> genuinely missing address, so it rendered the red "Keine Lieferadresse
+> hinterlegt" error on **every** delivery order's own confirmation screen,
+> including the one the diner who just placed it is looking at. This was a
+> live regression, not a cosmetic gap, discovered by mobile#32's post-merge
+> follow-up while checking `Order.customerRedacted` for callers — it had none —
+> and fixed in the same session rather than filed for later.
+>
+> **What Phase 5 still owes.** D2 §2's sentence about "Angaben merken" being
+> § 25 (1) TDDDG consent is **not** in the shipped page: it depends on an
+> APPEND to `domain_spec/menu` correcting the stale pre-D3 default, which needs
+> a pizzeria-bound credential this session's device JWT does not carry (acting
+> tenant resolves to `qontinui`, not `pizzeria` — the same limitation this
+> plan's own VETTED status recorded). D2 §4's exact Stripe transfer mechanism
+> (which SCCs or equivalent apply) is marked `wird ergänzt` on the page for the
+> same reason it was marked owed here: it is the operator's fact to confirm,
+> not one this session can derive. Both are named on the page or in this
+> document rather than guessed.
 >
 > **Pre-PR review.** An independent agent read the whole backend diff before
 > backend#23 opened and raised **13 findings**; all are closed in `a59fee1`.
