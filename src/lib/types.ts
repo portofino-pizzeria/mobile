@@ -131,6 +131,15 @@ export interface Order {
   fulfilment?: Fulfilment;
   status: OrderStatus;
   customer?: CustomerInfo;
+  /**
+   * Set — and only ever set to `true` — when the customer block was withheld
+   * because this read carried no order access token (backend decision D3).
+   * Distinguishes "we are not showing you this" from "there is nothing to
+   * show": without it, a delivery order with no `customer` reads exactly like
+   * one whose address is genuinely missing. Absent on an authorised read and
+   * on an order whose personal data was erased on request (`/forget`).
+   */
+  customerRedacted?: true;
   payment?: { provider: PaymentProvider; reference?: string; paidAt?: string };
   createdAt: string;
   updatedAt: string;
@@ -296,4 +305,60 @@ export interface ShopPreview {
   status: ShopStatus;
   /** Today and the next 7 days. */
   days: ShopDayHours[];
+}
+
+// --- The owner's data-subject surface (GET/POST /api/admin/orders/*) -------
+
+/** One row of the owner's phone-number search. */
+export interface OrderSearchHit {
+  id: string;
+  createdAt: string;
+  status: OrderStatus;
+  fulfilment: Fulfilment;
+  total: number;
+  currency: string;
+  name: string | null;
+  phone: string | null;
+  address: string | null;
+  personalDataErasedAt: string | null;
+}
+
+/** The Art. 15 extract for one order. */
+export interface PersonalDataExtract {
+  orderId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: OrderStatus;
+  fulfilment: Fulfilment;
+  customer: {
+    name: string | null;
+    phone: string | null;
+    address: string | null;
+    notes: string | null;
+  };
+  order: {
+    subtotal: number;
+    deliveryFee: number;
+    total: number;
+    currency: string;
+    lines: { name: string; variantLabel: string; unitPrice: number; quantity: number }[];
+  };
+  payment: {
+    provider: PaymentProvider | null;
+    reference: string | null;
+    paidAt: string | null;
+  };
+  personalDataErasedAt: string | null;
+  /** What this extract does not and cannot contain (Stripe, the device, backups). */
+  hinweise: string[];
+}
+
+/** The POST /api/admin/orders/:id/forget answer (Art. 17). */
+export interface ForgetResult {
+  orderId: string;
+  /** False when the order had already been erased — the call is idempotent. */
+  erased: boolean;
+  personalDataErasedAt: string;
+  /** German, for the admin screen to show verbatim. */
+  meldung: string;
 }

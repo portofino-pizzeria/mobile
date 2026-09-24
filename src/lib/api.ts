@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import { getOrderToken } from './my-orders';
 import type { CustomerRequest, Fulfilment, Menu, Order, PaymentProvider, ShopInfo } from './types';
 
 /**
@@ -88,21 +89,33 @@ export const api = {
 
   // The API refuses an order without a name and phone number, a delivery
   // without an address, and any order its kind is not taken for right now.
+  //
+  // `accessToken` is returned exactly once, here (backend decision D3) — the
+  // caller is responsible for keeping it (`saveOrderToken`) if this device is
+  // meant to read its own order back with the customer block included.
   async createOrder(
     items: OrderLineRequest[],
     fulfilment: Fulfilment,
     customer: CustomerRequest,
-  ): Promise<Order> {
-    const { order } = await request<{ order: Order }>('/api/orders', {
+  ): Promise<{ order: Order; accessToken: string }> {
+    return request<{ order: Order; accessToken: string }>('/api/orders', {
       method: 'POST',
       body: JSON.stringify({ items, fulfilment, customer }),
     });
-    return order;
   },
 
   async getOrder(id: string): Promise<Order> {
+    // The order access token this device holds for this id, if any (D3). Sent
+    // as a Bearer header — never a query parameter, which would land in the
+    // request log, browser history and the Referer header. Its absence is not
+    // an error: an order this device did not place, or one whose token was
+    // never saved, simply gets the redacted read (`order.customerRedacted`).
+    const token = await getOrderToken(id);
     // Encoded, so an id from a link can only ever name an order.
-    const { order } = await request<{ order?: Order }>(`/api/orders/${encodeURIComponent(id)}`);
+    const { order } = await request<{ order?: Order }>(
+      `/api/orders/${encodeURIComponent(id)}`,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    );
     // A 2xx without an order is an answer nobody can use, not an order.
     if (!order) throw new Error('The order read answered without an order.');
     return order;

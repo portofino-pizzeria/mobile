@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError, errorReason, type PaymentProviders } from '@/lib/api';
 import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
+import { saveOrderToken } from '@/lib/my-orders';
 import { forgetSavedDetails, loadSavedDetails, saveDetails } from '@/lib/saved-details';
 import type { Fulfilment, PaymentProvider, ShopInfo } from '@/lib/types';
 import { useCart, type CartLine } from '@/state/cart';
@@ -327,7 +328,7 @@ export default function CheckoutScreen() {
       // Inside `try`, so a throwing window.open still releases the in-flight
       // guard in `finally`.
       if (tapped) checkoutWindow = openCheckoutWindow();
-      const order = await api.createOrder(
+      const { order, accessToken } = await api.createOrder(
         // The variant carries the price, so every line names one. The API
         // rejects a line without it rather than pricing a guess.
         cart.lines.map((l) => ({
@@ -350,6 +351,11 @@ export default function CheckoutScreen() {
         },
       );
       placed = true;
+      // The one and only place the access token is available (backend D3):
+      // keep it so this device's own order screen can read the customer block
+      // back, instead of the redacted shape every other reader gets.
+      // Best-effort, like the two calls below: it must not hold up payment.
+      void saveOrderToken(order.id, accessToken);
       // The order exists, so these details worked: keep them for next time, or
       // forget any earlier copy when the diner unticked "Angaben merken".
       // Best-effort either way; neither may hold up the payment.
@@ -654,16 +660,28 @@ export default function CheckoutScreen() {
           </ThemedText>
         ) : null}
 
-        <BridgeButton
-          uiId="checkout-impressum"
-          uiLabel="Impressum"
-          role="link"
-          style={styles.forget}
-          onPress={() => router.push('/impressum')}>
-          <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
-            Impressum
-          </ThemedText>
-        </BridgeButton>
+        <View style={styles.legalLinks}>
+          <BridgeButton
+            uiId="checkout-impressum"
+            uiLabel="Impressum"
+            role="link"
+            style={styles.forget}
+            onPress={() => router.push('/impressum')}>
+            <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+              Impressum
+            </ThemedText>
+          </BridgeButton>
+          <BridgeButton
+            uiId="checkout-datenschutz"
+            uiLabel="Datenschutz"
+            role="link"
+            style={styles.forget}
+            onPress={() => router.push('/datenschutz')}>
+            <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+              Datenschutz
+            </ThemedText>
+          </BridgeButton>
+        </View>
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
@@ -791,4 +809,5 @@ const styles = StyleSheet.create({
   rememberText: { flex: 1 },
   forget: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   forgetText: { textDecorationLine: 'underline' },
+  legalLinks: { flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap' },
 });

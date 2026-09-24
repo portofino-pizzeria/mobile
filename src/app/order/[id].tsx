@@ -41,9 +41,13 @@ const MAX_RETRY_MS = 30000;
  * required them carry none. A value that is only whitespace counts as missing,
  * and a note that is only whitespace is not a note, as on the kitchen card.
  *
- * The phone number is left out only because the diner already knows it. It is
- * not protected: the order read has no authentication and returns it to anyone
- * holding the order link, as it does the name and address.
+ * The phone number is left out only because the diner already knows it.
+ *
+ * `redacted` is `order.customerRedacted` (backend decision D3): this read
+ * carried no order access token, so the customer block was withheld rather
+ * than being empty. Distinct from `address`/`name`/`note` all being null,
+ * which means the order genuinely carries none — either never captured, or
+ * erased on the owner's "forget" request.
  */
 function deliveryDetails(order: Order) {
   const customer = order.customer ?? {};
@@ -51,6 +55,7 @@ function deliveryDetails(order: Order) {
     name: customer.name?.trim() || null,
     address: customer.address?.trim() || null,
     note: customer.notes?.trim() || null,
+    redacted: order.customerRedacted === true,
   };
 }
 
@@ -166,11 +171,13 @@ function OrderView({ id }: { id: string }) {
         label: 'Report what the order screen is currently showing',
         description:
           'No params. Returns { state: "loading" | "error" | "shown", error, refreshError, ' +
-          'orderId, status, fulfilment, delivery: { name, address, note } }. `error` is the reason shown ' +
-          'when the order could not be loaded. `refreshError` is set while the latest read ' +
-          'failed and the order on screen may be out of date. `orderId`, `status` and ' +
-          '`delivery` are null unless state is "shown". A null `delivery.address` is shown ' +
-          'as "Keine Lieferadresse hinterlegt".',
+          'orderId, status, fulfilment, delivery: { name, address, note, redacted } }. `error` is ' +
+          'the reason shown when the order could not be loaded. `refreshError` is set while the ' +
+          'latest read failed and the order on screen may be out of date. `orderId`, `status` and ' +
+          '`delivery` are null unless state is "shown". A null `delivery.address` with ' +
+          '`redacted: false` is shown as "Keine Lieferadresse hinterlegt"; with `redacted: true` ' +
+          '(this device holds no access token for the order) it is shown as "Nur auf dem Gerät ' +
+          'sichtbar, mit dem die Bestellung aufgegeben wurde" instead.',
         handler: async () => {
           const { order: current, error: failure, refreshError: stale } = shownRef.current;
           const shownOrder = failure ? null : current;
@@ -255,7 +262,7 @@ function OrderView({ id }: { id: string }) {
 
   const isPickup = fulfilmentOf(order) === 'pickup';
   const copy = (isPickup && PICKUP_COPY[order.status]) || STATUS_COPY[order.status];
-  const { name, address, note } = deliveryDetails(order);
+  const { name, address, note, redacted } = deliveryDetails(order);
 
   return (
     <ThemedView style={styles.screen}>
@@ -338,6 +345,13 @@ function OrderView({ id }: { id: string }) {
             </ThemedText>
           ) : address ? (
             <ThemedText type="small">{address}</ThemedText>
+          ) : redacted ? (
+            // Not an error: this read carried no order access token (a second
+            // device, or a link opened after the app's storage was cleared),
+            // so the address is withheld rather than missing.
+            <ThemedText type="small" themeColor="textSecondary">
+              Nur auf dem Gerät sichtbar, mit dem die Bestellung aufgegeben wurde
+            </ThemedText>
           ) : (
             <ThemedText type="small" style={{ color: theme.destructive }}>
               Keine Lieferadresse hinterlegt
