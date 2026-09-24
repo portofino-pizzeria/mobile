@@ -404,7 +404,10 @@ export default function MenuScreen() {
             Erneut versuchen
           </ThemedText>
         </BridgeButton>
-        <ImpressumLink />
+        <View style={styles.legalLinks}>
+          <ImpressumLink />
+          <DatenschutzLink />
+        </View>
       </ThemedView>
     );
   }
@@ -775,7 +778,10 @@ export default function MenuScreen() {
         </ThemedText>
         {/* Outside the contact band's `if (shop)`: the legal notice is
             reachable even when `/api/shop` did not answer. */}
-        <ImpressumLink onDark />
+        <View style={styles.legalLinks}>
+          <ImpressumLink onDark />
+          <DatenschutzLink onDark />
+        </View>
       </View>
     </View>,
   );
@@ -913,6 +919,27 @@ function ImpressumLink({ onDark = false }: { onDark?: boolean }) {
   );
 }
 
+/** The link to the privacy policy, beside the Impressum link everywhere it
+ *  appears. */
+function DatenschutzLink({ onDark = false }: { onDark?: boolean }) {
+  const router = useRouter();
+  return (
+    <BridgeButton
+      uiId="menu-datenschutz"
+      uiLabel="Datenschutz"
+      role="link"
+      style={styles.link}
+      onPress={() => router.push('/datenschutz')}>
+      <ThemedText
+        type="small"
+        themeColor={onDark ? 'onFooterMuted' : 'brandText'}
+        style={styles.linkText}>
+        Datenschutz
+      </ThemedText>
+    </BridgeButton>
+  );
+}
+
 /** `PORTOFINO.` — the design's wordmark: the gold serif, and an ink full stop
  *  (gold on the dark footer, as in `footer.tsx`). A logotype, so the gold carries no contrast
  *  requirement. */
@@ -996,6 +1023,7 @@ const styles = StyleSheet.create({
   contactBlockWide: { flex: 1 },
   link: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   linkText: { textDecorationLine: 'underline' },
+  legalLinks: { flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap' },
   heroBtn: { alignSelf: 'flex-start', marginTop: Spacing.lg },
 
   // --- menu ---

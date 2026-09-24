@@ -20,7 +20,10 @@ import type {
   AdminShop,
   AdminWeekday,
   AllergenLegendEntry,
+  ForgetResult,
   MenuCategory,
+  OrderSearchHit,
+  PersonalDataExtract,
   ShopPreview,
 } from './types';
 
@@ -234,6 +237,37 @@ export const adminShopApi = {
       method: 'POST',
       body: JSON.stringify({ version }),
     });
+  },
+};
+
+/** The owner's data-subject surface (decision D5): a phone search, an Art. 15
+ *  extract, and Art. 17 erasure. Behind the same owner guard as everything
+ *  else here — no third credential. */
+export const adminPrivacyApi = {
+  /** A phone number is the only identifier a caller can give over the phone.
+   *  Sent in the body, never as a query parameter, so it never reaches a
+   *  request log. */
+  async searchByPhone(phone: string): Promise<OrderSearchHit[]> {
+    const { orders } = await areq<{ orders: OrderSearchHit[] }>(
+      '/api/admin/orders/search',
+      { method: 'POST', body: JSON.stringify({ phone }) },
+    );
+    return orders;
+  },
+
+  async personalData(orderId: string): Promise<PersonalDataExtract> {
+    return areq<PersonalDataExtract>(
+      `/api/admin/orders/${encodeURIComponent(orderId)}/personal-data`,
+    );
+  },
+
+  /** Refused (409) while the order is `paid` or `preparing`; idempotent
+   *  otherwise. */
+  async forget(orderId: string): Promise<ForgetResult> {
+    return areq<ForgetResult>(
+      `/api/admin/orders/${encodeURIComponent(orderId)}/forget`,
+      { method: 'POST' },
+    );
   },
 };
 

@@ -249,6 +249,14 @@ export default function AdminMenuScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             Öffnungszeiten, Sondertage und Urlaub, Adresse und Telefon, Impressum.
           </ThemedText>
+          <AdminButton
+            uiId="admin-section-privacy"
+            title="Datenauskunft / Löschung"
+            onPress={() => router.push('/admin/privacy')}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Auskunft und Löschung auf Anfrage einer Kundin oder eines Kunden (Art. 15/17 DSGVO).
+          </ThemedText>
         </View>
 
         <View
