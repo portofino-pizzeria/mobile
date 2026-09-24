@@ -1,19 +1,22 @@
 # Portofino — the privacy policy (Datenschutzerklärung), and fixing the four things it would otherwise have to confess (2026-09-20)
 
 > **Status: IN PROGRESS 2026-09-24 — Phases 1-4 MERGED; Phase 1's mobile half,**
-> **5 and 6 built by this plan's post-merge follow-up session and proposed;**
-> **one deliverable of Phase 5 stays owed (below).**
+> **5 and 6 MERGED via [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35)**
+> **(admin/privacy.tsx bugfixed by an independent review in**
+> **[mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36));**
+> **one deliverable of Phase 5 stays owed (below) — everything else buildable**
+> **by an agent has landed.**
 >
 > | Phase | State | Where |
 > |---|---|---|
 > | 1 — the order read stops leaking (backend half) | **MERGED** | backend#23 superseded by [backend#26](https://github.com/portofino-pizzeria/backend/pull/26), `9fd5c98` |
-> | 1 — the thin mobile half (`my-orders.ts`) | **DONE** | this session — `src/lib/my-orders.ts`, `api.ts` (token round-trip), `checkout.tsx`, `order/[id].tsx` (the `customerRedacted` third branch) |
+> | 1 — the thin mobile half (`my-orders.ts`) | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `src/lib/my-orders.ts`, `api.ts` (token round-trip), `checkout.tsx`, `order/[id].tsx` (the `customerRedacted` third branch) |
 > | 2 — retention and erasure mechanics | **MERGED** | backend#26 |
 > | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
 > | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
-> | 5 — the page, its text, the intent correction | **DONE except the intent correction** | this session — `mobile/src/app/datenschutz.tsx`; see "Owed", below |
-> | 6 — the admin section | **DONE** | this session — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts` |
+> | 5 — the page, its text, the intent correction | **MERGED except the intent correction** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`; see "Owed", below |
+> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36) |
 >
 > This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33) (merged).
 >
