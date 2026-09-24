@@ -75,30 +75,37 @@ export default function AdminPrivacyScreen() {
       setResults(hits);
       if (hits.length === 0) setSearchError('Keine Bestellung mit dieser Telefonnummer gefunden.');
     } catch (e) {
-      if (e instanceof AdminApiError && e.status === 401) {
-        setNeedsToken(true);
-        setTokenError(e.message);
-      } else {
-        setSearchError(errorReason(e));
-      }
+      handle401(e, setSearchError);
     } finally {
       setSearching(false);
     }
   }
 
-  async function openExtract(id: string) {
+  /** A stored token that has stopped working: send the owner back to the
+   *  credential screen, the same convention every other admin/* screen
+   *  follows, instead of showing a generic error with no way on. */
+  function handle401(e: unknown, otherwise: (reason: string) => void) {
+    if (e instanceof AdminApiError && e.status === 401) {
+      setNeedsToken(true);
+      setTokenError(e.message);
+      return;
+    }
+    otherwise(errorReason(e));
+  }
+
+  async function openExtract(id: string, keepForgetMessage = false) {
     setSelectedId(id);
     setExtract(null);
     extractRef.current = null;
     setExtractError(null);
-    setForgetMessage(null);
+    if (!keepForgetMessage) setForgetMessage(null);
     setExtractBusy(true);
     try {
       const next = await adminPrivacyApi.personalData(id);
       extractRef.current = next;
       setExtract(next);
     } catch (e) {
-      setExtractError(errorReason(e));
+      handle401(e, setExtractError);
     } finally {
       setExtractBusy(false);
     }
@@ -109,11 +116,15 @@ export default function AdminPrivacyScreen() {
     setExtractError(null);
     try {
       const result = await adminPrivacyApi.forget(id);
-      setForgetMessage(result.meldung);
       // Both the extract and the search row must reflect the erasure — the
       // extract because it is on screen, the row because it drives the
-      // button state on the next visit to this list.
-      await openExtract(id);
+      // button state on the next visit to this list. Reload the extract
+      // FIRST: it resets `forgetMessage` to null as part of its own state
+      // reset, so setting the server's `meldung` has to come after, or the
+      // owner never sees the one place erasure's limits (Stripe, backups,
+      // the diner's device) are explained.
+      await openExtract(id, true);
+      setForgetMessage(result.meldung);
       resultsRef.current =
         resultsRef.current?.map((hit) =>
           hit.id === id
@@ -122,7 +133,7 @@ export default function AdminPrivacyScreen() {
         ) ?? null;
       setResults(resultsRef.current);
     } catch (e) {
-      setExtractError(errorReason(e));
+      handle401(e, setExtractError);
     } finally {
       setForgetBusy(false);
     }
