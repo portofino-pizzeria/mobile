@@ -4,7 +4,8 @@
 > **5 and 6 MERGED via [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35)**
 > **(admin/privacy.tsx bugfixed by an independent review in**
 > **[mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36));**
-> **Phase 5's § 25 TDDDG sentence added by the #36 post-merge follow-up now that**
+> **Phase 5's § 25 TDDDG sentence added by the #36 post-merge follow-up**
+> **([mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43)) now that**
 > **the intent correction is applied (v6); what remains is operator- and**
 > **owner-held (below) — everything buildable by an agent has landed or is in the train.**
 >
@@ -69,7 +70,11 @@
 > on native dev builds (`src/app/_layout.tsx:34-35`:
 > `__DEV__ && Platform.OS !== 'web' ? createTcpServerAdapter() : undefined`), and
 > `@qontinui/ui-bridge-native` 0.6.11 has no web server transport. So a
-> web-export run cannot reach those actions. A run of the payment-result-pages
+> web-export run cannot reach those actions. Nor does 0.6.12, the newest
+> published version, add one (checked 2026-09-25 by diffing the two tarballs:
+> the `server` export list is identical, and the only change is
+> `registry.refreshMeasurements`), so a dependency bump does not unblock the
+> gates. A run of the payment-result-pages
 > plan hit exactly this: the injected Bridge answered
 > `Component "order" not found. Available components: []`
 > (`2026-09-13-portofino-backend-payment-result-pages-link-back-to-the-order.md`,
@@ -78,7 +83,7 @@
 > this plan's repos. Neither gate is claimed until one of the two runs.
 >
 > **Deviations from the plan as vetted, each deliberate:**
-> - **Phase 1's mobile half was NOT built.** `mobile/src/lib/my-orders.ts`, the
+> - ~~**Phase 1's mobile half was NOT built.** `mobile/src/lib/my-orders.ts`, the
 >   write at `checkout.tsx:352` and the read at `order/[id].tsx:112` are still
 >   owed. It is *not* blocked by mobile#32 — those three files exist on
 >   `origin/main` — it was simply out of this run's commissioned scope. **Until
@@ -86,7 +91,10 @@
 >   client sends the token. `customerRedacted: true` is what keeps that a
 >   degradation rather than the red *"Keine Lieferadresse hinterlegt"* error;
 >   the third branch that renders it is Phase 5's. Ship the mobile half with,
->   or before, the backend PR.
+>   or before, the backend PR.~~ **Superseded:** the mobile half merged in
+>   [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) (see the
+>   Phase 1 row of the table above). This bullet records the backend run's
+>   deviation, not current state.
 > - **A wrong token is `401`, not the redacted shape.** The Phase 1 gate lists
 >   "a wrong token is refused" as an outcome distinct from the tokenless read,
 >   so it is one. A malformed or empty `Authorization` header is treated as *no*
