@@ -9,6 +9,7 @@ import { Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { UI_BRIDGE_PORT } from '@/lib/config';
 import { createTcpServerAdapter } from '@/lib/ui-bridge-server-adapter';
+import { createWindowServerAdapter } from '@/lib/ui-bridge-web-adapter';
 import { CartProvider } from '@/state/cart';
 
 export default function RootLayout() {
@@ -29,12 +30,14 @@ export default function RootLayout() {
     contentStyle: { backgroundColor: theme.background },
   };
 
-  // The control server runs only in native dev builds. `serverAdapter` binds the
-  // HTTP surface to react-native-tcp-socket; web has no TCP server, so omit it.
-  const serverAdapter = useMemo(
-    () => (__DEV__ && Platform.OS !== 'web' ? createTcpServerAdapter() : undefined),
-    [],
-  );
+  // The control server runs only in dev builds. On native, `serverAdapter` binds
+  // the HTTP surface to react-native-tcp-socket. Web has no TCP server, so there
+  // the same request handler is published on `window.__uiBridgeNative` for a
+  // headless browser to call (see README, "The server transport").
+  const serverAdapter = useMemo(() => {
+    if (!__DEV__) return undefined;
+    return Platform.OS === 'web' ? createWindowServerAdapter() : createTcpServerAdapter();
+  }, []);
 
   return (
     // UI Bridge wraps the whole app. In dev it starts an embedded control server

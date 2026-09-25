@@ -34,6 +34,8 @@ jobs:
       # customers, and a broken one must fail here rather than at deploy time.
       - name: Export web build
         run: npx expo export --platform web
+      - name: No UI Bridge control surface in the export
+        run: bash scripts/check-web-export-has-no-control-surface.sh dist
       # Required by `policy/ux-priorities`, clause
       # `an-asset-the-machine-cannot-reach-does-not-exist`. Stdlib-only, so no
       # dependency step is needed.

@@ -1,14 +1,16 @@
 # Portofino backend — the payment result pages lead back to the diner's order, in German (2026-09-13)
 
-> **Status: IN PROGRESS 2026-09-25** (Phases 1 and 2 done; optional Phase 3 awaits a decision) — Phase 1 is MERGED AND LIVE
+> **Status: SHIPPED 2026-09-25** (Phases 1 and 2; optional Phase 3 DEFERRED until a native build reaches diners) — Phase 1 is MERGED AND LIVE
 > ([backend#16](https://github.com/portofino-pizzeria/backend/pull/16),
 > `ba1ea2d2`, observed on production 2026-09-25).
 > `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but Phase 2 has no
 > code to merge and had never been run. **Phase 2 is now COMPLETE** (2026-09-25):
 > one run passed steps 1–4 and was blocked at step 5, because the app's UI
 > Bridge has no web transport; a second run reached step 5 through a disclosed
-> scratch-only shim and `order.getOrderStatus` answered `shown` / `paid`. Phase 3
-> stays unstarted and needs a decision (below). The page's off-palette colours
+> scratch-only shim and `order.getOrderStatus` answered `shown` / `paid`; a
+> third run reached it through the app's own dev-only web transport, with no
+> shim (the follow-up to `mobile#40`). Phase 3 is DEFERRED until a native build
+> reaches diners: none does today (below). The page's off-palette colours
 > are fixed by [backend#30](https://github.com/portofino-pizzeria/backend/pull/30),
 > which is merged and live (`db4223d`, observed 2026-09-25). A plan's own
 > status line is not evidence of anything. See "Progress".
@@ -177,6 +179,8 @@ Record the exact steps and results in this file.
 
 **Decision needed before starting.** Is the extra round trip worth it for native diners, who can already close the browser? It cannot be verified without a device. Until someone decides it is worth doing, Phase 3 stays unstarted.
 
+**Deferred 2026-09-25, until a native build reaches diners.** Distribution was decided as a native app under the owner's store accounts (`2026-06-13-portofino-functional-spec-starter.md`), but nothing ships one yet: the repo has no `eas.json` and no store build is recorded. Every diner today pays on the web, where Phases 1 and 2 are the whole path. Phase 3 would improve a return path no diner can take, and it could not be verified without a device. **Triggering event:** the first native build distributed to diners. At that point, decide the question above, with a device in hand.
+
 ## Coupling and risks
 
 - **Cancel and `db61889b`.**
@@ -284,6 +288,27 @@ The shop's Friday hours were widened in the throwaway database only.
 
 **What this changes.** Step 5's check is met, so Phase 2 is complete, with the shim disclosed as the one deviation. The run above says the web gap needs a `ui-bridge-native` library change. It does not: the library already ships a transport-free request handler. What is missing is an app-side web adapter in `src/app/_layout.tsx` that routes to that handler. It should be dev-only, never in a production export, because it would hand page scripts the app's actions.
 
-That adapter is not built here. Its only consumer is verification tooling, and exposing a control surface on the web build is a security-surface decision. **Recommendation:** add it gated on `__DEV__`, so `expo start --web` is drivable and `expo export` is not.
+That adapter is not built here. Its only consumer is verification tooling, and exposing a control surface on the web build is a security-surface decision. **Recommendation:** add it gated on `__DEV__`, so `expo start --web` is drivable and `expo export` is not. *(Built by the follow-up to `mobile#40`, as recommended; see the next section.)*
 
 **One trap for anyone repeating the run.** The first export inlined `http://localhost:4000`, the fallback in `src/lib/config.ts`, even though `EXPO_PUBLIC_API_URL` was set. This was stale Metro transform-cache output. Export with `--clear`, and grep the bundle for the API URL before trusting a run.
+
+### Phase 2, step 5 — re-run 2026-09-25 through the app's own web transport: PASS, no shim
+
+The follow-up to `mobile#40` built the adapter the section above recommends. `src/lib/ui-bridge-web-adapter.ts` publishes the UI Bridge server's request handler on `window.__uiBridgeNative`, and `src/app/_layout.tsx` wires it on web, in `__DEV__` only. Every mention of that name sits inside `if (__DEV__)`, so a production export carries none of it. `scripts/check-web-export-has-no-control-surface.sh` proves that after every web export in CI, and after the deploy's export. Proven both ways locally: green on `npx expo export --platform web`, and red on the same export with `--dev`.
+
+**Setup.** Run locally only; no request went to either portofino-essen.com host.
+- Backend: `origin/master` `94f6731`, on `:18080`, against a throwaway database, `portofino_followup40`. It was migrated and seeded, then dropped afterwards. Stripe was unset, so providers read `{"stripe":false,"paypal":false,"mockFallback":true}`. `PUBLIC_WEB_URL=http://localhost:18081`.
+- Web: this branch, `EXPO_PUBLIC_API_URL=http://localhost:18080 npx expo start --web --port 18081 --clear`.
+- Headless Chromium, with `window.open` returning `null`. Every step went through `window.__uiBridgeNative.handleRequest` except the pay tap.
+
+| Step | Observed |
+|---|---|
+| `menu.getMenuStatus` | `{"source":"live","categoryCount":15,"itemCount":136,…}` |
+| `menu.addToCart` (`1-pizza-margherita`, `…-gross-28cm`), `go-to-cart`, `cart.checkout`, pickup, name, phone | each `success:true` |
+| Tap `pay-stripe` at the centre of the `layout` that `GET /ui-bridge/control/element/pay-stripe` reported | The same tab went `/checkout` → `/order/d2081829-…` → `:18080/checkout/mock?order_id=d2081829-18ee-4745-b549-84e7876dbb05`, with no popup |
+| Result page | `lang="de"`, "Testzahlung abgeschlossen", `colorScheme: light`, and one link, "Zu deiner Bestellung", to `http://localhost:18081/order/d2081829-…` |
+| Follow the link | `/order/d2081829-…` |
+| **`order.getOrderStatus`** | **`{"state":"shown","error":null,"refreshError":null,"orderId":"d2081829-18ee-4745-b549-84e7876dbb05","status":"paid","fulfilment":"pickup",…}`** |
+
+**A trap this run hit, for anyone repeating it:** a Bridge press on `pay-stripe` is not a tap. `pay()` treats it as `viaBridge`, returns the checkout URL, and never leaves the page being driven (`checkout.tsx`, the `tapped` comment). So the same-tab path needs a real click. The first attempt pressed through the Bridge and stopped at `/order/<id>`, which is correct behaviour, not a defect.
+

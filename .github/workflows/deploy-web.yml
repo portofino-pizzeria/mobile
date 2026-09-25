@@ -144,6 +144,9 @@ jobs:
         # at. The deploy job re-exports with the real value and guards it.
         run: npx expo export --platform web
 
+      - name: No UI Bridge control surface in the export
+        run: bash scripts/check-web-export-has-no-control-surface.sh dist
+
   deploy:
     needs: [build]
     runs-on: ubuntu-latest
@@ -237,6 +240,11 @@ jobs:
             exit 1
           fi
           echo "API host '$API_HOST' found in the bundle."
+
+      - name: Guard — no UI Bridge control surface in the shipped bundle
+        # The export above is the one that ships. The same check runs in the
+        # build job and in qontinui-ci.yml; this one guards what is published.
+        run: bash scripts/check-web-export-has-no-control-surface.sh dist
 
       - name: Guard — the build marker is in the exported HTML
         run: |

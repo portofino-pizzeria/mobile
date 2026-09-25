@@ -48,6 +48,31 @@ Consequences:
 - **8087 only runs in a native dev build** (`npx expo run:android` / `run:ios`),
   **not** in Expo Go or on web — Expo Go can't load the tcp-socket native module,
   and web has no TCP server.
+- **On web, the dev server publishes the same handler in the page instead.**
+  `src/lib/ui-bridge-web-adapter.ts` puts it on `window.__uiBridgeNative`, so a
+  headless browser driving `npx expo start --web` reaches every `/ui-bridge/*`
+  route against the app's real registry:
+  ```js
+  const res = await page.evaluate(() =>
+    window.__uiBridgeNative.handleRequest({
+      method: 'POST',
+      path: '/ui-bridge/control/component/order/action/getOrderStatus',
+      body: { params: {} },
+    }),
+  );
+  JSON.parse(res.body); // the same envelope the native server sends
+  ```
+  It is **dev only**: it hands every script on the page the app's actions. Each
+  mention of the name sits inside `if (__DEV__)`, which a production export
+  compiles away, and CI proves it with
+  `scripts/check-web-export-has-no-control-surface.sh` after every web export,
+  including the one the deploy publishes.
+- A press sent through the bridge is not a tap. On web, neither the
+  `checkout.payWith*` actions nor a bridged `pay-*` press leave the page being
+  driven. The actions return `{ orderId, url }`; the press returns nothing and
+  is not waited on, so its `success` says only that it was dispatched. To walk
+  the same-tab payment path, click the button (its `layout` comes from
+  `GET /ui-bridge/control/element/pay-stripe`).
 - To reach the server from your host against an emulator:
   ```bash
   adb forward tcp:8087 tcp:8087
