@@ -1,14 +1,15 @@
 # Portofino backend — the payment result pages lead back to the diner's order, in German (2026-09-13)
 
-> **Status: IN PROGRESS 2026-09-25** — Phase 1 is MERGED AND LIVE
+> **Status: SHIPPED 2026-09-25 (Phases 1 and 2); Phase 3 is optional and NOT
+> started.** Phase 1 is MERGED AND LIVE
 > ([backend#16](https://github.com/portofino-pizzeria/backend/pull/16),
-> `ba1ea2d2`, observed on production 2026-09-25). **Phase 2 has NOT been run**:
-> it is a one-time local-stack verification with no code, and nothing records
-> it. `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but that was
-> wrong for Phase 2. Phase 3 stays unstarted and needs a decision (below). The
-> page's off-palette colours are fixed in
-> [backend#30](https://github.com/portofino-pizzeria/backend/pull/30). A plan's
-> own status line is not evidence of anything. See "Progress".
+> `ba1ea2d2`, observed on production 2026-09-25). Phase 2, the local round trip,
+> was **run on 2026-09-25 and passed**; the steps and results are under
+> "Progress". The page's off-palette colours are fixed by
+> [backend#30](https://github.com/portofino-pizzeria/backend/pull/30), which is
+> merged as `db4223d` and live (observed 2026-09-25). Phase 3 waits on a
+> decision (below). A plan's own status line is not evidence of anything. See
+> "Progress".
 >
 > Written from coord finding
 > `7be3c0e5-a68b-4992-a64b-5fa87f50996b` (topic `portofino-checkout`), which the
@@ -227,16 +228,73 @@ Record the exact steps and results in this file.
   the result page renders the declared brand, and is light-only" (opened
   2026-09-25 by the post-merge follow-up to `mobile#38`: until then the PR
   named here did not exist). It is a separate defect from this plan's, on the
-  same page. Once it is live, check it the way Phase 1 was checked: `/api/health`
-  `commit`, then `curl /checkout/cancel?order_id=<uuid>`. Never use `/checkout/mock`.
+  same page.
+- **backend#30 merged 2026-09-25 07:21 UTC as `db4223d`, and is live.** It was
+  checked the way Phase 1 was, never through `/checkout/mock`.
+  `GET https://api.portofino-essen.com/api/health` reports
+  `commit: db4223ddc999a09c7bdb02e0fd23e98708be4556`, which is the merge commit.
+  `GET /checkout/cancel?order_id=<a fresh uuid>` returns `200 text/html` with
+  `color-scheme: light`, background `#ffffff`, text `#1a1a1a`, secondary
+  `#666666` and a gold `#d4a574` button with an ink label. None of the three
+  off-palette colours is left.
 
-### Phase 2 — NOT run (as of 2026-09-25)
+### Phase 2 — run 2026-09-25, passed
 
-Nothing in this file, and no PR, records the local round trip that Phase 2
-asks for. The 2026-09-25 status stamp from `mobile#38` said "Phases 1 and 2 are
-MERGED AND LIVE". Phase 2 has no code to merge, and its own instruction is
-"Record the exact steps and results in this file", which had not been done.
-So Phase 2 is still owed. It needs a local backend (`npm run db:up`,
-`npm run dev`), a local web export, and a UI Bridge-driven browser with popups
-blocked. Never run it on production: a mock order there is a paid order the
-kitchen cooks.
+A local stack, never production.
+- **Backend:** backend `db4223d` (current `master`, including backend#30). It ran
+  from its agent worktree with `tsx src/index.ts`, `PORT=4000` and
+  `PUBLIC_WEB_URL=http://localhost:8081`, with Stripe and PayPal unset, so
+  `/api/payments/providers` answered `mockFallback: true`.
+  - The database was the local `portofino` Postgres on `:5432`. It was empty, so
+    it was migrated and then seeded with `src/db/seed.ts` (136 items).
+- **Web:** mobile `9c4331e` (current `main`), built with
+  `npx expo export --platform web`.
+  - It was served on `:8081` by a static server that mirrors `infra/web.tf`: the
+    exact object, otherwise `/index.html` with 200. That is how CloudFront
+    cold-loads `/order/<id>`.
+- **Browser:** the UI Bridge's `ui-bridge-inject` (wrapper 0.7.2, headless 0.5.0)
+  in exec mode. That is headless Chromium, with the injected Bridge engine
+  doing every read and click.
+
+**Steps**, one exec session:
+1. `pageEvaluate`: `window.open = () => null`. This is what a popup blocker
+   does to the call (`openCheckoutWindow()` receives `null`). Playwright's
+   Chromium would otherwise allow the popup.
+2. Click `menu-add-1-pizza-margherita-1-pizza-margherita-klein-22cm`, then
+   `header-cart`, then `cart-checkout`, then `checkout-fulfilment-pickup`.
+3. `typeInto` `checkout-name` and `checkout-phone`, then click `pay-stripe`.
+4. **Result page:** the tab left the app for
+   `http://localhost:4000/checkout/mock?order_id=fd7a755d-3224-4d96-8fdd-a0d54f268079`.
+   It read "Testzahlung abgeschlossen", then "Es wurde kein Geld bewegt. Deine
+   Bestellung ist bestätigt und geht in die Küche.", then the link and the hint.
+   Its one link, **"Zu deiner Bestellung"**, pointed at
+   `http://localhost:8081/order/fd7a755d-3224-4d96-8fdd-a0d54f268079`.
+5. **Order screen:** clicking `a.btn` cold-loaded `/order/fd7a755d-…`, which read
+   "Deine Bestellung ✅ Zahlung erhalten. Deine Bestellung ist bestätigt und
+   geht in die Küche." It went on to show "Bestellung #fd7a755d", "1× Pizza
+   Margherita, klein 22cm 4,90 €", "Abholung" and the pickup address.
+6. `GET /api/orders/fd7a755d-…` answered `status: "paid"`.
+
+**Results:** same-tab payment, the German result page, the link back to the
+order, and the order screen reading `paid` all work together, as `mobile#18` and
+Phase 1 intended.
+
+**Two deviations from the steps as written:**
+- **`order.getOrderStatus` cannot be reached on web.** The call was made after
+  the order screen had loaded, and it answered `Component "order" not found.
+  Available components: []`.
+  - The app registers that action with `ui-bridge-native`. On web, `_layout.tsx`
+    passes no `serverAdapter` ("web has no TCP server"), so nothing outside the
+    page can reach the app's components. The injected engine sees only the
+    elements it scrapes from the DOM.
+  - The order screen's state was therefore read from its rendered text in
+    step 5, and confirmed against the API in step 6.
+  - Making app-registered actions drivable on web is a `ui-bridge-native`
+    capability, not a Portofino change, so it is not attempted here.
+- **The shop was closed when the test ran.** It was Friday 09:3x, and the shop
+  opens at 12:00, so the checkout disabled both pay buttons ("Wir haben gerade
+  geschlossen …").
+  - For the run, Friday's `open` in the local database was changed from 12:00 to
+    06:00. It was set back to `12:00` straight afterwards.
+  - The local database still holds the seed and the test orders the run placed.
+    It is a dev database.
