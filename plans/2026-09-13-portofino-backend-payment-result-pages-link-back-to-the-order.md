@@ -1,11 +1,13 @@
 # Portofino backend — the payment result pages lead back to the diner's order, in German (2026-09-13)
 
-> **Status: IN PROGRESS 2026-09-25** — Phase 1 is MERGED AND LIVE
+> **Status: IN PROGRESS 2026-09-25** (Phases 1 and 2 done; optional Phase 3 awaits a decision) — Phase 1 is MERGED AND LIVE
 > ([backend#16](https://github.com/portofino-pizzeria/backend/pull/16),
-> `ba1ea2d2`, observed on production 2026-09-25). **Phase 2 is NOT complete**.
+> `ba1ea2d2`, observed on production 2026-09-25).
 > `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but Phase 2 has no
-> code to merge and had never been run. Run on 2026-09-25, steps 1–4 pass;
-> step 5 is blocked because the app's UI Bridge has no web transport. Phase 3
+> code to merge and had never been run. **Phase 2 is now COMPLETE** (2026-09-25):
+> one run passed steps 1–4 and was blocked at step 5, because the app's UI
+> Bridge has no web transport; a second run reached step 5 through a disclosed
+> scratch-only shim and `order.getOrderStatus` answered `shown` / `paid`. Phase 3
 > stays unstarted and needs a decision (below). The page's off-palette colours
 > are fixed by [backend#30](https://github.com/portofino-pizzeria/backend/pull/30),
 > which is merged and live (`db4223d`, observed 2026-09-25). A plan's own
@@ -254,4 +256,34 @@ Run locally only. No request went to either portofino-essen.com host.
 
 **Why step 5 is blocked.** `src/app/_layout.tsx` gives the app's UI Bridge server a transport only on native (`__DEV__ && Platform.OS !== 'web' ? createTcpServerAdapter() : undefined`). On web the console logs `[ui-bridge-native] HTTP server not available: no serverAdapter prop provided`, and `@qontinui/ui-bridge-native` 0.6.11 declares no web-capable server transport. The injected Bridge has a registry of its own, so it cannot see the app's registered components. Its answer, verbatim: `{"success":false,"error":"Component \"order\" not found. Available components: []. …"}`. The only way to observe the same-tab path is on web, and the only way to reach the app's actions is on native.
 
-The API agrees: `GET :4000/api/orders/21549c18-…` returned `"status":"paid"`, provider `mock`. That is supporting evidence, not the UI check this phase asks for, so **Phase 2 stays open on step 5**. Closing it needs a web transport for the app's UI Bridge. That is a change to the ui-bridge library, not to this plan's repos. Re-run step 5 once one ships.
+The API agrees: `GET :4000/api/orders/21549c18-…` returned `"status":"paid"`, provider `mock`. That is supporting evidence, not the UI check this phase asks for, so **Phase 2 stays open on step 5**. Closing it needs a web transport for the app's UI Bridge. That is a change to the ui-bridge library, not to this plan's repos. Re-run step 5 once one ships. *(Superseded by the next section: step 5 was reached, and the fix is app-side.)*
+
+### Phase 2, step 5 — observed 2026-09-25 through a scratch-only shim: PASS
+
+This is a second, independent local run, made by the post-merge follow-up to
+backend#30. It is the only run that reached the app's own UI Bridge action.
+
+**Setup.**
+- backend `db4223d`, with its own throwaway database `portofino_phase2_test`. It was migrated, seeded, and dropped afterwards.
+- mobile `9c4331e`, built with `npx expo export -p web --clear`.
+- A static server that mirrors `infra/web.tf`'s fallback to `/index.html`.
+- Headless Chromium, with `window.open` returning `null`.
+
+The shop's Friday hours were widened in the throwaway database only.
+
+**The shim, in a scratch clone and never committed.** A different `package.json` `main` entry ran before `expo-router/entry`. It exposed `@qontinui/ui-bridge-native`'s own `createNativeServer(getGlobalRegistry(), createNativeActionExecutor(registry)).handleRequest` as a `window` function. That is the same request handler the native TCP adapter routes to, so every `/ui-bridge/control/*` route answered in-page against the app's real registry. No app source was changed.
+
+| Step | Observed |
+|---|---|
+| `menu.getMenuStatus` | `{"source":"live","categoryCount":15,"itemCount":136,"unresolvedAllergenCodes":[]}` |
+| `menu.addToCart`, then `go-to-cart`, `cart.checkout`, pickup, name, phone | each `success:true` |
+| Tap "Mit Karte bezahlen (Stripe)" | The same tab went `/checkout` → `/order/2ec9c4e2-…` (the `#18` history rewrite) → `:18080/checkout/mock?order_id=2ec9c4e2-543d-4331-b835-cb14e72066fa`, with 0 popups |
+| Result page | `lang="de"`, "Testzahlung abgeschlossen", and "Zu deiner Bestellung" → `http://127.0.0.1:18081/order/2ec9c4e2-…`. Computed `.btn` background `rgb(212, 165, 116)` with an ink label, and `color-scheme: light` |
+| Follow the link | The page cold-loaded through the fallback to `/index.html` |
+| **`order.getOrderStatus`** | **`{"state":"shown","error":null,"refreshError":null,"orderId":"2ec9c4e2-543d-4331-b835-cb14e72066fa","status":"paid","fulfilment":"pickup",…}`** |
+
+**What this changes.** Step 5's check is met, so Phase 2 is complete, with the shim disclosed as the one deviation. The run above says the web gap needs a `ui-bridge-native` library change. It does not: the library already ships a transport-free request handler. What is missing is an app-side web adapter in `src/app/_layout.tsx` that routes to that handler. It should be dev-only, never in a production export, because it would hand page scripts the app's actions.
+
+That adapter is not built here. Its only consumer is verification tooling, and exposing a control surface on the web build is a security-surface decision. **Recommendation:** add it gated on `__DEV__`, so `expo start --web` is drivable and `expo export` is not.
+
+**One trap for anyone repeating the run.** The first export inlined `http://localhost:4000`, the fallback in `src/lib/config.ts`, even though `EXPO_PUBLIC_API_URL` was set. This was stale Metro transform-cache output. Export with `--clear`, and grep the bundle for the API URL before trusting a run.
