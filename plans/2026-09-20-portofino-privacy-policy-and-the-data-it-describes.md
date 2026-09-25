@@ -16,8 +16,8 @@
 > | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
 > | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
-> | 5 — the page, its text, the intent correction | **MERGED; § 25 sentence IN TRAIN** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it is in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) |
-> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them) |
+> | 5 — the page, its text, the intent correction | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it merged in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) (2026-09-25) |
+> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
 >
 > This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33) (merged).
 >
@@ -739,9 +739,10 @@ D5's screen. **Also depends on mobile#32.**
   merged; `impressum.tsx` and `ShopInfo.legal` exist only on its branch. Both
   plans also edit `src/app/index.tsx`'s footer and `src/app/_layout.tsx`'s
   screen list, so whichever lands second rebases.
-- **The § 25 sentence is blocked on an operator action.** Correcting
+- ~~**The § 25 sentence is blocked on an operator action.** Correcting
   `domain_spec/menu` needs a pizzeria-bound credential the agent cannot mint.
-  The rest of the page is not blocked.
+  The rest of the page is not blocked.~~ **Resolved 2026-09-25:** the
+  correction was applied (v5 → v6) and the sentence merged in mobile#43.
 
 ## Related
 

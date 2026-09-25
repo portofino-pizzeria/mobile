@@ -62,20 +62,31 @@ export default function AdminPrivacyScreen() {
     }, []),
   );
 
-  async function search() {
+  /** Resolves to the hits, or to the failure reason. The UI Bridge action
+   *  goes through here too, so a Bridge search clears the previous
+   *  order's extract off the screen and re-prompts on a revoked token
+   *  exactly as the button does. */
+  async function search(
+    query: string,
+  ): Promise<{ ok: true; hits: OrderSearchHit[] } | { ok: false; reason: string }> {
     setSearching(true);
     setSearchError(null);
+    // A failed search must not leave the previous number's hits on screen
+    // under the new number.
+    resultsRef.current = null;
+    setResults(null);
     setSelectedId(null);
     setExtract(null);
     extractRef.current = null;
     setForgetMessage(null);
     try {
-      const hits = await adminPrivacyApi.searchByPhone(phone.trim());
+      const hits = await adminPrivacyApi.searchByPhone(query.trim());
       resultsRef.current = hits;
       setResults(hits);
       if (hits.length === 0) setSearchError('Keine Bestellung mit dieser Telefonnummer gefunden.');
+      return { ok: true, hits };
     } catch (e) {
-      handle401(e, setSearchError);
+      return { ok: false, reason: handle401(e, setSearchError) };
     } finally {
       setSearching(false);
     }
@@ -163,6 +174,7 @@ export default function AdminPrivacyScreen() {
           if (!token) throw new Error('signIn: token is required.');
           await setOwnerToken(token);
           setNeedsToken(false);
+          setTokenError(null);
           return { signedIn: true };
         },
       },
@@ -170,17 +182,22 @@ export default function AdminPrivacyScreen() {
         id: 'searchByPhone',
         label: "Search a diner's orders by phone number",
         description:
-          'Params: { phone: string }. Returns { count, orders: [{ id, createdAt, status, total }] }.',
+          'Params: { phone: string }. Returns { count, orders: [{ id, createdAt, status, total }] }. ' +
+          'Throws on failure.',
         handler: async (params) => {
           const { phone: p } = (params ?? {}) as { phone?: string };
-          if (!p) throw new Error('searchByPhone: phone is required.');
-          const hits = await adminPrivacyApi.searchByPhone(p);
-          resultsRef.current = hits;
-          setResults(hits);
+          if (!p?.trim()) throw new Error('searchByPhone: phone is required.');
           setPhone(p);
+          const outcome = await search(p);
+          if (!outcome.ok) throw new Error(`searchByPhone: ${outcome.reason}`);
           return {
-            count: hits.length,
-            orders: hits.map((h) => ({ id: h.id, createdAt: h.createdAt, status: h.status, total: h.total })),
+            count: outcome.hits.length,
+            orders: outcome.hits.map((h) => ({
+              id: h.id,
+              createdAt: h.createdAt,
+              status: h.status,
+              total: h.total,
+            })),
           };
         },
       },
@@ -287,7 +304,7 @@ export default function AdminPrivacyScreen() {
             tone="primary"
             busy={searching}
             disabled={phone.trim().length === 0}
-            onPress={() => void search()}
+            onPress={() => void search(phone)}
           />
           {searchError ? (
             <Notice tone="warning" title="Suche">
