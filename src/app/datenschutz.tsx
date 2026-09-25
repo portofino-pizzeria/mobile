@@ -15,12 +15,12 @@
 // endpoint that does not care what article is cited — plus a German draft for
 // a lawyer or the owner's tax advisor to review.
 //
-// Deliberately left out for now: the § 25 TDDDG sentence about "Angaben
-// merken" (plan 2026-09-20-portofino-privacy-policy-and-the-data-it-describes,
-// D2 §2 and its BLOCKER note). The served `domain_spec/menu` still declares the
-// pre-D3 (wrong) default, and correcting it needs a pizzeria-bound credential
-// this session does not hold. Until that append lands, this page states the
-// data categories from D2 §2 without the device-storage legal-basis paragraph.
+// The § 25 TDDDG paragraph about "Angaben merken" (plan
+// 2026-09-20-portofino-privacy-policy-and-the-data-it-describes, D2 §2) was
+// held back until the served `domain_spec/menu` stopped declaring the pre-D3
+// default; that correction is applied as v6 (docs/intent-drafts/README.md). It
+// must stay true to `checkout.tsx` and `lib/saved-details.ts`: the box starts
+// unticked, only fulfilment, name, phone and address are kept, never the note.
 
 import { useUIComponent } from '@qontinui/ui-bridge-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -55,7 +55,7 @@ const RETENTION = {
 };
 
 /** Updated with the text — D1. */
-const STAND = '24. September 2026';
+const STAND = '25. September 2026';
 
 export default function DatenschutzScreen() {
   const theme = useTheme();
@@ -209,6 +209,16 @@ export default function DatenschutzScreen() {
             unseres Dienstes zu gewährleisten (berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO).
             IP-Adressen werden nur bei fehlgeschlagenen Anfragen protokolliert.
           </ThemedText>
+          <ThemedText type="small">
+            Wenn du beim Bestellen „Angaben merken“ ankreuzt, speichern wir Name, Telefonnummer,
+            Adresse und die Wahl zwischen Abholung und Lieferung nur auf deinem Gerät, damit du sie
+            beim nächsten Mal nicht neu eingeben musst. Die Notiz zur Bestellung wird nicht
+            gespeichert. Das Kästchen ist anfangs nicht angekreuzt; es erscheint nur dann schon
+            angekreuzt, wenn du deine Angaben bei einer früheren Bestellung gespeichert hast. Diese
+            Speicherung beruht auf deiner Einwilligung (§ 25 Abs. 1 TDDDG, Art. 6 Abs. 1 lit. a
+            DSGVO). Du kannst sie jederzeit widerrufen, indem du beim Bestellen „Gespeicherte
+            Angaben löschen“ wählst oder bei deiner nächsten Bestellung das Häkchen entfernst.
+          </ThemedText>
         </Section>
 
         <Section title="3. Empfänger">
@@ -264,8 +274,14 @@ export default function DatenschutzScreen() {
         <Section title="8. Keine Profilbildung, kein Tracking">
           <ThemedText type="small">
             Wir betreiben kein Tracking, keine Werbung und keine Profilbildung. Es gibt keine
-            Analyse-Software, keine Werbe-SDKs und keine Cookies außer den technisch notwendigen
-            Angaben, die du selbst in der App speicherst.
+            Analyse-Software, keine Werbe-SDKs und keine Cookies. Auf deinem Gerät speichert die
+            App nur zweierlei: die Angaben, die du mit „Angaben merken“ selbst speicherst
+            (mit deiner Einwilligung, siehe Abschnitt 2), und zu jeder Bestellung, die du auf
+            diesem Gerät aufgibst, die Bestellnummer mit einem Zugangsschlüssel, damit nur dieses
+            Gerät deine Bestellung samt deinen Kontaktdaten wieder anzeigen kann. Diese
+            Speicherung ist für die Anzeige deiner Bestellung technisch notwendig (§ 25 Abs. 2 Nr.
+            2 TDDDG); es werden höchstens die letzten 25 Bestellungen behalten, und „Gespeicherte
+            Angaben löschen“ entfernt sie nicht.
           </ThemedText>
         </Section>
 

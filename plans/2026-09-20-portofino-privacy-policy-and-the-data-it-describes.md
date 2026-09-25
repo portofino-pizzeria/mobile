@@ -1,11 +1,12 @@
 # Portofino — the privacy policy (Datenschutzerklärung), and fixing the four things it would otherwise have to confess (2026-09-20)
 
-> **Status: IN PROGRESS 2026-09-24 — Phases 1-4 MERGED; Phase 1's mobile half,**
+> **Status: IN PROGRESS 2026-09-25 — Phases 1-4 MERGED; Phase 1's mobile half,**
 > **5 and 6 MERGED via [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35)**
 > **(admin/privacy.tsx bugfixed by an independent review in**
 > **[mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36));**
-> **one deliverable of Phase 5 stays owed (below) — everything else buildable**
-> **by an agent has landed.**
+> **Phase 5's § 25 TDDDG sentence added by the #36 post-merge follow-up now that**
+> **the intent correction is applied (v6); what remains is operator- and**
+> **owner-held (below) — everything buildable by an agent has landed or is in the train.**
 >
 > | Phase | State | Where |
 > |---|---|---|
@@ -15,8 +16,8 @@
 > | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
 > | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
-> | 5 — the page, its text, the intent correction | **MERGED except the intent correction** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`; see "Owed", below |
-> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36) |
+> | 5 — the page, its text, the intent correction | **MERGED; § 25 sentence IN TRAIN** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it is in the #36 post-merge follow-up PR |
+> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them) |
 >
 > This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33) (merged).
 >
@@ -32,12 +33,11 @@
 > follow-up while checking `Order.customerRedacted` for callers — it had none —
 > and fixed in the same session rather than filed for later.
 >
-> **What Phase 5 still owes.** D2 §2's sentence about "Angaben merken" being
-> § 25 (1) TDDDG consent is **not** in the shipped page: it depends on an
-> APPEND to `domain_spec/menu` correcting the stale pre-D3 default, which needs
-> a pizzeria-bound credential this session's device JWT does not carry (acting
-> tenant resolves to `qontinui`, not `pizzeria` — the same limitation this
-> plan's own VETTED status recorded). D2 §4's exact Stripe transfer mechanism
+> **What Phase 5 still owes.** ~~D2 §2's sentence about "Angaben merken" being
+> § 25 (1) TDDDG consent is **not** in the shipped page~~ — **unblocked
+> 2026-09-25:** the `domain_spec/menu` APPEND correcting the default was
+> applied as v5 → v6 (`docs/intent-drafts/README.md`), so the #36 post-merge
+> follow-up adds the paragraph to section 2 of the page. D2 §4's exact Stripe transfer mechanism
 > (which SCCs or equivalent apply) is marked `wird ergänzt` on the page for the
 > same reason it was marked owed here: it is the operator's fact to confirm,
 > not one this session can derive. Both are named on the page or in this

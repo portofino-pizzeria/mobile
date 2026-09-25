@@ -19,7 +19,7 @@ import { AdminApiError, adminPrivacyApi, loadOwnerToken, setOwnerToken } from '@
 import { errorReason } from '@/lib/api';
 import { formatEUR } from '@/lib/format';
 import { formatTimestamp } from '@/lib/shop-dates';
-import type { OrderSearchHit, PersonalDataExtract } from '@/lib/types';
+import type { ForgetResult, OrderSearchHit, PersonalDataExtract } from '@/lib/types';
 
 /** The orders `forget` refuses (D5): food is still being prepared or
  *  delivered. Kept here only to grey the button before a 409 round-trip;
@@ -83,17 +83,22 @@ export default function AdminPrivacyScreen() {
 
   /** A stored token that has stopped working: send the owner back to the
    *  credential screen, the same convention every other admin/* screen
-   *  follows, instead of showing a generic error with no way on. */
-  function handle401(e: unknown, otherwise: (reason: string) => void) {
+   *  follows, instead of showing a generic error with no way on. Returns
+   *  the reason either way, so a UI Bridge caller can be told the call
+   *  failed instead of reading the screen's swallowed error as success. */
+  function handle401(e: unknown, otherwise: (reason: string) => void): string {
     if (e instanceof AdminApiError && e.status === 401) {
       setNeedsToken(true);
       setTokenError(e.message);
-      return;
+      return e.message;
     }
-    otherwise(errorReason(e));
+    const reason = errorReason(e);
+    otherwise(reason);
+    return reason;
   }
 
-  async function openExtract(id: string, keepForgetMessage = false) {
+  /** Resolves to the failure reason, or null once the extract is loaded. */
+  async function openExtract(id: string, keepForgetMessage = false): Promise<string | null> {
     setSelectedId(id);
     setExtract(null);
     extractRef.current = null;
@@ -104,14 +109,19 @@ export default function AdminPrivacyScreen() {
       const next = await adminPrivacyApi.personalData(id);
       extractRef.current = next;
       setExtract(next);
+      return null;
     } catch (e) {
-      handle401(e, setExtractError);
+      return handle401(e, setExtractError);
     } finally {
       setExtractBusy(false);
     }
   }
 
-  async function forget(id: string) {
+  /** Resolves to the server's result, or to the failure reason (a 409
+   *  while the order is still running, a revoked token, the network). */
+  async function forget(
+    id: string,
+  ): Promise<{ ok: true; result: ForgetResult } | { ok: false; reason: string }> {
     setForgetBusy(true);
     setExtractError(null);
     try {
@@ -132,8 +142,9 @@ export default function AdminPrivacyScreen() {
             : hit,
         ) ?? null;
       setResults(resultsRef.current);
+      return { ok: true, result };
     } catch (e) {
-      handle401(e, setExtractError);
+      return { ok: false, reason: handle401(e, setExtractError) };
     } finally {
       setForgetBusy(false);
     }
@@ -180,7 +191,8 @@ export default function AdminPrivacyScreen() {
         handler: async (params) => {
           const { orderId } = (params ?? {}) as { orderId?: string };
           if (!orderId) throw new Error('openExtract: orderId is required.');
-          await openExtract(orderId);
+          const failure = await openExtract(orderId);
+          if (failure !== null) throw new Error(`openExtract: ${failure}`);
           return extractRef.current;
         },
       },
@@ -188,12 +200,19 @@ export default function AdminPrivacyScreen() {
         id: 'forget',
         label: 'Erase the customer block of one order (Art. 17)',
         description:
-          'Params: { orderId: string }. Refused (throws) while the order is paid or preparing.',
+          'Params: { orderId: string }. Returns { erased, personalDataErasedAt, meldung } — erased is ' +
+          'false when the order had already been erased (the call is idempotent). ' +
+          'Refused (throws) while the order is paid or preparing, and on any other failure.',
         handler: async (params) => {
           const { orderId } = (params ?? {}) as { orderId?: string };
           if (!orderId) throw new Error('forget: orderId is required.');
-          await forget(orderId);
-          return { erased: true };
+          const outcome = await forget(orderId);
+          if (!outcome.ok) throw new Error(`forget: ${outcome.reason}`);
+          return {
+            erased: outcome.result.erased,
+            personalDataErasedAt: outcome.result.personalDataErasedAt,
+            meldung: outcome.result.meldung,
+          };
         },
       },
     ],

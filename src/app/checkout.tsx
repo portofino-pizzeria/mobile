@@ -276,7 +276,7 @@ export default function CheckoutScreen() {
   const typed = useRef(fields);
   const { shop, gating, unavailable: shopUnavailable } = useShop();
   // "Angaben merken" starts UNTICKED: storing a diner's name, phone and address
-  // on the device for convenience needs their consent (TTDSG §25 for the web
+  // on the device for convenience needs their consent (§ 25 TDDDG for the web
   // build's localStorage), and a pre-ticked box is not consent. It starts
   // ticked only when details are already saved — the diner opted in before.
   const [remember, setRemember] = useState(false);
