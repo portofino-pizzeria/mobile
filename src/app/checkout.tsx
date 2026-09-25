@@ -283,6 +283,11 @@ export default function CheckoutScreen() {
   const rememberRef = useRef(remember);
   const [hasSaved, setHasSaved] = useState(false);
   const [providers, setProviders] = useState<PaymentProviders | null>(null);
+  // PayPal is not integrated: it is paid through the backend's mock checkout,
+  // which exists only while no real provider is configured (`mockFallback`).
+  // Once Stripe is live the backend refuses it, so the button is not offered.
+  // Unknown (still loading, or the read failed) counts as not payable.
+  const paypalPayable = !!providers && (providers.paypal || providers.mockFallback);
   const [busy, setBusy] = useState<PaymentProvider | null>(null);
   // `clearsOnEdit` marks an error that is safe to hide once the diner edits a
   // field: a 4xx answer to createOrder, which proves no order was written.
@@ -381,6 +386,11 @@ export default function CheckoutScreen() {
   async function pay(provider: PaymentProvider, viaBridge = false): Promise<PayResult> {
     if (cart.count === 0) return refuse('Der Warenkorb ist leer.');
     if (busy || inFlight.current) return refuse('Eine Bezahlung läuft bereits.');
+    // Checked before the order is created: the server refuses an unpayable
+    // provider only at checkout, which would leave an unpaid order behind.
+    if (provider === 'paypal' && !paypalPayable) {
+      return refuse('PayPal ist derzeit nicht verfügbar. Bitte mit Karte bezahlen.');
+    }
     // The same rule as the disabled buttons below. The UI Bridge actions call
     // pay() without going through a button, so the rule has to live here too.
     // Not copied into `error`: the footer already states the gap and follows
@@ -834,7 +844,7 @@ export default function CheckoutScreen() {
           ) : null}
         </View>
 
-        {providers && (!providers.stripe || !providers.paypal) ? (
+        {providers?.mockFallback && (!providers.stripe || !providers.paypal) ? (
           <ThemedText type="small" themeColor="textSecondary">
             Hinweis: {[!providers.stripe ? 'Stripe' : null, !providers.paypal ? 'PayPal' : null]
               .filter(Boolean)
@@ -955,21 +965,23 @@ export default function CheckoutScreen() {
             </ThemedText>
           )}
         </PayButton>
-        <PayButton
-          uiId="pay-paypal"
-          uiLabel="Mit PayPal bezahlen"
-          disabled={payDisabled}
-          style={[styles.payBtn, { backgroundColor: '#ffc439', opacity: payDimmed('paypal') ? 0.5 : 1 }]}
-          onTap={() => pay('paypal')}
-          onBridgePress={() => void payRef.current('paypal', true)}>
-          {busy === 'paypal' ? (
-            <ActivityIndicator color="#003087" />
-          ) : (
-            <ThemedText type="smallBold" style={{ color: '#003087' }}>
-              Mit PayPal bezahlen
-            </ThemedText>
-          )}
-        </PayButton>
+        {paypalPayable ? (
+          <PayButton
+            uiId="pay-paypal"
+            uiLabel="Mit PayPal bezahlen"
+            disabled={payDisabled}
+            style={[styles.payBtn, { backgroundColor: '#ffc439', opacity: payDimmed('paypal') ? 0.5 : 1 }]}
+            onTap={() => pay('paypal')}
+            onBridgePress={() => void payRef.current('paypal', true)}>
+            {busy === 'paypal' ? (
+              <ActivityIndicator color="#003087" />
+            ) : (
+              <ThemedText type="smallBold" style={{ color: '#003087' }}>
+                Mit PayPal bezahlen
+              </ThemedText>
+            )}
+          </PayButton>
+        ) : null}
       </SafeAreaView>
     </ThemedView>
   );
