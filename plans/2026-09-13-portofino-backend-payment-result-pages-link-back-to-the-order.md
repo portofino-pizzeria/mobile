@@ -5,10 +5,11 @@
 > `ba1ea2d2`, observed on production 2026-09-25). **Phase 2 is NOT complete**.
 > `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but Phase 2 has no
 > code to merge and had never been run. Run on 2026-09-25, steps 1–4 pass;
-> step 5 is blocked because the app's UI Bridge has no web transport. Phase 3 stays unstarted and needs a decision (below). The
-> page's off-palette colours are fixed in
-> [backend#30](https://github.com/portofino-pizzeria/backend/pull/30). A plan's
-> own status line is not evidence of anything. See "Progress".
+> step 5 is blocked because the app's UI Bridge has no web transport. Phase 3
+> stays unstarted and needs a decision (below). The page's off-palette colours
+> are fixed by [backend#30](https://github.com/portofino-pizzeria/backend/pull/30),
+> which is merged and live (`db4223d`, observed 2026-09-25). A plan's own
+> status line is not evidence of anything. See "Progress".
 >
 > Written from coord finding
 > `7be3c0e5-a68b-4992-a64b-5fa87f50996b` (topic `portofino-checkout`), which the
@@ -227,8 +228,11 @@ Record the exact steps and results in this file.
   the result page renders the declared brand, and is light-only" (opened
   2026-09-25 by the post-merge follow-up to `mobile#38`: until then the PR
   named here did not exist). It is a separate defect from this plan's, on the
-  same page. Once it is live, check it the way Phase 1 was checked: `/api/health`
-  `commit`, then `curl /checkout/cancel?order_id=<uuid>`. Never use `/checkout/mock`.
+  same page. **Merged and live 2026-09-25:** `/api/health` reports
+  `commit: db4223ddc999a09c7bdb02e0fd23e98708be4556`, backend#30's merge commit.
+  `GET /checkout/cancel?order_id=<a well-formed uuid>` now serves
+  `color-scheme: light;` and `#d4a574`, and no longer serves `#faf7f2` or a
+  `prefers-color-scheme` block.
 
 ### Phase 2 — run 2026-09-25: steps 1–4 PASS, step 5 BLOCKED (no UI Bridge on web)
 
