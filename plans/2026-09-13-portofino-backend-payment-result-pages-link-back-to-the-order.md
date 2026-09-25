@@ -1,9 +1,12 @@
 # Portofino backend — the payment result pages lead back to the diner's order, in German (2026-09-13)
 
-> **Status: IN PROGRESS 2026-09-14** — Phase 1 is open as
-> [backend#16](https://github.com/portofino-pizzeria/backend/pull/16), not yet
-> merged or live. Phase 2 waits for it; Phase 3 stays unstarted (needs a
-> decision). See "Progress" at the end.
+> **Status: IN PROGRESS 2026-09-25** — Phases 1 and 2 are MERGED AND LIVE;
+> Phase 3 stays unstarted (needs a decision, below). The stamp this replaces
+> said Phase 1 was "open ... not yet merged or live" and had been wrong since
+> 2026-09-14, when
+> [backend#16](https://github.com/portofino-pizzeria/backend/pull/16) merged as
+> `ba1ea2d2`. A plan's own status line is not evidence of anything; this one
+> was corrected against production, not against the PR page. See "Progress".
 >
 > Written from coord finding
 > `7be3c0e5-a68b-4992-a64b-5fa87f50996b` (topic `portofino-checkout`), which the
@@ -201,4 +204,22 @@ Record the exact steps and results in this file.
 - **Independent review:** a fresh-context code-reviewer, given the diff only, reported the change clean.
 - **The GET-marks-paid non-goal is now recorded** as coord finding `0c586160`. It is worse than the plan says: `/checkout/mock` stays registered even when Stripe is enabled, so once real payments are live it would be a free way to skip paying.
 - **Correction to "Verification" step 2:** the backend deploy no longer waits at a required reviewer gate. `72c56e9` on backend `master` ("remove the human approval gate on production deploys") removed it. So merge and live are still separate events, but no approval sits between them.
-- **Still owed:** observe it live (health `commit` = the merge commit, then `curl /checkout/cancel?order_id=<uuid>`), then resolve finding `7be3c0e5`, citing the PR.
+- **Observed live 2026-09-25**, which closes the "still owed" step this line
+  used to carry. `GET https://api.portofino-essen.com/api/health` reports
+  `commit: 0ebab8e8f962deb8babdd5ebceef82c3fa65a9fb`, which is backend
+  `origin/master`'s head — so the deployed backend is current main, not merely
+  past the merge. `GET /checkout/cancel?order_id=<a well-formed uuid>` returns
+  `200 text/html` carrying `lang="de"`, "Bezahlung abgebrochen" and
+  "Zu deiner Bestellung". Phase 1 is delivered.
+- **Finding `7be3c0e5` is NOT resolved, and no session bound to the qontinui
+  tenant can resolve it.** It belongs to the `pizzeria` tenant and coord lifts
+  the tenant from the caller's own JWT, so the write is unreachable from here;
+  the only pizzeria credential on the authoring box expired on 2026-07-17. It
+  needs a session holding a pizzeria-bound credential — the operator mints a
+  pair code, as `docs/intent-drafts/README.md` describes.
+- **What the live page still gets wrong, and where it is fixed.** Its colours
+  are `#faf7f2`, `#1c1917` and `#78716c`, none of them in the tenant's palette,
+  and it declares `color-scheme: light dark` while the design is light-only.
+  Confirmed on the live response above, not inferred from source. That is
+  `backend` PR "fix(payments): the result page renders the declared brand, and
+  is light-only"; it is a separate defect from this plan's, on the same page.

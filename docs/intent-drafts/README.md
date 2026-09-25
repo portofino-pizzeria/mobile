@@ -6,6 +6,20 @@ they disagree, the served one wins and this copy is stale. Read it with
 `/policy get domain_spec visual-system` from a session bound to the `pizzeria`
 tenant, or at `/admin/coord/prompt-documents`.
 
+## 2026-09-20 — the saved-details declaration was wrong in two ways (APPLIED)
+
+| File | Document | Operation |
+|---|---|---|
+| `domain_spec--menu--APPEND-saved-details-correction.md` | `domain_spec/menu` | append (correction to the 2026-09-14 saved-details paragraph), applied v5 → v6, announced by finding `1a13c188-1387-4fdc-af58-9e63bc6badb1` |
+
+Written from a pizzeria-bound device credential, for plan
+`plans/2026-09-20-portofino-privacy-policy-and-the-data-it-describes.md`. The
+served document was corrected on 2026-09-20; this working copy is only now
+committed, so until this commit the repo's record of the folder was one append
+short of what the tenant is actually served. Its inline `checkout.tsx:NNN`
+citations are as written on the day and drift with the file — the standing rule
+at the top of this file applies: read the served document, not this copy.
+
 ## 2026-09-19 — owner-authored shop facts, special days, Impressum (APPLIED)
 
 | File | Document | Operation |
