@@ -2,10 +2,10 @@
 
 > **Status: IN PROGRESS 2026-09-25** — Phase 1 is MERGED AND LIVE
 > ([backend#16](https://github.com/portofino-pizzeria/backend/pull/16),
-> `ba1ea2d2`, observed on production 2026-09-25). **Phase 2 has NOT been run**:
-> it is a one-time local-stack verification with no code, and nothing records
-> it. `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but that was
-> wrong for Phase 2. Phase 3 stays unstarted and needs a decision (below). The
+> `ba1ea2d2`, observed on production 2026-09-25). **Phase 2 is NOT complete**.
+> `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but Phase 2 has no
+> code to merge and had never been run. Run on 2026-09-25, steps 1–4 pass;
+> step 5 is blocked because the app's UI Bridge has no web transport. Phase 3 stays unstarted and needs a decision (below). The
 > page's off-palette colours are fixed in
 > [backend#30](https://github.com/portofino-pizzeria/backend/pull/30). A plan's
 > own status line is not evidence of anything. See "Progress".
@@ -230,13 +230,24 @@ Record the exact steps and results in this file.
   same page. Once it is live, check it the way Phase 1 was checked: `/api/health`
   `commit`, then `curl /checkout/cancel?order_id=<uuid>`. Never use `/checkout/mock`.
 
-### Phase 2 — NOT run (as of 2026-09-25)
+### Phase 2 — run 2026-09-25: steps 1–4 PASS, step 5 BLOCKED (no UI Bridge on web)
 
-Nothing in this file, and no PR, records the local round trip that Phase 2
-asks for. The 2026-09-25 status stamp from `mobile#38` said "Phases 1 and 2 are
-MERGED AND LIVE". Phase 2 has no code to merge, and its own instruction is
-"Record the exact steps and results in this file", which had not been done.
-So Phase 2 is still owed. It needs a local backend (`npm run db:up`,
-`npm run dev`), a local web export, and a UI Bridge-driven browser with popups
-blocked. Never run it on production: a mock order there is a paid order the
-kitchen cooks.
+Run locally only. No request went to either portofino-essen.com host.
+
+**Setup.**
+- Backend: branch of [backend#30](https://github.com/portofino-pizzeria/backend/pull/30) (`db4223d` on `0ebab8e`), served on `:4000`. It used a separate database, `portofino_phase2` (migrated and seeded; 15 categories, 136 items), with Stripe keys empty, so `/api/payments/providers` reported `{"stripe":false,"paypal":false,"mockFallback":true}`. `PUBLIC_WEB_URL=http://localhost:8081`.
+- Web: `EXPO_PUBLIC_API_URL=http://localhost:4000 npx expo start --web --port 8081`.
+- Browser: headless Chromium driven through the injected UI Bridge (`@qontinui/ui-bridge-wrapper` 0.7.2). Playwright always passes `--disable-popup-blocking`, so an init script made `window.open` return `null`, which is what a blocked popup returns.
+- The run was at 09:24 on a Friday, before the shop opens, so Friday's opening time was moved to 08:00 in `portofino_phase2` only.
+
+| # | Step | Result |
+|---|---|---|
+| 1 | Place an order (Pizza Margherita groß, Abholung) and tap pay | PASS. Order `21549c18-91c2-414c-8846-a230e13d006e` |
+| 2 | The checkout pays in the same tab | PASS. No new page opened, and the tab went to `localhost:4000/checkout/mock?order_id=21549c18-…` |
+| 3 | German result page | PASS. It showed "Testzahlung abgeschlossen", "Es wurde kein Geld bewegt. …" and "Zu deiner Bestellung", with the link `http://localhost:8081/order/21549c18-…`. The button read `#1a1a1a` on `#d4a574` with `colorScheme: light`, which is backend#30's palette |
+| 4 | Follow "Zu deiner Bestellung" | PASS. It landed on `/order/21549c18-…`, and the screen reads "Zahlung erhalten … Deine Bestellung ist bestätigt und geht in die Küche." |
+| 5 | `order.getOrderStatus` reports `state: "shown"`, `status: "paid"` | **BLOCKED** |
+
+**Why step 5 is blocked.** `src/app/_layout.tsx` gives the app's UI Bridge server a transport only on native (`__DEV__ && Platform.OS !== 'web' ? createTcpServerAdapter() : undefined`). On web the console logs `[ui-bridge-native] HTTP server not available: no serverAdapter prop provided`, and `@qontinui/ui-bridge-native` 0.6.11 declares no web-capable server transport. The injected Bridge has a registry of its own, so it cannot see the app's registered components. Its answer, verbatim: `{"success":false,"error":"Component \"order\" not found. Available components: []. …"}`. The only way to observe the same-tab path is on web, and the only way to reach the app's actions is on native.
+
+The API agrees: `GET :4000/api/orders/21549c18-…` returned `"status":"paid"`, provider `mock`. That is supporting evidence, not the UI check this phase asks for, so **Phase 2 stays open on step 5**. Closing it needs a web transport for the app's UI Bridge. That is a change to the ui-bridge library, not to this plan's repos. Re-run step 5 once one ships.
