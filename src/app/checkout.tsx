@@ -14,6 +14,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton, BridgeInput } from '@/components/bridge';
+import {
+  OrderLines,
+  OrderTotals,
+  cartSummaryLines,
+  orderSummaryLines,
+  totalsFor,
+  type SummaryLine,
+  type Totals,
+} from '@/components/order-summary';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
@@ -25,7 +34,7 @@ import { formatEUR } from '@/lib/format';
 import { saveOrderToken } from '@/lib/my-orders';
 import { forgetSavedDetails, loadSavedDetails, saveDetails } from '@/lib/saved-details';
 import type { Fulfilment, PaymentProvider, ShopInfo } from '@/lib/types';
-import { useCart, type CartLine } from '@/state/cart';
+import { cartLineKey, useCart, type CartLine } from '@/state/cart';
 
 /**
  * Digits a phone number must contain. MIRRORS `MIN_PHONE_DIGITS` in
@@ -83,6 +92,62 @@ interface CheckoutStarted {
 /** What pay() resolves to: the checkout it started, or why the checkout did
  *  not start. The reason says whether an unpaid order may exist. */
 type PayResult = ({ ok: true } & CheckoutStarted) | { ok: false; reason: string };
+
+/**
+ * The server's own account of a basket it has just priced.
+ *
+ * The FEE is stored beside the fulfilment it was quoted for, because only the
+ * subtotal and the lines belong to the basket: switching Lieferung/Abholung
+ * changes which fee applies, not what the dishes cost, and throwing the whole
+ * quote away there would put the price the server has already refused back on
+ * screen.
+ */
+interface Quote {
+  subtotal: number;
+  lines: SummaryLine[];
+  fulfilment: Fulfilment;
+  deliveryFee: number;
+}
+
+/**
+ * The basket a quote describes: every line, its quantity and the price this
+ * device holds for it. A quote is only ever shown for the basket it was given
+ * for; anything else is a total that describes nothing.
+ *
+ * The fulfilment is deliberately NOT part of it — see `Quote`.
+ */
+function basketSignature(lines: readonly CartLine[]): string {
+  return lines
+    .map((l) => `${cartLineKey(l.item.id, l.variant.id)}x${l.quantity}@${l.variant.price}`)
+    .join('|');
+}
+
+/** What a quote says an order costs, under the fulfilment now chosen. */
+function quotedTotals(quote: Quote, fulfilment: Fulfilment): Totals {
+  const deliveryFee =
+    fulfilment === quote.fulfilment ? quote.deliveryFee : deliveryFeeFor(fulfilment);
+  return { subtotal: quote.subtotal, deliveryFee, total: quote.subtotal + deliveryFee };
+}
+
+/**
+ * The last quote this app was given, outside the screen's own state.
+ *
+ * "Zur Kasse" from the cart is a `push`, so coming back that way MOUNTS A NEW
+ * CHECKOUT SCREEN. A quote held only in component state is lost there, the
+ * panel re-displays the price the server already refused, and the next tap
+ * writes one more unpaid order — once per round trip, for as long as the diner
+ * keeps bouncing. It is keyed by basket, so it is never shown for another one,
+ * and it is read once per mount rather than during render.
+ */
+interface HeldQuote {
+  signature: string;
+  quote: Quote;
+  /** True while this quote DISAGREED with what the screen had shown, and the
+   *  diner has not yet confirmed it by tapping pay again. */
+  unconfirmed: boolean;
+}
+
+let lastQuote: HeldQuote | null = null;
 
 const refuse = (reason: string): PayResult => ({ ok: false, reason });
 
@@ -286,6 +351,20 @@ export default function CheckoutScreen() {
     };
   }, []);
 
+  /**
+   * The server's own figures for THIS basket, once it has priced it. While it
+   * applies, it is what the screen shows AND what the next payment is checked
+   * against, so the diner confirms a price they have read. It is discarded by
+   * its key rather than by any navigation event: a basket that no longer
+   * matches the signature simply has no quote, which is what makes editing the
+   * cart and coming back safe.
+   */
+  const [held, setHeld] = useState<HeldQuote | null>(() => lastQuote);
+  const setQuote = (next: HeldQuote) => {
+    lastQuote = next;
+    setHeld(next);
+  };
+
   // A synchronous guard against a double submit. `busy` is state, so two pay()
   // calls arriving before the render that follows setBusy() would both read it
   // as null and both create an order — easy to trigger through the UI Bridge.
@@ -307,6 +386,21 @@ export default function CheckoutScreen() {
     // Not copied into `error`: the footer already states the gap and follows
     // the fields, whereas `error` would stay red after they were filled in.
     const { fulfilment, name, phone, address, notes } = typed.current;
+    // The basket this call is about, and the quote already given for it.
+    const basket = basketSignature(cart.lines);
+    const prior = held && held.signature === basket ? held.quote : null;
+    // A RE-QUOTE IS CONFIRMED BY A PERSON, NOT BY A RETRY. The Bridge actions
+    // and a Bridge press carry no tap and never consult the disabled state, so
+    // a runner that simply re-calls `payWithStripe` would accept a price rise
+    // nobody read — and `onBridgePress` is fire-and-forget, so it would be
+    // reported as a success. The runner is told to re-read the panel instead.
+    if (viaBridge && held && held.signature === basket && held.unconfirmed) {
+      return refuse(
+        'Der Preis hat sich geändert und steht neu auf dem Bildschirm. Diese ' +
+          'Bestätigung muss ein Mensch geben — lies den Betrag im Panel und tippe ' +
+          'selbst auf Bezahlen.',
+      );
+    }
     const gap = orderGap(typed.current, cart.lines, gating);
     if (gap) return refuse(gap);
     inFlight.current = true;
@@ -364,6 +458,79 @@ export default function CheckoutScreen() {
       } else {
         void forgetSavedDetails();
       }
+      // THE ONE CHECK THAT MAKES A DISPLAYED TOTAL HONEST. Every figure on
+      // this screen is computed on the device, from the menu it last loaded
+      // and from `deliveryFeeFor`, which only MIRRORS the server's fee. Two
+      // renders of one client computation agreeing with each other say
+      // nothing about what will be charged. `createOrder` answers with the
+      // authoritative figures; compare all three, because a subtotal that is
+      // too high and a fee that is too low agree on the total while both
+      // breakdown rows are wrong.
+      //
+      // A REFUSAL WOULD BE A LOOP. Nothing about the cart changes when this
+      // fires, so a second tap would fail identically and write a second
+      // unpaid order, and a third. Instead the server's account is ADOPTED and
+      // shown, and the next tap pays the price the diner has now read. It runs
+      // after the three best-effort calls above, so the placed order keeps its
+      // token and an unticked "merken" is still honoured.
+      //
+      // THE ANSWER IS CHECKED BEFORE IT IS TRUSTED. `api.createOrder` casts
+      // the JSON without validating it, and an absent figure is worse than a
+      // wrong one here: `undefined !== undefined` is FALSE, so a malformed
+      // answer renders "NaN €" once and then passes this guard silently on
+      // every later tap.
+      if (
+        !Number.isInteger(order.subtotal) ||
+        !Number.isInteger(order.deliveryFee) ||
+        !Number.isInteger(order.total) ||
+        !Array.isArray(order.lines)
+      ) {
+        // REFUSED, not thrown. `errorReason` answers a >= 500 `ApiError` with
+        // "Fehler auf dem Server (502)" and a plain `Error` with "Keine
+        // verwertbare Antwort", so either way the one sentence that says what
+        // is actually wrong would be replaced by one that does not.
+        checkoutWindow?.close();
+        const message =
+          'Die Bestellung ist angelegt, aber noch nicht bezahlt, und wird erst nach der ' +
+          'Bezahlung zubereitet. Die Preise kamen unlesbar zurück, deshalb wurde die ' +
+          'Bezahlung nicht gestartet — bitte versuche es später noch einmal oder ruf uns an.';
+        setError({ message, clearsOnEdit: false });
+        return refuse(message);
+      }
+
+      // Adopted on EVERY answer, not only on a disagreement. The server can
+      // reprice two lines by equal and opposite amounts, which leaves all
+      // three totals agreeing while this device's per-line prices are wrong —
+      // the self-contradicting panel, reached by the one route the comparison
+      // cannot see.
+      const quote: Quote = {
+        subtotal: order.subtotal,
+        lines: orderSummaryLines(order.lines, cart.lines),
+        fulfilment,
+        deliveryFee: order.deliveryFee,
+      };
+      // `typed.current.fulfilment` — the one that was SUBMITTED, which is also
+      // the one the screen showed, since `chooseFulfilment` writes both.
+      const agreed = prior ? quotedTotals(prior, fulfilment) : totalsFor(cart.subtotal, fulfilment);
+      const quoted = quotedTotals(quote, fulfilment);
+      const disagrees =
+        quoted.subtotal !== agreed.subtotal ||
+        quoted.deliveryFee !== agreed.deliveryFee ||
+        quoted.total !== agreed.total;
+      setQuote({ signature: basket, quote, unconfirmed: disagrees });
+      if (disagrees) {
+        // On web a tap already opened a blank window for the checkout. Nothing
+        // is going there now, and an empty tab left open reads as the payment.
+        checkoutWindow?.close();
+        const message =
+          `Die Preise haben sich geändert: ${formatEUR(quoted.total)} statt ` +
+          `${formatEUR(agreed.total)}. Oben steht jetzt der aktuelle Betrag — ` +
+          'tippe erneut auf Bezahlen, wenn du damit einverstanden bist. Die eben ' +
+          'angelegte Bestellung ist nicht bezahlt und wird nicht zubereitet.';
+        setError({ message, clearsOnEdit: false });
+        return refuse(message);
+      }
+
       const { url } = await api.startCheckout(order.id, provider);
       // Checked before anything leaves this screen, so a bad answer neither
       // empties the cart nor sends a window somewhere useless.
@@ -473,7 +640,10 @@ export default function CheckoutScreen() {
     'opened: the screen moves to the order and the runner opens `url` itself. On native ' +
     'the platform browser opens, as for a tap; on iOS the action then resolves only ' +
     'when that browser is closed. A failure can leave an unpaid order (the reason says ' +
-    'so), and calling again places a new one.';
+    'so), and calling again places a new one. If the server prices the order ' +
+    'differently from what the screen showed, the action FAILS and the new price is ' +
+    'put on screen: accepting it is a human decision, so re-calling this action will ' +
+    'keep failing until a person reads the panel and taps Bezahlen.';
 
   useUIComponent({
     id: 'checkout',
@@ -494,9 +664,29 @@ export default function CheckoutScreen() {
     ],
   });
 
-  const fee = cart.count > 0 ? deliveryFeeFor(fields.fulfilment) : 0;
-  const total = cart.subtotal + fee;
+  /* What the screen shows, and what the next payment is checked against: the
+     server's figures once it has disagreed with this device's, else this
+     device's own. One value, read by the panel, by the footer and by the
+     guard, so the diner confirms a price they have actually seen. */
+  /* The quote applies only to the basket it was given for — so editing the
+     cart and coming back leaves no total on screen that describes nothing. */
+  const shownQuote =
+    held && held.signature === basketSignature(cart.lines) ? held.quote : null;
+  const totals = shownQuote
+    ? quotedTotals(shownQuote, fields.fulfilment)
+    : totalsFor(cart.subtotal, fields.fulfilment);
+  const summaryLines: SummaryLine[] = shownQuote?.lines ?? cartSummaryLines(cart.lines);
+  const total = totals.total;
   const contactGap = orderGap(fields, cart.lines, gating);
+
+  /* `disabled` and the dimming asked the same question in two expressions, and
+     they had drifted: `disabled` counted an empty cart, the opacity did not, so
+     a button that refused every tap still looked pressable. They are DERIVED
+     from one predicate now, and the one place they legitimately differ is
+     stated rather than re-derived: the provider a payment is in flight for
+     stays at full opacity, because that is the button showing the spinner. */
+  const payDisabled = !!busy || cart.count === 0 || contactGap !== null;
+  const payDimmed = (provider: PaymentProvider) => payDisabled && busy !== provider;
   const isPickup = fields.fulfilment === 'pickup';
 
   return (
@@ -660,6 +850,44 @@ export default function CheckoutScreen() {
           </ThemedText>
         ) : null}
 
+        {/* WHAT the pay buttons below are about to charge for. Until this
+            section existed the diner committed money on a screen that showed
+            only a `Gesamt`, with the items one screen back — a control split
+            from its subject [policy: ux-priorities
+            `a-control-belongs-with-what-it-governs`, read at v8], and a
+            quantity whose composition was not visible anywhere on it.
+
+            Read-only on purpose: the editable list is the cart, and two
+            editable lists of one order is how the two drift. The way back is
+            named rather than left to the header's back arrow, which a
+            deep-linked checkout does not have. */}
+        {cart.count > 0 ? (
+          <ThemedView type="backgroundElement" style={styles.orderSummary}>
+            <ThemedText type="smallBold">Deine Bestellung</ThemedText>
+            <OrderLines lines={summaryLines} />
+            {/* No rule above the totals either: `backgroundSelected` on this
+                cream panel is 1.14:1, a divider nobody can see. Spacing
+                separates them. */}
+            <View style={styles.orderTotals}>
+              <OrderTotals totals={totals} fulfilment={fields.fulfilment} />
+            </View>
+            <BridgeButton
+              uiId="checkout-edit-cart"
+              uiLabel="Warenkorb ändern"
+              role="link"
+              style={styles.forget}
+              onPress={() => router.push('/cart')}>
+              <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+                Warenkorb ändern
+              </ThemedText>
+            </BridgeButton>
+          </ThemedView>
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary">
+            Dein Warenkorb ist leer — es gibt nichts zu bezahlen.
+          </ThemedText>
+        )}
+
         <View style={styles.legalLinks}>
           <BridgeButton
             uiId="checkout-impressum"
@@ -688,20 +916,35 @@ export default function CheckoutScreen() {
         {/* Say WHY the buttons are disabled. A control that silently refuses
             reads as broken, and these keep their vendor colours, so without
             this they would look pressable. */}
+        {/* An empty cart is the COMMON arrival, not an edge: the cart lives in
+            memory only, so every deep link, bookmark, reload and return from
+            the hosted checkout lands here with nothing in it. With details
+            saved on the device and the shop open, `orderGap` finds nothing to
+            report — it never speaks about an empty cart — so the footer used to
+            state `Gesamt 0,00 €` over two undimmed buttons that silently did
+            nothing when tapped. The panel above says the cart is empty; the
+            footer must not contradict it. */}
+        {cart.count === 0 ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.contactGap}>
+            Leg zuerst etwas in den Warenkorb.
+          </ThemedText>
+        ) : null}
         {cart.count > 0 && contactGap ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.contactGap}>
             {contactGap}
           </ThemedText>
         ) : null}
-        <View style={styles.totalRow}>
-          <ThemedText type="smallBold">Gesamt</ThemedText>
-          <ThemedText type="price">{formatEUR(total)}</ThemedText>
-        </View>
+        {cart.count > 0 ? (
+          <View style={styles.totalRow}>
+            <ThemedText type="smallBold">Gesamt</ThemedText>
+            <ThemedText type="price">{formatEUR(total)}</ThemedText>
+          </View>
+        ) : null}
         <PayButton
           uiId="pay-stripe"
           uiLabel="Mit Karte bezahlen (Stripe)"
-          disabled={!!busy || cart.count === 0 || contactGap !== null}
-          style={[styles.payBtn, { backgroundColor: '#635bff', opacity: contactGap || (busy && busy !== 'stripe') ? 0.5 : 1 }]}
+          disabled={payDisabled}
+          style={[styles.payBtn, { backgroundColor: '#635bff', opacity: payDimmed('stripe') ? 0.5 : 1 }]}
           onTap={() => pay('stripe')}
           onBridgePress={() => void payRef.current('stripe', true)}>
           {busy === 'stripe' ? (
@@ -715,8 +958,8 @@ export default function CheckoutScreen() {
         <PayButton
           uiId="pay-paypal"
           uiLabel="Mit PayPal bezahlen"
-          disabled={!!busy || cart.count === 0 || contactGap !== null}
-          style={[styles.payBtn, { backgroundColor: '#ffc439', opacity: contactGap || (busy && busy !== 'paypal') ? 0.5 : 1 }]}
+          disabled={payDisabled}
+          style={[styles.payBtn, { backgroundColor: '#ffc439', opacity: payDimmed('paypal') ? 0.5 : 1 }]}
           onTap={() => pay('paypal')}
           onBridgePress={() => void payRef.current('paypal', true)}>
           {busy === 'paypal' ? (
@@ -809,5 +1052,7 @@ const styles = StyleSheet.create({
   rememberText: { flex: 1 },
   forget: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   forgetText: { textDecorationLine: 'underline' },
+  orderSummary: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.sm },
+  orderTotals: { paddingTop: Spacing.md, gap: Spacing.xs },
   legalLinks: { flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap' },
 });

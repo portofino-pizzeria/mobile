@@ -6,11 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton } from '@/components/bridge';
 import { MascotPass } from '@/components/mascot-pass';
+import { OrderTotals, lineMeta, totalsFor } from '@/components/order-summary';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
 import { cartMascot } from '@/lib/mascots';
 import { cartLineKey, useCart } from '@/state/cart';
@@ -53,8 +53,7 @@ export default function CartScreen() {
     );
   }
 
-  const fee = deliveryFeeFor(cart.fulfilment);
-  const total = cart.subtotal + fee;
+  const total = totalsFor(cart.subtotal, cart.fulfilment).total;
 
   return (
     <ThemedView style={styles.container}>
@@ -68,11 +67,16 @@ export default function CartScreen() {
             ]}>
             <View style={styles.rowInfo}>
               <ThemedText type="heading">
-                {item.number ? `${item.number}  ` : ''}
                 {item.name}, {variant.label}
               </ThemedText>
+              {/* The dish number is labelled and sits away from the stepper's
+                  quantity. Unlabelled and adjacent, the two numerals name two
+                  different things and look like one. Same helper the checkout
+                  panel uses, so the two screens cannot come to spell one line
+                  two ways; the unit price is always shown HERE because the
+                  stepper beside it is what changes the quantity. */}
               <ThemedText type="small" themeColor="textSecondary">
-                {formatEUR(variant.price)} pro Stück
+                {lineMeta(item.number, variant.price, { unitPrice: true })}
               </ThemedText>
             </View>
             <View style={styles.stepper}>
@@ -121,12 +125,7 @@ export default function CartScreen() {
         ))}
 
         <View style={[styles.summary, { borderTopColor: theme.backgroundSelected }]}>
-          <SummaryRow label="Zwischensumme" value={formatEUR(cart.subtotal)} />
-          <SummaryRow
-            label={cart.fulfilment === 'pickup' ? 'Abholung' : 'Lieferung'}
-            value={formatEUR(fee)}
-          />
-          <SummaryRow label="Gesamt" value={formatEUR(total)} bold />
+          <OrderTotals totals={totalsFor(cart.subtotal, cart.fulfilment)} fulfilment={cart.fulfilment} />
           <ThemedText type="small" themeColor="textSecondary" style={styles.modeHint}>
             Lieferung oder Abholung wählst du an der Kasse. Bei Abholung entfällt die
             Liefergebühr.
@@ -168,20 +167,6 @@ export default function CartScreen() {
   );
 }
 
-function SummaryRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <View style={styles.summaryRow}>
-      <ThemedText type={bold ? 'smallBold' : 'small'} themeColor={bold ? 'text' : 'textSecondary'}>
-        {label}
-      </ThemedText>
-      {/* Weight, not hue, marks the total — prices are ink in the design. */}
-      <ThemedText type={bold ? 'price' : 'small'} themeColor={bold ? 'text' : 'textSecondary'}>
-        {value}
-      </ThemedText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, padding: Spacing.xl },
@@ -194,7 +179,6 @@ const styles = StyleSheet.create({
   qty: { minWidth: 20, textAlign: 'center' },
   lineTotal: { minWidth: 64, textAlign: 'right' },
   summary: { marginTop: Spacing.sm, paddingTop: Spacing.lg, gap: Spacing.xs, borderTopWidth: 1 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   modeHint: { marginTop: Spacing.sm },
   footer: { paddingHorizontal: Spacing.gutter, paddingVertical: Spacing.lg, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   primaryBtn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 44 },
