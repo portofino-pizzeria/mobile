@@ -1,12 +1,14 @@
 # Portofino backend — the payment result pages lead back to the diner's order, in German (2026-09-13)
 
-> **Status: IN PROGRESS 2026-09-25** — Phases 1 and 2 are MERGED AND LIVE;
-> Phase 3 stays unstarted (needs a decision, below). The stamp this replaces
-> said Phase 1 was "open ... not yet merged or live" and had been wrong since
-> 2026-09-14, when
-> [backend#16](https://github.com/portofino-pizzeria/backend/pull/16) merged as
-> `ba1ea2d2`. A plan's own status line is not evidence of anything; this one
-> was corrected against production, not against the PR page. See "Progress".
+> **Status: IN PROGRESS 2026-09-25** — Phase 1 is MERGED AND LIVE
+> ([backend#16](https://github.com/portofino-pizzeria/backend/pull/16),
+> `ba1ea2d2`, observed on production 2026-09-25). **Phase 2 has NOT been run**:
+> it is a one-time local-stack verification with no code, and nothing records
+> it. `mobile#38` stamped "Phases 1 and 2 are MERGED AND LIVE", but that was
+> wrong for Phase 2. Phase 3 stays unstarted and needs a decision (below). The
+> page's off-palette colours are fixed in
+> [backend#30](https://github.com/portofino-pizzeria/backend/pull/30). A plan's
+> own status line is not evidence of anything. See "Progress".
 >
 > Written from coord finding
 > `7be3c0e5-a68b-4992-a64b-5fa87f50996b` (topic `portofino-checkout`), which the
@@ -194,7 +196,7 @@ Record the exact steps and results in this file.
 
 ## Progress
 
-### Phase 1 — PR open (2026-09-14)
+### Phase 1 — merged 2026-09-14 as `ba1ea2d2`, live (observed 2026-09-25)
 
 [backend#16](https://github.com/portofino-pizzeria/backend/pull/16), branch `feat/payment-result-pages-link-to-order`.
 
@@ -221,5 +223,20 @@ Record the exact steps and results in this file.
   are `#faf7f2`, `#1c1917` and `#78716c`, none of them in the tenant's palette,
   and it declares `color-scheme: light dark` while the design is light-only.
   Confirmed on the live response above, not inferred from source. That is
-  `backend` PR "fix(payments): the result page renders the declared brand, and
-  is light-only"; it is a separate defect from this plan's, on the same page.
+  [backend#30](https://github.com/portofino-pizzeria/backend/pull/30), "fix(payments):
+  the result page renders the declared brand, and is light-only" (opened
+  2026-09-25 by the post-merge follow-up to `mobile#38`: until then the PR
+  named here did not exist). It is a separate defect from this plan's, on the
+  same page. Once it is live, check it the way Phase 1 was checked: `/api/health`
+  `commit`, then `curl /checkout/cancel?order_id=<uuid>`. Never use `/checkout/mock`.
+
+### Phase 2 — NOT run (as of 2026-09-25)
+
+Nothing in this file, and no PR, records the local round trip that Phase 2
+asks for. The 2026-09-25 status stamp from `mobile#38` said "Phases 1 and 2 are
+MERGED AND LIVE". Phase 2 has no code to merge, and its own instruction is
+"Record the exact steps and results in this file", which had not been done.
+So Phase 2 is still owed. It needs a local backend (`npm run db:up`,
+`npm run dev`), a local web export, and a UI Bridge-driven browser with popups
+blocked. Never run it on production: a mock order there is a paid order the
+kitchen cooks.
