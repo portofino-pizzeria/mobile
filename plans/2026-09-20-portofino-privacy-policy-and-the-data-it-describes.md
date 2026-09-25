@@ -17,7 +17,7 @@
 > | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
 > | 5 — the page, its text, the intent correction | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it merged in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) (2026-09-25) |
-> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
+> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up [mobile#44](https://github.com/portofino-pizzeria/mobile/pull/44) routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
 >
 > This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33) (merged).
 >
@@ -62,6 +62,20 @@
 > pins; the box's own 1.9.8 is below the repo's `>= 1.10` floor and cannot even
 > init. **Not run, and not claimed:** `terraform plan` / `apply` (CI holds no
 > AWS credentials and an operator applies), and every Phase 5/6 gate.
+>
+> **Why the Phase 5/6 UI Bridge runs are still not run (checked 2026-09-25, at
+> `37f0455`).** Both gates drive the app's own registered components
+> (`admin-privacy`, `order`). The app gives its UI Bridge server a transport only
+> on native dev builds (`src/app/_layout.tsx:34-35`:
+> `__DEV__ && Platform.OS !== 'web' ? createTcpServerAdapter() : undefined`), and
+> `@qontinui/ui-bridge-native` 0.6.11 has no web server transport. So a
+> web-export run cannot reach those actions. A run of the payment-result-pages
+> plan hit exactly this: the injected Bridge answered
+> `Component "order" not found. Available components: []`
+> (`2026-09-13-portofino-backend-payment-result-pages-link-back-to-the-order.md`,
+> Phase 2 step 5). The gates need either a native dev build on a device or
+> emulator, or a web transport in the ui-bridge library. The second is outside
+> this plan's repos. Neither gate is claimed until one of the two runs.
 >
 > **Deviations from the plan as vetted, each deliberate:**
 > - **Phase 1's mobile half was NOT built.** `mobile/src/lib/my-orders.ts`, the
