@@ -13,6 +13,18 @@ import { readStoredText, writeStoredText } from './storage';
 
 const KEY = 'orders-v1';
 
+/**
+ * How many orders' tokens this device keeps.
+ *
+ * The store had no bound at all. Much of what lands in it is an order that was
+ * never paid — a refused payment, a browser that would not open, a price the
+ * server quoted differently — and each one was a permanent entry for an order
+ * the diner will never open again. Insertion order is preserved by
+ * `JSON.stringify`, so the oldest go first; a diner with more than this many
+ * live orders at once is not a case this restaurant has.
+ */
+const MAX_TOKENS = 25;
+
 type TokenMap = Record<string, string>;
 
 async function readMap(): Promise<TokenMap> {
@@ -35,7 +47,11 @@ async function readMap(): Promise<TokenMap> {
  *  than failing anything. */
 export async function saveOrderToken(orderId: string, accessToken: string): Promise<void> {
   const map = await readMap();
+  // Re-inserted, so an order written again moves to the newest end.
+  delete map[orderId];
   map[orderId] = accessToken;
+  const ids = Object.keys(map);
+  for (const stale of ids.slice(0, Math.max(0, ids.length - MAX_TOKENS))) delete map[stale];
   await writeStoredText(KEY, JSON.stringify(map));
 }
 
