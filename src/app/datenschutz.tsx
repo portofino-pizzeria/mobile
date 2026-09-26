@@ -55,7 +55,7 @@ const RETENTION = {
 };
 
 /** Updated with the text — D1. */
-const STAND = '25. September 2026';
+const STAND = '26. September 2026';
 
 export default function DatenschutzScreen() {
   const theme = useTheme();
@@ -196,8 +196,10 @@ export default function DatenschutzScreen() {
           </ThemedText>
           <ThemedText type="small">
             Die Zahlung wickeln wir über unseren Zahlungsdienstleister Stripe ab; dazu übermitteln
-            wir die Bestellsumme und eine Bestellnummer (ebenfalls Vertragserfüllung, Art. 6 Abs. 1
-            lit. b DSGVO).
+            wir die bestellten Artikel mit Menge und Preis, gegebenenfalls die Liefergebühr und eine
+            Bestellnummer (ebenfalls Vertragserfüllung, Art. 6 Abs. 1 lit. b DSGVO). Deine
+            Zahlungsdaten, etwa Kartendaten, gibst du direkt auf der Bezahlseite von Stripe ein;
+            sie erreichen unsere Server nicht.
           </ThemedText>
           <ThemedText type="small">
             Name und Bestelldaten bewahren wir zur Erfüllung steuer- und handelsrechtlicher
