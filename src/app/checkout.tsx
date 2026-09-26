@@ -668,7 +668,14 @@ export default function CheckoutScreen() {
       {
         id: 'payWithPaypal',
         label: 'Place the order and start a PayPal payment',
-        description: payDescription,
+        // Registered once, so it stays listed while the pay-paypal button is
+        // hidden; the description says when it refuses instead.
+        description:
+          payDescription +
+          ' Works only while the server can take a PayPal payment, i.e. while the ' +
+          'pay-paypal button is shown. When it cannot (PayPal not integrated and the ' +
+          'mock fallback gone, as once Stripe is live), or while the providers are ' +
+          'unknown, it fails before placing any order.',
         handler: () => payThroughBridge('paypal'),
       },
     ],
