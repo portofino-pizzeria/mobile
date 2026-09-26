@@ -20,6 +20,20 @@ export class ApiError extends Error {
 }
 
 /**
+ * `Content-Type: application/json` for a request that carries a body, and
+ * nothing for one that does not. The backend (Fastify) refuses a request that
+ * claims a JSON body and sends none, with "Body cannot be empty when
+ * content-type is set to 'application/json'" (an empty string counts as
+ * none), so a bodyless POST or DELETE that sent the header unconditionally
+ * never reached its route: the owner's Art. 17 erasure and every delete in
+ * the editors failed that way. Every client here builds its headers through
+ * this.
+ */
+export function jsonContentType(init?: RequestInit): Record<string, string> {
+  return init?.body ? { 'Content-Type': 'application/json' } : {};
+}
+
+/**
  * Why a request failed, as a reason to put in front of a diner, a cook or the
  * owner. A 4xx carries the server's own message: it names what the request got
  * wrong, although some of the backend's refusals are still English, and a
@@ -41,7 +55,7 @@ export function errorReason(e: unknown): string {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { ...jsonContentType(init), ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
     let message = `Anfrage fehlgeschlagen (${res.status}).`;

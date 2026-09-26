@@ -1,4 +1,4 @@
-import { ApiError } from './api';
+import { ApiError, jsonContentType } from './api';
 import { API_BASE_URL } from './config';
 import { readStoredText, writeStoredText } from './storage';
 import type { Order } from './types';
@@ -58,7 +58,7 @@ async function kreq<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...jsonContentType(init),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },

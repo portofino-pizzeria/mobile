@@ -11,7 +11,7 @@
 // on web that is localStorage, on a phone a file in the app's document
 // directory.
 
-import { ApiError } from './api';
+import { ApiError, jsonContentType } from './api';
 import { API_BASE_URL } from './config';
 import { readStoredText, writeStoredText } from './storage';
 import type {
@@ -60,7 +60,7 @@ async function areq<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...jsonContentType(init),
       ...(cachedToken ? { Authorization: `Bearer ${cachedToken}` } : {}),
       ...(init?.headers ?? {}),
     },

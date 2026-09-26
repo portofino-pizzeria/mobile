@@ -1,6 +1,6 @@
 # Portofino — the privacy policy (Datenschutzerklärung), and fixing the four things it would otherwise have to confess (2026-09-20)
 
-> **Status: IN PROGRESS 2026-09-25 — Phases 1-4 MERGED; Phase 1's mobile half,**
+> **Status: IN PROGRESS 2026-09-26 — Phase 5/6 UI Bridge gates PASS (run below, with the `forget` fix it forced); Phases 1-4 MERGED; Phase 1's mobile half,**
 > **5 and 6 MERGED via [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35)**
 > **(admin/privacy.tsx bugfixed by an independent review in**
 > **[mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36));**
@@ -62,25 +62,49 @@
 > *Success* on Terraform **1.15.8** — the version `infra/.github/workflows/ci.yml`
 > pins; the box's own 1.9.8 is below the repo's `>= 1.10` floor and cannot even
 > init. **Not run, and not claimed:** `terraform plan` / `apply` (CI holds no
-> AWS credentials and an operator applies), and every Phase 5/6 gate.
+> AWS credentials and an operator applies), and every Phase 5/6 gate (run later, 2026-09-26, below).
 >
-> **Why the Phase 5/6 UI Bridge runs are still not run (checked 2026-09-25, at
-> `37f0455`).** Both gates drive the app's own registered components
-> (`admin-privacy`, `order`). The app gives its UI Bridge server a transport only
-> on native dev builds (`src/app/_layout.tsx:34-35`:
-> `__DEV__ && Platform.OS !== 'web' ? createTcpServerAdapter() : undefined`), and
-> `@qontinui/ui-bridge-native` 0.6.11 has no web server transport. So a
-> web-export run cannot reach those actions. Nor does 0.6.12, the newest
-> published version, add one (checked 2026-09-25 by diffing the two tarballs:
-> the `server` export list is identical, and the only change is
-> `registry.refreshMeasurements`), so a dependency bump does not unblock the
-> gates. A run of the payment-result-pages
-> plan hit exactly this: the injected Bridge answered
-> `Component "order" not found. Available components: []`
-> (`2026-09-13-portofino-backend-payment-result-pages-link-back-to-the-order.md`,
-> Phase 2 step 5). The gates need either a native dev build on a device or
-> emulator, or a web transport in the ui-bridge library. The second is outside
-> this plan's repos. Neither gate is claimed until one of the two runs.
+> **Phase 5 and Phase 6 gates — run 2026-09-26: both PASS, after a fix.**
+> `b946bec` gave the app's UI Bridge a dev-only web transport
+> (`window.__uiBridgeNative`), which made both runs possible on web. The note
+> that stood here until then, saying the runs were impossible without a native
+> build, is superseded.
+>
+> Setup:
+> - mobile `origin/main` at `b946bec`, served by `npx expo start --web`;
+> - backend `origin/master` at `0ebab8e`, on a throwaway database
+>   `portofino_privacy_gate_test` in `backend-db-1`. Only there, Saturday's
+>   hours were widened so orders could be placed;
+> - headless Chromium, with real clicks for the "one tap" steps and
+>   `__uiBridgeNative` for the actions;
+> - two delivery orders for `0201 5550199`, both mock-paid.
+>
+> | Gate step | Observed |
+> |---|---|
+> | P5: one tap from the menu (`menu-datenschutz`) | `/datenschutz`, `getDatenschutzStatus` `ready` |
+> | P5: one tap from checkout (`checkout-datenschutz`) | `/datenschutz`, `ready` |
+> | P5: `/api/shop` aborted | `state: "failed"`. All 9 sections render, and so does the § 25 TDDDG paragraph (4043 vs 4053 characters). One `wird ergänzt` is in the Verantwortlicher block. The only other one is § 4's Stripe transfer basis, which is present with the shop answering too. |
+> | P6: search with a revoked token | Throws `Ungültiges Kennwort …`, and the screen is back at the password prompt |
+> | P6: search for an unknown number | `count: 0`, and the "Keine Bestellung …" notice shows |
+> | P6: search `0201 5550199` | 2 hits |
+> | P6: extract of the `ready` order | The full customer block |
+> | P6: `forget` on the `paid` order | Throws the server's German 409 refusal |
+> | P6: `forget` on the `ready` order | `erased: true`, and the `meldung` shows on screen. A second call returns `erased: false`, so it is idempotent |
+> | P6: kitchen card of the erased order | "Keine Kontaktdaten hinterlegt", with its line and 14,79 € still shown. The other order keeps its contact block |
+>
+> **The run found a defect that had shipped with Phase 6.** On `b946bec`,
+> `forget` never reached the backend. `areq` (`src/lib/admin.ts`) sent
+> `Content-Type: application/json` on every request, and Fastify refuses a
+> request that declares JSON and sends no body: `Body cannot be empty when
+> content-type is set to 'application/json'`. The same failure hit every
+> bodyless editor delete: special day, category, allergen and menu item.
+> `curl` against the same backend confirmed it: with the header the request is
+> refused; without it, the route answers. The backend suite never saw it,
+> because `app.inject` sends no such header. The fix sends the header only when
+> there is a body (`jsonContentType` in `src/lib/api.ts`), and the menu editor's,
+> kitchen's and diner's clients all use it. The Phase 6 rows above were
+> observed on that fix. A `deleteSpecialDay` through the `admin-shop` Bridge
+> action succeeded on it too.
 >
 > **Deviations from the plan as vetted, each deliberate:**
 > - ~~**Phase 1's mobile half was NOT built.** `mobile/src/lib/my-orders.ts`, the
