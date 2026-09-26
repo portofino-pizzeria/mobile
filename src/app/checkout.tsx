@@ -34,7 +34,7 @@ import { formatEUR } from '@/lib/format';
 import { saveOrderToken } from '@/lib/my-orders';
 import { forgetSavedDetails, loadSavedDetails, saveDetails } from '@/lib/saved-details';
 import type { Fulfilment, PaymentProvider, ShopInfo } from '@/lib/types';
-import { cartLineKey, useCart, type CartLine } from '@/state/cart';
+import { keyOf, lineUnitPrice, useCart, type CartLine } from '@/state/cart';
 
 /**
  * Digits a phone number must contain. MIRRORS `MIN_PHONE_DIGITS` in
@@ -118,7 +118,7 @@ interface Quote {
  */
 function basketSignature(lines: readonly CartLine[]): string {
   return lines
-    .map((l) => `${cartLineKey(l.item.id, l.variant.id)}x${l.quantity}@${l.variant.price}`)
+    .map((l) => `${keyOf(l)}x${l.quantity}@${lineUnitPrice(l)}`)
     .join('|');
 }
 
@@ -439,6 +439,7 @@ export default function CheckoutScreen() {
           menuItemId: l.item.id,
           variantId: l.variant.id,
           quantity: l.quantity,
+          ...(l.extras.length ? { extraIds: l.extras.map((e) => e.id) } : {}),
         })),
         fulfilment,
         {

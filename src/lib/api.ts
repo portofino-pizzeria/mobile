@@ -83,6 +83,9 @@ export interface OrderLineRequest {
   menuItemId: string;
   variantId: string;
   quantity: number;
+  /** Extra ingredients on each unit. The server prices them from the size;
+   *  no price is ever sent. Omitted for a plain dish. */
+  extraIds?: string[];
 }
 
 export const api = {

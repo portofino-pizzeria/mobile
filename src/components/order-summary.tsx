@@ -5,7 +5,7 @@ import { Spacing } from '@/constants/theme';
 import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
 import type { Fulfilment, OrderLine } from '@/lib/types';
-import { cartLineKey, type CartLine } from '@/state/cart';
+import { cartLineKey, keyOf, lineUnitPrice, type CartLine } from '@/state/cart';
 
 /**
  * What the diner is buying, and what it adds up to.
@@ -43,18 +43,36 @@ export interface SummaryLine {
   key: string;
   name: string;
   number?: string;
+  /** "+ Käse 1,50 €, Salami 1,80 €" — absent for a plain dish. */
+  extras?: string;
+  /** One unit, extras included. */
   unitPrice: number;
   quantity: number;
 }
 
+/**
+ * The extras on one line, each with its price per unit: "+ Käse 1,50 €,
+ * Salami 1,80 €". The unit price already includes them, so the diner has to
+ * be able to read where the difference to the menu's size price comes from.
+ * `undefined` for a plain dish. One spelling for the cart, the checkout, the
+ * order page and the kitchen.
+ */
+export function extrasText(
+  extras: readonly { name: string; price: number }[] | undefined,
+): string | undefined {
+  if (!extras || extras.length === 0) return undefined;
+  return `+ ${extras.map((e) => `${e.name} ${formatEUR(e.price)}`).join(', ')}`;
+}
+
 /** The cart's own lines. */
 export function cartSummaryLines(lines: readonly CartLine[]): SummaryLine[] {
-  return lines.map(({ item, variant, quantity }) => ({
-    key: cartLineKey(item.id, variant.id),
-    name: `${item.name}, ${variant.label}`,
-    number: item.number,
-    unitPrice: variant.price,
-    quantity,
+  return lines.map((line) => ({
+    key: keyOf(line),
+    name: `${line.item.name}, ${line.variant.label}`,
+    number: line.item.number,
+    extras: extrasText(line.extras),
+    unitPrice: lineUnitPrice(line),
+    quantity: line.quantity,
   }));
 }
 
@@ -71,9 +89,14 @@ export function orderSummaryLines(
     from.map(({ item, variant }) => [cartLineKey(item.id, variant.id), item.number]),
   );
   return lines.map((l) => ({
-    key: cartLineKey(l.menuItemId, l.variantId),
+    key: cartLineKey(
+      l.menuItemId,
+      l.variantId,
+      (l.extras ?? []).map((e) => e.extraId),
+    ),
     name: `${l.name}, ${l.variantLabel}`,
     number: numbers.get(cartLineKey(l.menuItemId, l.variantId)),
+    extras: extrasText(l.extras),
     unitPrice: l.unitPrice,
     quantity: l.quantity,
   }));
@@ -159,14 +182,14 @@ export function OrderLines({ lines }: { lines: readonly SummaryLine[] }) {
     // support naming from author — so the role is what makes the label real.
     // `aria-hidden` on the leaves stops them being announced twice.
     <View role="list">
-      {lines.map(({ key, name, number, unitPrice, quantity }) => {
+      {lines.map(({ key, name, number, extras, unitPrice, quantity }) => {
         const meta = lineMeta(number, unitPrice, { unitPrice: quantity > 1 });
         return (
           <View
             key={key}
             role="listitem"
             accessible
-            aria-label={[`${quantity} mal`, name, meta, formatEUR(unitPrice * quantity)]
+            aria-label={[`${quantity} mal`, name, extras, meta, formatEUR(unitPrice * quantity)]
               .filter(Boolean)
               .join(', ')}
             style={styles.line}>
@@ -176,6 +199,11 @@ export function OrderLines({ lines }: { lines: readonly SummaryLine[] }) {
             </ThemedText>
             <View aria-hidden style={styles.lineInfo}>
               <ThemedText type="small">{name}</ThemedText>
+              {extras ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {extras}
+                </ThemedText>
+              ) : null}
               {/* Rendered only when it says something. An unnumbered dish at
                   quantity 1 leaves both halves empty, and an empty `Text`
                   still reserves its `lineHeight` on Android, so the row would

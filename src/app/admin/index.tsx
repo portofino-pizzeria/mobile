@@ -343,6 +343,7 @@ export default function AdminMenuScreen() {
                     {items.length === 0
                       ? 'noch leer'
                       : `${items.length} ${items.length === 1 ? 'Gericht' : 'Gerichte'}`}
+                    {category.offersExtras ? ' · mit Extra-Zutaten' : ''}
                   </ThemedText>
                 </View>
               )}
@@ -409,6 +410,24 @@ export default function AdminMenuScreen() {
                 </View>
               </View>
 
+              <AdminButton
+                uiId={`admin-category-extras-${category.id}`}
+                uiLabel={
+                  category.offersExtras
+                    ? `Extra-Zutaten für ${category.label} abschalten`
+                    : `Extra-Zutaten für ${category.label} anbieten`
+                }
+                title={
+                  category.offersExtras
+                    ? 'Extra-Zutaten: angeboten — abschalten'
+                    : 'Extra-Zutaten: nicht angeboten — anbieten'
+                }
+                busy={busy}
+                onPress={() =>
+                  run(() => adminApi.setCategoryExtras(category.id, !category.offersExtras))
+                }
+              />
+
               <View style={styles.row}>
                 <View style={styles.grow}>
                   <AdminButton
@@ -472,6 +491,12 @@ export default function AdminMenuScreen() {
           uiId="admin-open-allergens"
           title="Allergene verwalten"
           onPress={() => router.push('/admin/allergene')}
+        />
+
+        <AdminButton
+          uiId="admin-open-extras"
+          title="Extra-Zutaten und Preise"
+          onPress={() => router.push('/admin/zutaten')}
         />
 
         <View style={{ height: Spacing.xxxl }} />

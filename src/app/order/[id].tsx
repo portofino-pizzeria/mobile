@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BridgeButton } from '@/components/bridge';
+import { extrasText } from '@/components/order-summary';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
@@ -305,13 +306,20 @@ function OrderView({ id }: { id: string }) {
           <ThemedText type="small" themeColor="textSecondary">
             Bestellung #{order.id.slice(0, 8)}
           </ThemedText>
-          {/* Snapshotted lines are (item, variant) pairs — keyed on both, so two
-              sizes of one dish stay two rows. */}
-          {order.lines.map((line) => (
-            <View key={`${line.menuItemId}::${line.variantId}`} style={styles.summaryRow}>
-              <ThemedText type="small">
-                {line.quantity}× {line.name}, {line.variantLabel}
-              </ThemedText>
+          {/* Snapshotted lines — keyed by position, because two lines may share
+              an item and a size and differ only in their extras. */}
+          {order.lines.map((line, index) => (
+            <View key={`${index}-${line.menuItemId}::${line.variantId}`} style={styles.summaryRow}>
+              <View style={styles.lineText}>
+                <ThemedText type="small">
+                  {line.quantity}× {line.name}, {line.variantLabel}
+                </ThemedText>
+                {line.extras?.length ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {extrasText(line.extras)}
+                  </ThemedText>
+                ) : null}
+              </View>
               <ThemedText type="price">{formatEUR(line.unitPrice * line.quantity)}</ThemedText>
             </View>
           ))}
@@ -389,7 +397,8 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xxl },
   emoji: { fontSize: 64, lineHeight: 72 },
   summary: { padding: Spacing.lg, borderRadius: Radius.card, gap: Spacing.xs },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  lineText: { flex: 1 },
   totalRow: { marginTop: Spacing.xs },
   btn: { padding: Spacing.lg, borderRadius: Radius.card, alignItems: 'center', minHeight: 44 },
   outlineBtn: { borderWidth: 1.5, backgroundColor: 'transparent' },

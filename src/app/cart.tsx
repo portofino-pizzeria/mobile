@@ -6,14 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton } from '@/components/bridge';
 import { MascotPass } from '@/components/mascot-pass';
-import { OrderTotals, lineMeta, totalsFor } from '@/components/order-summary';
+import { OrderTotals, extrasText, lineMeta, totalsFor } from '@/components/order-summary';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatEUR } from '@/lib/format';
 import { cartMascot } from '@/lib/mascots';
-import { cartLineKey, useCart } from '@/state/cart';
+import { keyOf, lineUiId, lineUnitPrice, useCart } from '@/state/cart';
 
 
 export default function CartScreen() {
@@ -58,9 +58,14 @@ export default function CartScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {cart.lines.map(({ item, variant, quantity }, index) => (
+        {cart.lines.map((line, index) => {
+          const { item, variant, extras, quantity } = line;
+          const key = keyOf(line);
+          const unit = lineUnitPrice(line);
+          const extrasLine = extrasText(extras);
+          return (
           <View
-            key={cartLineKey(item.id, variant.id)}
+            key={key}
             style={[
               styles.row,
               index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.backgroundSelected },
@@ -69,6 +74,11 @@ export default function CartScreen() {
               <ThemedText type="heading">
                 {item.name}, {variant.label}
               </ThemedText>
+              {extrasLine ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {extrasLine}
+                </ThemedText>
+              ) : null}
               {/* The dish number is labelled and sits away from the stepper's
                   quantity. Unlabelled and adjacent, the two numerals name two
                   different things and look like one. Same helper the checkout
@@ -76,22 +86,22 @@ export default function CartScreen() {
                   two ways; the unit price is always shown HERE because the
                   stepper beside it is what changes the quantity. */}
               <ThemedText type="small" themeColor="textSecondary">
-                {lineMeta(item.number, variant.price, { unitPrice: true })}
+                {lineMeta(item.number, unit, { unitPrice: true })}
               </ThemedText>
             </View>
             <View style={styles.stepper}>
               {/* Variant-keyed: two sizes of one pizza are two addressable
                   lines, not one ambiguous id the bridge cannot resolve. */}
               <BridgeButton
-                uiId={`cart-dec-${item.id}-${variant.id}`}
-                uiLabel={`${item.name} (${variant.label}) verringern`}
+                uiId={`cart-dec-${lineUiId(line)}`}
+                uiLabel={`${item.name} (${variant.label}${extras.length ? ', mit Extras' : ''}) verringern`}
                 style={({ pressed }) => [
                   styles.stepBtn,
                   pressed
                     ? { borderColor: theme.brand, backgroundColor: theme.brand }
                     : { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement },
                 ]}
-                onPress={() => cart.setQuantity(item.id, variant.id, quantity - 1)}>
+                onPress={() => cart.setQuantity(key, quantity - 1)}>
                 {({ pressed }) => (
                   <ThemedText type="smallBold" themeColor={pressed ? 'onBrand' : 'brandText'}>
                     −
@@ -102,15 +112,15 @@ export default function CartScreen() {
                 {quantity}
               </ThemedText>
               <BridgeButton
-                uiId={`cart-inc-${item.id}-${variant.id}`}
-                uiLabel={`${item.name} (${variant.label}) erhöhen`}
+                uiId={`cart-inc-${lineUiId(line)}`}
+                uiLabel={`${item.name} (${variant.label}${extras.length ? ', mit Extras' : ''}) erhöhen`}
                 style={({ pressed }) => [
                   styles.stepBtn,
                   pressed
                     ? { borderColor: theme.brand, backgroundColor: theme.brand }
                     : { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement },
                 ]}
-                onPress={() => cart.setQuantity(item.id, variant.id, quantity + 1)}>
+                onPress={() => cart.setQuantity(key, quantity + 1)}>
                 {({ pressed }) => (
                   <ThemedText type="smallBold" themeColor={pressed ? 'onBrand' : 'brandText'}>
                     +
@@ -119,10 +129,11 @@ export default function CartScreen() {
               </BridgeButton>
             </View>
             <ThemedText type="price" style={styles.lineTotal}>
-              {formatEUR(variant.price * quantity)}
+              {formatEUR(unit * quantity)}
             </ThemedText>
           </View>
-        ))}
+          );
+        })}
 
         <View style={[styles.summary, { borderTopColor: theme.backgroundSelected }]}>
           <OrderTotals totals={totalsFor(cart.subtotal, cart.fulfilment)} fulfilment={cart.fulfilment} />

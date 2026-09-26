@@ -12,6 +12,35 @@ export interface MenuCategory {
   label: string;
   labelEn?: string;
   sortOrder: number;
+  /** Diners may add `Menu.extras` to the dishes in this category. Absent =
+   *  false. */
+  offersExtras?: boolean;
+}
+
+/** An extra ingredient's price on one size. `size` is a variant label
+ *  ("groß 28cm"), matched case-insensitively against the dish's variants —
+ *  see `extraPriceFor` in lib/extras.ts. */
+export interface MenuExtraPrice {
+  size: string;
+  price: number;
+}
+
+/** An extra ingredient a diner can add ("extra Käse"). Offered on a dish only
+ *  when the dish's category `offersExtras` AND the extra has a price for the
+ *  variant being bought — a size with no price is not offered, never free. */
+export interface MenuExtra {
+  id: string;
+  name: string;
+  nameEn?: string;
+  /** Same contract as `MenuItem.allergenCodes`. */
+  allergenCodes: string[];
+  prices: MenuExtraPrice[];
+}
+
+/** An extra as the owner's editor sees it, including unavailable ones. */
+export interface AdminMenuExtra extends MenuExtra {
+  available: boolean;
+  sortOrder: number;
 }
 
 /** One real purchasable thing: a size ("klein"/"groß"/"Blech") or a meat
@@ -60,6 +89,9 @@ export interface Menu {
   categories: MenuCategory[];
   items: MenuItem[];
   allergenLegend: AllergenLegendEntry[];
+  /** Available extras only. Absent from an API — or a cached menu — that
+   *  predates extras; read it as empty. */
+  extras?: MenuExtra[];
 }
 
 /** An item as the owner's editor sees it: everything a diner sees, plus the
@@ -75,6 +107,7 @@ export interface AdminMenu {
   categories: MenuCategory[];
   items: AdminMenuItem[];
   allergenLegend: AllergenLegendEntry[];
+  extras: AdminMenuExtra[];
 }
 
 export type PaymentProvider = 'stripe' | 'paypal' | 'mock';
@@ -96,8 +129,19 @@ export interface OrderLine {
   variantId: string;
   name: string;
   variantLabel: string;
+  /** One unit, extras included: `unitPrice * quantity` is the line total. */
   unitPrice: number;
   quantity: number;
+  /** The extras on each unit, snapshotted with their price. Absent on a line
+   *  without extras. */
+  extras?: OrderLineExtra[];
+}
+
+export interface OrderLineExtra {
+  extraId: string;
+  name: string;
+  /** Cents per unit — already included in `OrderLine.unitPrice`. */
+  price: number;
 }
 
 /** Customer details as an order READ returns them: orders placed before
@@ -341,7 +385,14 @@ export interface PersonalDataExtract {
     deliveryFee: number;
     total: number;
     currency: string;
-    lines: { name: string; variantLabel: string; unitPrice: number; quantity: number }[];
+    lines: {
+      name: string;
+      variantLabel: string;
+      unitPrice: number;
+      quantity: number;
+      /** Absent from a backend that predates extras. */
+      extras?: string[];
+    }[];
   };
   payment: {
     provider: PaymentProvider | null;

@@ -226,7 +226,7 @@ export default function KitchenScreen() {
           'cannot be unlocked by any entry. When state is "shown", `error` is the reason ' +
           'the last load or status change failed, shown above the board. `orders` lists ' +
           'the active orders on the board as { orderId, status, busy, lines: [{ quantity, ' +
-          'name, variantLabel }] } and is empty unless state is "shown". `busy` is true ' +
+          'name, variantLabel, extras: string[] }] } and is empty unless state is "shown". `busy` is true ' +
           'while a status change for that order is in flight. The report follows the ' +
           'last render, so right after setStatus resolves it can still show the old ' +
           'status or busy: true. Poll until the order shows the new status or is gone ' +
@@ -258,6 +258,7 @@ export default function KitchenScreen() {
                       quantity: l.quantity,
                       name: l.name,
                       variantLabel: l.variantLabel,
+                      extras: (l.extras ?? []).map((e) => e.name),
                     })),
                   }))
                 : [],
@@ -477,14 +478,23 @@ function OrderCard({
       ) : null}
 
       <View style={styles.lines}>
-        {/* Snapshotted lines are (item, variant) pairs, so the size is what a
-            cook needs to bake the right one, and two sizes of one dish stay two
-            rows under distinct keys, as on the diner's order screen. */}
-        {order.lines.map((l) => (
-          <View key={`${l.menuItemId}::${l.variantId}`} style={styles.lineRow}>
-            <ThemedText type="small">
-              {l.quantity}× {l.name}, {l.variantLabel}
-            </ThemedText>
+        {/* Snapshotted lines carry the size and the extras, which is what a
+            cook needs to bake the right one. Keyed by position: two lines may
+            share an item and a size and differ only in their extras. The
+            extras are bold — a pizza baked without the cheese the diner paid
+            for is the failure this card exists to prevent. */}
+        {order.lines.map((l, index) => (
+          <View key={`${index}-${l.menuItemId}::${l.variantId}`} style={styles.lineRow}>
+            <View style={styles.lineText}>
+              <ThemedText type="small">
+                {l.quantity}× {l.name}, {l.variantLabel}
+              </ThemedText>
+              {l.extras?.length ? (
+                <ThemedText type="smallBold">
+                  + {l.extras.map((e) => e.name).join(', ')}
+                </ThemedText>
+              ) : null}
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
               {formatEUR(l.unitPrice * l.quantity)}
             </ThemedText>
@@ -559,7 +569,8 @@ const styles = StyleSheet.create({
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   lines: { marginTop: Spacing.xs, gap: Spacing.xs },
-  lineRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  lineRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  lineText: { flex: 1 },
   cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.xs },
   actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, alignItems: 'center' },
 

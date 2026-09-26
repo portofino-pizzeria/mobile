@@ -372,7 +372,13 @@ export default function AdminPrivacyScreen() {
                   Notiz: {extract.customer.notes ?? '—'}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {extract.order.lines.map((l) => `${l.quantity}× ${l.name}, ${l.variantLabel}`).join('\n')}
+                  {extract.order.lines
+                    .map(
+                      (l) =>
+                        `${l.quantity}× ${l.name}, ${l.variantLabel}` +
+                        (l.extras?.length ? ` + ${l.extras.join(', ')}` : ''),
+                    )
+                    .join('\n')}
                   {'\n'}Gesamt: {formatEUR(extract.order.total)}
                 </ThemedText>
                 {extract.personalDataErasedAt ? (

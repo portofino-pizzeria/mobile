@@ -65,6 +65,7 @@ export default function RootLayout() {
               <Stack.Screen name="admin/privacy" options={{ title: 'Datenauskunft / Löschung' }} />
               <Stack.Screen name="admin/item/[id]" options={{ title: 'Gericht' }} />
               <Stack.Screen name="admin/allergene" options={{ title: 'Allergene' }} />
+              <Stack.Screen name="admin/zutaten" options={{ title: 'Extra-Zutaten' }} />
             </Stack>
           </CartProvider>
         </ThemeProvider>

@@ -16,6 +16,7 @@ import { API_BASE_URL } from './config';
 import { readStoredText, writeStoredText } from './storage';
 import type {
   AdminMenu,
+  AdminMenuExtra,
   AdminMenuItem,
   AdminShop,
   AdminWeekday,
@@ -100,6 +101,19 @@ export interface ItemDraft {
   confirmNoAllergens?: boolean;
   available?: boolean;
   variants: VariantDraft[];
+}
+
+/** An extra ingredient as the editor sends it. `prices` is always the
+ *  complete set: a size left out is a size the extra is not offered on. */
+export interface ExtraDraft {
+  name: string;
+  /** Always sent, like a dish's: the form owns the whole list. */
+  allergenCodes: string[];
+  /** Required by the API whenever `allergenCodes` is empty. */
+  confirmNoAllergens?: boolean;
+  available?: boolean;
+  sortOrder?: number;
+  prices: { size: string; priceCents: number }[];
 }
 
 // --- The restaurant's facts (hours, special days, address, Impressum) --------
@@ -317,6 +331,37 @@ export const adminApi = {
       { method: 'POST', body: JSON.stringify(input) },
     );
     return category;
+  },
+
+  /** Whether diners may add extra ingredients to this category's dishes. */
+  async setCategoryExtras(id: string, offersExtras: boolean): Promise<MenuCategory> {
+    const { category } = await areq<{ category: MenuCategory }>(
+      `/api/admin/menu/categories/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify({ offersExtras }) },
+    );
+    return category;
+  },
+
+  async createExtra(draft: ExtraDraft): Promise<AdminMenuExtra> {
+    const { extra } = await areq<{ extra: AdminMenuExtra }>('/api/admin/menu/extras', {
+      method: 'POST',
+      body: JSON.stringify(draft),
+    });
+    return extra;
+  },
+
+  async updateExtra(id: string, draft: Partial<ExtraDraft>): Promise<AdminMenuExtra> {
+    const { extra } = await areq<{ extra: AdminMenuExtra }>(
+      `/api/admin/menu/extras/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(draft) },
+    );
+    return extra;
+  },
+
+  async deleteExtra(id: string): Promise<void> {
+    await areq<{ deleted: string }>(`/api/admin/menu/extras/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
 
   async renameCategory(id: string, label: string): Promise<MenuCategory> {

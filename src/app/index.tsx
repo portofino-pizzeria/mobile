@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BridgeButton } from '@/components/bridge';
+import { ExtrasSheet } from '@/components/extras-sheet';
 import { MascotPass } from '@/components/mascot-pass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,6 +31,7 @@ import {
   resolveDishArt,
   type ResolvedArt,
 } from '@/lib/dish-art';
+import { dishTakesExtras, extrasOffered } from '@/lib/extras';
 import { formatEUR } from '@/lib/format';
 import { homeMascot, tacoMascot } from '@/lib/mascots';
 import { formatCacheAge, readCachedMenu, writeCachedMenu } from '@/lib/menu-cache';
@@ -106,8 +108,9 @@ function buildSections(menu: Menu | null, art: ArtByItem): MenuSection[] {
   return sections;
 }
 
+/** "Allergene: a (Gluten), g (Milch)" — for a dish or an extra ingredient. */
 function allergenText(
-  item: MenuItem,
+  item: { allergenCodes: string[] },
   legend: Map<string, AllergenLegendEntry>,
 ): string {
   if (item.allergenCodes.length === 0) return 'Allergene: keine Angabe';
@@ -130,6 +133,8 @@ export default function MenuScreen() {
   const [error, setError] = useState<string | null>(null);
   // Bumped by the retry button to load the menu again.
   const [attempt, setAttempt] = useState(0);
+  /** The dish whose ingredient picker is open, if any. */
+  const [extrasItem, setExtrasItem] = useState<MenuItem | null>(null);
 
   // The UI Bridge action handlers below are registered once, so reading `menu`
   // directly would capture its initial (null) value. Refs always see the latest.
@@ -182,16 +187,21 @@ export default function MenuScreen() {
         id: 'addToCart',
         label: 'Add one menu item variant to the cart',
         description:
-          'Params: { itemId: string, variantId?: string, quantity?: number }. ' +
+          'Params: { itemId: string, variantId?: string, quantity?: number, ' +
+          'extraIds?: string[] }. ' +
           'variantId names the size / meat choice being ordered and is REQUIRED ' +
           'whenever the item has more than one variant — the action refuses ' +
           'rather than picking one, because guessing charges the wrong price. ' +
-          'It may be omitted only for an item with exactly one variant.',
+          'It may be omitted only for an item with exactly one variant. ' +
+          'extraIds adds extra ingredients from the menu `extras` list; each must be ' +
+          'offered on that size of that dish, or the action refuses. Returns ' +
+          'unitPrice with the extras included.',
         handler: async (params) => {
-          const { itemId, variantId, quantity } = (params ?? {}) as {
+          const { itemId, variantId, quantity, extraIds } = (params ?? {}) as {
             itemId?: string;
             variantId?: string;
             quantity?: number;
+            extraIds?: string[];
           };
 
           if (!itemId) throw new Error('addToCart: itemId is required.');
@@ -229,12 +239,28 @@ export default function MenuScreen() {
             throw new Error(`addToCart: quantity must be a positive integer, got ${quantity}.`);
           }
 
-          cart.add(item, variant, qty);
+          const offered = extrasOffered(menuRef.current!, item, variant);
+          const extras = (extraIds ?? []).map((id) => {
+            const hit = offered.find((o) => o.extra.id === id);
+            if (!hit) {
+              throw new Error(
+                `addToCart: extra "${id}" is not offered on ${item.id} ${variant.label}. ` +
+                  `Offered: ${offered.map((o) => o.extra.id).join(', ') || 'none'}.`,
+              );
+            }
+            return { id, name: hit.extra.name, price: hit.price };
+          });
+          if (new Set(extraIds ?? []).size !== extras.length) {
+            throw new Error('addToCart: each extra may be named only once.');
+          }
+
+          cart.add(item, variant, qty, extras);
           return {
             itemId: item.id,
             variantId: variant.id,
             variantLabel: variant.label,
-            unitPrice: variant.price,
+            extraIds: extras.map((e) => e.id),
+            unitPrice: variant.price + extras.reduce((sum, e) => sum + e.price, 0),
             quantity: qty,
           };
         },
@@ -668,6 +694,20 @@ export default function MenuScreen() {
                       ))}
                     </View>
                   )}
+                  {dishTakesExtras(menu, item) ? (
+                    <BridgeButton
+                      uiId={`menu-extras-${item.id}`}
+                      uiLabel={`${item.name} mit Extra-Zutaten bestellen`}
+                      style={({ pressed }) => [
+                        styles.extrasBtn,
+                        { borderColor: pressed ? theme.brand : theme.backgroundSelected },
+                      ]}
+                      onPress={() => setExtrasItem(item)}>
+                      <ThemedText type="smallBold" themeColor="brandText">
+                        + Extra-Zutaten wählen
+                      </ThemedText>
+                    </BridgeButton>
+                  ) : null}
                 </View>
               </View>
             );
@@ -816,6 +856,14 @@ export default function MenuScreen() {
           trigger={tacoCue}
         />
       ) : null}
+
+      <ExtrasSheet
+        menu={menu}
+        item={extrasItem}
+        allergenText={(codes) => allergenText(codes, legendByCode)}
+        onClose={() => setExtrasItem(null)}
+        onAdd={(item, variant, extras) => cart.add(item, variant, 1, extras)}
+      />
 
       {cart.count > 0 ? (
         <SafeAreaView edges={['bottom']} style={styles.cartBarWrap} pointerEvents="box-none">
@@ -1058,6 +1106,15 @@ const styles = StyleSheet.create({
   rowTitle: { flex: 1, gap: Spacing.xs },
   rowBody: { gap: Spacing.xs },
   variants: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
+  extrasBtn: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
