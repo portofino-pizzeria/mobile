@@ -107,7 +107,8 @@ export interface AdminMenu {
   categories: MenuCategory[];
   items: AdminMenuItem[];
   allergenLegend: AllergenLegendEntry[];
-  extras: AdminMenuExtra[];
+  /** Absent from a backend that predates extras; read it as empty. */
+  extras?: AdminMenuExtra[];
 }
 
 export type PaymentProvider = 'stripe' | 'paypal' | 'mock';

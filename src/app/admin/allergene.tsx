@@ -92,7 +92,7 @@ export default function AdminAllergensScreen() {
               code: entry.code,
               label: entry.label,
               resolved: entry.resolved,
-              usedBy: (current?.items ?? [])
+              usedBy: [...(current?.items ?? []), ...(current?.extras ?? [])]
                 .filter((i) => i.allergenCodes.includes(entry.code))
                 .map((i) => i.id),
             })),
@@ -135,10 +135,15 @@ export default function AdminAllergensScreen() {
     );
   }
 
+  /** Dishes AND extra ingredients that print this code — deleting a label a
+   *  cheese extra still prints shows diners "unbekannt" just the same. */
   function usedBy(code: string): string[] {
-    return (menu?.items ?? [])
-      .filter((i) => i.allergenCodes.includes(code))
-      .map((i) => i.name);
+    return [
+      ...(menu?.items ?? []).filter((i) => i.allergenCodes.includes(code)).map((i) => i.name),
+      ...(menu?.extras ?? [])
+        .filter((e) => e.allergenCodes.includes(code))
+        .map((e) => `Zutat ${e.name}`),
+    ];
   }
 
   const unresolved = menu.allergenLegend.filter((e) => !e.resolved);
@@ -224,9 +229,9 @@ export default function AdminAllergensScreen() {
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
                     {dishes.length === 0
-                      ? 'Steht bei keinem Gericht.'
+                      ? 'Steht bei keinem Gericht und keiner Zutat.'
                       : `Steht bei ${dishes.length} ${
-                          dishes.length === 1 ? 'Gericht' : 'Gerichten'
+                          dishes.length === 1 ? 'Eintrag' : 'Einträgen'
                         }: ${dishes.slice(0, 4).join(', ')}${dishes.length > 4 ? ' …' : ''}`}
                   </ThemedText>
                   <View style={styles.row}>
@@ -249,7 +254,7 @@ export default function AdminAllergensScreen() {
                             dishes.length === 0
                               ? `Die Bezeichnung für „${entry.code}“ wirklich löschen?`
                               : `„${entry.code}“ steht noch bei ${dishes.length} ${
-                                  dishes.length === 1 ? 'Gericht' : 'Gerichten'
+                                  dishes.length === 1 ? 'Eintrag' : 'Einträgen'
                                 }. Der Code bleibt dort stehen — Gäste sehen dann „unbekannt“. Trotzdem löschen?`
                           }
                           confirmTitle="Ja, löschen"

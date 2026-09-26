@@ -61,6 +61,12 @@ function sizeSlug(size: string): string {
     .replace(/^-|-$/g, '');
 }
 
+/** Every size ANY dish carries, whether or not its category offers extras —
+ *  what decides whether a stored price's size still exists at all. */
+function carriedSizeKeys(menu: AdminMenu): Set<string> {
+  return new Set(menu.items.flatMap((i) => i.variants.map((v) => sizeKey(v.label))));
+}
+
 /** The form's state for one extra: text as typed, keyed by size. */
 interface Form {
   /** `null` while creating a new extra. */
@@ -176,6 +182,7 @@ export default function AdminExtrasScreen() {
   );
 
   const sizes = useMemo(() => (menu ? sizesOf(menu) : []), [menu]);
+  const carried = useMemo(() => (menu ? carriedSizeKeys(menu) : new Set<string>()), [menu]);
 
   useUIComponent({
     id: 'admin-extras',
@@ -241,7 +248,7 @@ export default function AdminExtrasScreen() {
     run(() =>
       current.id
         ? adminApi.updateExtra(current.id, draft)
-        : adminApi.createExtra({ ...draft, sortOrder: menu?.extras.length ?? 0 }),
+        : adminApi.createExtra({ ...draft, sortOrder: menu?.extras?.length ?? 0 }),
     ).then((ok) => {
       if (ok) setForm(null);
     });
@@ -279,12 +286,13 @@ export default function AdminExtrasScreen() {
           </ThemedText>
         )}
 
-        {menu.extras.map((extra) =>
+        {(menu.extras ?? []).map((extra) =>
           form?.id === extra.id ? (
             <ExtraForm
               key={extra.id}
               form={form}
               sizes={sizes}
+              carried={carried}
               busy={busy}
               onChange={setForm}
               onSave={() => save(form)}
@@ -353,6 +361,7 @@ export default function AdminExtrasScreen() {
           <ExtraForm
             form={form}
             sizes={sizes}
+            carried={carried}
             busy={busy}
             onChange={setForm}
             onSave={() => save(form)}
@@ -382,6 +391,7 @@ export default function AdminExtrasScreen() {
 function ExtraForm({
   form,
   sizes,
+  carried,
   busy,
   onChange,
   onSave,
@@ -389,17 +399,26 @@ function ExtraForm({
 }: {
   form: Form;
   sizes: string[];
+  /** Size keys some dish carries — see `carriedSizeKeys`. */
+  carried: Set<string>;
   busy: boolean;
   onChange: (next: Form) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
   const slug = form.id ?? 'new';
-  // Sizes this extra is priced for that no dish carries any more stay visible,
-  // flagged, so they can be cleared on purpose rather than lost unseen.
-  const stale = Object.keys(form.prices).filter(
+  // Prices for sizes outside the columns stay visible so saving never drops
+  // them unseen. Only a size NO dish carries is flagged as gone; one whose
+  // category merely has extras switched off is labelled as such.
+  const others = Object.keys(form.prices).filter(
     (size) => !sizes.some((s) => sizeKey(s) === sizeKey(size)),
   );
+  const labelFor = (size: string) =>
+    !others.includes(size)
+      ? size
+      : carried.has(sizeKey(size))
+        ? `${size} (Kategorie ohne Extra-Zutaten)`
+        : `${size} (steht bei keinem Gericht mehr)`;
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -432,11 +451,11 @@ function ExtraForm({
       ) : null}
 
       <ThemedText type="smallBold">Aufpreis je Größe</ThemedText>
-      {[...sizes, ...stale].map((size) => (
+      {[...sizes, ...others].map((size) => (
         <AdminField
           key={size}
           uiId={`admin-extra-price-${slug}-${sizeSlug(size)}`}
-          label={stale.includes(size) ? `${size} (steht bei keinem Gericht mehr)` : size}
+          label={labelFor(size)}
           placeholder="nicht erhältlich"
           keyboardType="decimal-pad"
           value={form.prices[size] ?? ''}
