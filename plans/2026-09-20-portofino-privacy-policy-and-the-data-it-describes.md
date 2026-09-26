@@ -15,7 +15,7 @@
 > | 1 — the thin mobile half (`my-orders.ts`) | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `src/lib/my-orders.ts`, `api.ts` (token round-trip), `checkout.tsx`, `order/[id].tsx` (the `customerRedacted` third branch) |
 > | 2 — retention and erasure mechanics | **MERGED** | backend#26 |
 > | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
-> | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
+> | 3 — log retention (infra half) | **MERGED and APPLIED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15`. Applied 2026-09-25 from [infra#12](https://github.com/portofino-pizzeria/infra/pull/12), which fixes a tag value CloudWatch rejected (a comma). #12 is still open, so `master` lags production by that one character until it lands. All six log groups are at 14 days; see "Log groups — done" below |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
 > | 5 — the page, its text, the intent correction | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it merged in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) (2026-09-25) |
 > | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up [mobile#44](https://github.com/portofino-pizzeria/mobile/pull/44) routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
@@ -148,8 +148,27 @@
 >   the journal.** Written into the 0006 header; a test asserts the journal's
 >   `when` values are sorted and that tags and files correspond.
 > - **Phase 3's infra probe found SIX log groups, not two.** See the Phase 3
->   note below; four are orphans Terraform cannot reach, and they are an
->   operator item.
+>   note below; four are orphans Terraform cannot reach, and they ~~are an
+>   operator item~~ **were set to 14 days on 2026-09-25** (see "Log groups —
+>   done" below).
+>
+> **Log groups — done (verified 2026-09-26, account `634737373143`, eu-central-1).**
+> - All six `/aws/apprunner/portofino-production-api/*` groups read
+>   `retentionInDays: 14`. The two live ones (`454cad91…/application`,
+>   `…/service`) belong to `aws_cloudwatch_log_group.apprunner` in the S3 state
+>   (`production/terraform.tfstate`, serial 25). The four orphans were set out
+>   of band with `put-retention-policy`. CloudTrail shows six `PutRetentionPolicy`
+>   calls by `portofino-deploy` at 2026-09-25 19:36 CEST.
+> - Expiry is working. The live `application` group's oldest remaining event is
+>   2026-09-12 06:37 UTC, exactly 14 days before the check, and the orphan
+>   `4e5fc7fd…/application` group now holds no events. The pre-backend#26 log
+>   lines, which carry an IP address on every request, therefore age out by
+>   **2026-10-05**, 14 days after that deploy. No action is needed for that.
+> - `terraform plan` (1.15.8) from the infra#12 head `634d315` reports **No
+>   changes**. A plan from `master` would try to restore the rejected comma, so
+>   **do not apply from `master` until infra#12 lands**.
+> - Still true: replacing the App Runner service creates two new groups under a
+>   new service id, and those need the same import (`infra/README.md`).
 >
 > **Coord: no work unit exists, and none was created.** The only live
 > credential on this box is bound to tenant `c231d9da-…`
@@ -552,9 +571,10 @@ at `0005` on `5ac7046`).
   by earlier, destroyed App Runner services — and **every one reads *Never
   expire***. The live `application` group alone holds **~199 MB**. Terraform can
   manage only the current service's two, because the other four correspond to
-  no resource in this state. **The four orphans are an operator item**
-  (`aws logs put-retention-policy`, or delete them outright — the commands are
-  in `infra/README.md`). Left undone, the retention policy is decorative: the
+  no resource in this state. ~~**The four orphans are an operator item**~~
+  **Done 2026-09-25: all four set to 14 days** with `aws logs put-retention-policy`
+  (the commands are in `infra/README.md`; see "Log groups — done" in the status
+  block). Left undone, the retention policy is decorative: the
   IP addresses are still there, in groups nothing expires. The same import is
   needed again whenever the App Runner service is replaced, since the service id
   is part of the group name. A declarative Terraform `import` block was
