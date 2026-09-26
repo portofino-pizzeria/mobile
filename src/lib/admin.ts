@@ -407,8 +407,11 @@ export const adminApi = {
     };
   },
 
-  async deleteAllergen(code: string): Promise<{ stillUsedBy: string[] }> {
-    return areq<{ deleted: string; stillUsedBy: string[] }>(
+  /** `stillUsedByExtras` is absent from a backend that predates extras. */
+  async deleteAllergen(
+    code: string,
+  ): Promise<{ stillUsedBy: string[]; stillUsedByExtras?: string[] }> {
+    return areq<{ deleted: string; stillUsedBy: string[]; stillUsedByExtras?: string[] }>(
       `/api/admin/menu/allergens/${encodeURIComponent(code)}`,
       { method: 'DELETE' },
     );
