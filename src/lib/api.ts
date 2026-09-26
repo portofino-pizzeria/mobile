@@ -38,10 +38,20 @@ export function errorReason(e: unknown): string {
   return e.message || `Anfrage fehlgeschlagen (${e.status}).`;
 }
 
+/**
+ * `Content-Type: application/json`, but only on a request that has a body. The
+ * backend (Fastify) answers 400 "Body cannot be empty when content-type is set
+ * to 'application/json'" to a bodyless POST or DELETE that declares one, which
+ * is how the owner's "forget" and every delete button once failed.
+ */
+export function jsonContentType(init?: RequestInit): Record<string, string> {
+  return init?.body != null ? { 'Content-Type': 'application/json' } : {};
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { ...jsonContentType(init), ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
     let message = `Anfrage fehlgeschlagen (${res.status}).`;

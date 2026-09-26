@@ -8,6 +8,9 @@
 > **([mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43)) now that**
 > **the intent correction is applied (v6); what remains is operator- and**
 > **owner-held (below) — everything buildable by an agent has landed or is in the train.**
+> **Phase 5/6 UI Bridge gates run 2026-09-26 through the dev-only web transport:**
+> **both PASS; the Phase 6 run found that `forget` and every owner delete**
+> **failed with 400, fixed by the follow-up to mobile#46 (see below).**
 >
 > | Phase | State | Where |
 > |---|---|---|
@@ -18,7 +21,7 @@
 > | 3 — log retention (infra half) | **MERGED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15` |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
 > | 5 — the page, its text, the intent correction | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it merged in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) (2026-09-25) |
-> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up [mobile#44](https://github.com/portofino-pizzeria/mobile/pull/44) routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
+> | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up [mobile#44](https://github.com/portofino-pizzeria/mobile/pull/44) routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does. The gate's 2026-09-26 run found `forget` failing with 400 (a JSON `Content-Type` on a bodyless POST); fixed by the follow-up to mobile#46 |
 >
 > This document is [mobile#33](https://github.com/portofino-pizzeria/mobile/pull/33) (merged).
 >
@@ -62,9 +65,66 @@
 > *Success* on Terraform **1.15.8** — the version `infra/.github/workflows/ci.yml`
 > pins; the box's own 1.9.8 is below the repo's `>= 1.10` floor and cannot even
 > init. **Not run, and not claimed:** `terraform plan` / `apply` (CI holds no
-> AWS credentials and an operator applies), and every Phase 5/6 gate.
+> AWS credentials and an operator applies), and every Phase 5/6 gate *(both
+> since run; see the next paragraph)*.
 >
-> **Why the Phase 5/6 UI Bridge runs are still not run (checked 2026-09-25, at
+> **Phase 5/6 UI Bridge gates — run 2026-09-26: both PASS, after one fix.**
+> The paragraph below this one said the gates could not run on web. That was
+> true until mobile `b946bec` added a dev-only web transport
+> (`src/lib/ui-bridge-web-adapter.ts`, `window.__uiBridgeNative`). Both gates
+> were then run locally through it: backend `origin/master` `94f6731` on
+> `:18180` against throwaway databases in `backend-db-1` (migrated, seeded,
+> dropped afterwards; Stripe unset, so payments went through the mock), web
+> `npx expo start --web --clear` on `:18181`, headless Chromium, and no request
+> to either production host.
+>
+> - **Phase 5 — PASS** at mobile `b946bec`. `menu-datenschutz` pressed once
+>   from the menu, and `checkout-datenschutz` once from checkout, each reached
+>   `/datenschutz` with all nine sections. With `/api/shop` answering 500, the
+>   page still rendered all nine sections (`getDatenschutzStatus` →
+>   `{"state":"failed","controllerKnown":false,…}`), and `wird ergänzt`
+>   appeared twice: the Verantwortlicher block with its retry button, and the
+>   Stripe transfer line that "What Phase 5 still owes" already names. Lint,
+>   `tsc --noEmit` and `expo export -p web` (with `/datenschutz`) all clean.
+> - **Phase 6 — FAILED as shipped, PASS with the fix in this PR.** `signIn`,
+>   `searchByPhone` and `openExtract` worked, but every `forget` answered
+>   **400** `Body cannot be empty when content-type is set to
+>   'application/json'`. `areq` (`src/lib/admin.ts`) set that header on every
+>   request, and `forget` is a bodyless POST, so Fastify refused it before the
+>   route ran. **The owner could not erase anything.** The same held for the
+>   four bodyless DELETEs (special day, menu item, category, allergen). The fix
+>   sends `Content-Type` only with a body (`jsonContentType` in
+>   `src/lib/api.ts`, used by `areq`, `kreq` and `request`). Re-run with the
+>   fix and no harness shim:
+>   - `forget` on a `ready` delivery order → `{"erased":true,…}`; its kitchen
+>     card went from the full customer block to "Keine Kontaktdaten
+>     hinterlegt", with "2× Salmone, normal 23,80 €" and the total 26,79 €
+>     still shown. A repeat `forget` → `{"erased":false,…"bereits gelöscht"…}`.
+>   - `forget` on a `paid` order threw the 409 reason
+>     (`"Diese Bestellung ist bezahlt und noch nicht fertig. …"`), not
+>     `{ erased: true }`.
+>   - An owner delete: `admin-shop.addVacation` then `deleteSpecialDay` →
+>     `DELETE /api/admin/shop/special-days/3?version=2` answered 200.
+>   - A request listener saw 35 API requests and none carried a JSON
+>     `Content-Type` with an empty body.
+>
+> Minor observations from the run, not fixed:
+> - The extract's Stripe notice is static, so a mock-paid order's extract says
+>   Stripe handled the payment. That is dev-only: PayPal is paid through the
+>   mock, and the mock is refused once Stripe is live, so every paid
+>   production order is a Stripe order.
+> - A `forget` refused without the extract open shows nothing on screen. The
+>   button exists only inside the extract, so only a Bridge caller can reach
+>   this, and it gets the German reason as the thrown error.
+> - Bridge `type` into `kitchen-token` immediately followed by a press on
+>   `kitchen-token-submit` sometimes left the board on the password prompt.
+>   Waiting a second always worked. It looks like the one-render-stale handler
+>   `checkout.tsx` documents, and a finger cannot type and press in the same
+>   render. Unconfirmed.
+> - `npm run db:migrate` applied nothing on Windows; fixed in
+>   [backend#33](https://github.com/portofino-pizzeria/backend/pull/33).
+>
+> ~~**Why the Phase 5/6 UI Bridge runs are still not run (checked 2026-09-25, at
 > `37f0455`).** Both gates drive the app's own registered components
 > (`admin-privacy`, `order`). The app gives its UI Bridge server a transport only
 > on native dev builds (`src/app/_layout.tsx:34-35`:
@@ -80,7 +140,7 @@
 > (`2026-09-13-portofino-backend-payment-result-pages-link-back-to-the-order.md`,
 > Phase 2 step 5). The gates need either a native dev build on a device or
 > emulator, or a web transport in the ui-bridge library. The second is outside
-> this plan's repos. Neither gate is claimed until one of the two runs.
+> this plan's repos. Neither gate is claimed until one of the two runs.~~ *(Superseded by the run above.)*
 >
 > **Deviations from the plan as vetted, each deliberate:**
 > - ~~**Phase 1's mobile half was NOT built.** `mobile/src/lib/my-orders.ts`, the
