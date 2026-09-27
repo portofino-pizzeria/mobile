@@ -217,6 +217,9 @@ export default function AdminMenuScreen() {
     itemsByCategory.set(item.categoryId, list);
   }
   const categories = [...menu.categories].sort((a, b) => a.sortOrder - b.sortOrder);
+  /** How many extra ingredients exist — shown on the link under each
+   *  category that offers them. */
+  const extraCount = menu.extras?.length ?? 0;
   const unresolved = menu.allergenLegend.filter((e) => !e.resolved);
 
   function moveCategory(index: number, delta: number) {
@@ -256,6 +259,14 @@ export default function AdminMenuScreen() {
           />
           <ThemedText type="small" themeColor="textSecondary">
             Auskunft und Löschung auf Anfrage einer Kundin oder eines Kunden (Art. 15/17 DSGVO).
+          </ThemedText>
+          <AdminButton
+            uiId="admin-open-extras"
+            title="Extra-Zutaten und Preise"
+            onPress={() => router.push('/admin/zutaten')}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Zutaten, die Gäste zur Pizza dazubestellen — mit Preis je Größe.
           </ThemedText>
         </View>
 
@@ -427,6 +438,23 @@ export default function AdminMenuScreen() {
                   run(() => adminApi.setCategoryExtras(category.id, !category.offersExtras))
                 }
               />
+              {/* The switch only says WHETHER the category takes extras; the
+                  extras themselves and their prices live on their own screen.
+                  An owner who just switched them on is looking here for that
+                  screen, so it is linked right under the switch. */}
+              {category.offersExtras ? (
+                <AdminButton
+                  uiId={`admin-category-extras-edit-${category.id}`}
+                  uiLabel={`Extra-Zutaten und Preise für ${category.label} bearbeiten`}
+                  title={
+                    extraCount === 0
+                      ? '+ Extra-Zutaten anlegen'
+                      : `Extra-Zutaten und Preise bearbeiten (${extraCount})`
+                  }
+                  tone="primary"
+                  onPress={() => router.push('/admin/zutaten')}
+                />
+              ) : null}
 
               <View style={styles.row}>
                 <View style={styles.grow}>
@@ -491,12 +519,6 @@ export default function AdminMenuScreen() {
           uiId="admin-open-allergens"
           title="Allergene verwalten"
           onPress={() => router.push('/admin/allergene')}
-        />
-
-        <AdminButton
-          uiId="admin-open-extras"
-          title="Extra-Zutaten und Preise"
-          onPress={() => router.push('/admin/zutaten')}
         />
 
         <View style={{ height: Spacing.xxxl }} />
