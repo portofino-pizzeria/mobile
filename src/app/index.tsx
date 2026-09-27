@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -21,7 +20,7 @@ import { ExtrasSheet } from '@/components/extras-sheet';
 import { MascotPass } from '@/components/mascot-pass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Radius, Spacing, Type } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { upcomingSpecialDay, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, errorReason } from '@/lib/api';
@@ -988,18 +987,18 @@ function DatenschutzLink({ onDark = false }: { onDark?: boolean }) {
   );
 }
 
-/** `PORTOFINO.` — the design's wordmark: the gold serif, and an ink full stop
- *  (gold on the dark footer, as in `footer.tsx`). A logotype, so the gold carries no contrast
- *  requirement. */
+/** The restaurant's own logo, rendered from `assets/sources/Logo.pdf`. Its white halo carries
+ *  it on both the white header and the dark footer, so one image serves both; the footer
+ *  only draws it larger. */
 function Wordmark({ onDark = false }: { onDark?: boolean }) {
-  const theme = useTheme();
   return (
-    <Text
+    <Image
+      source={require('../../assets/images/logo.png')}
       accessibilityRole="header"
-      style={[styles.wordmark, { color: theme.brand }]}>
-      PORTOFINO
-      <Text style={{ color: onDark ? theme.brand : theme.text }}>.</Text>
-    </Text>
+      accessibilityLabel="Portofino Pizzeria"
+      contentFit="contain"
+      style={onDark ? styles.logoFooter : styles.logoHeader}
+    />
   );
 }
 
@@ -1147,13 +1146,9 @@ const styles = StyleSheet.create({
   // --- footer ---
   footer: { paddingTop: Spacing.xxxl },
   footerInner: { gap: Spacing.lg },
-  wordmark: {
-    fontFamily: Type.serif,
-    fontSize: 22,
-    lineHeight: Platform.OS === 'android' ? 30 : 28,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
+  /** `assets/images/logo.png` is 800×358. */
+  logoHeader: { height: 40, aspectRatio: 800 / 358 },
+  logoFooter: { height: 64, aspectRatio: 800 / 358 },
 
   // --- header & cart ---
   headerCart: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 44, paddingHorizontal: Spacing.xs },

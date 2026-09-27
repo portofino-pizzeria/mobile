@@ -17,7 +17,7 @@ export default function RootLayout() {
 
   // Header chrome, per the v0 design's `.portofino-header`: a white bar with a
   // hairline under it (`border-b border-gray-200`) and ink serif titles. The
-  // menu screen replaces the title with the gold wordmark.
+  // menu screen replaces the title with the restaurant logo.
   const headerScreenOptions = {
     headerStyle: { backgroundColor: theme.background },
     headerShadowVisible: true,
