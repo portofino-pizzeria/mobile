@@ -266,7 +266,7 @@ export default function AdminMenuScreen() {
             onPress={() => router.push('/admin/zutaten')}
           />
           <ThemedText type="small" themeColor="textSecondary">
-            Zutaten, die Gäste zur Pizza dazubestellen — mit Preis je Größe.
+            Zutaten, die Gäste zu einem Gericht dazubestellen — mit Preis je Größe.
           </ThemedText>
         </View>
 
