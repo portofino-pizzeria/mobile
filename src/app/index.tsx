@@ -448,7 +448,7 @@ export default function MenuScreen() {
   const header = (
     <Stack.Screen
       options={{
-        headerTitle: () => <Wordmark />,
+        headerTitle: () => <Logo />,
         headerRight: () =>
           cart.count > 0 ? (
             <BridgeButton
@@ -811,7 +811,7 @@ export default function MenuScreen() {
       key="footer"
       style={[styles.footer, { backgroundColor: theme.footer, paddingBottom: Spacing.xxxl + (cart.count > 0 ? 88 : 0) }]}>
       <View style={[styles.column, styles.footerInner]}>
-        <Wordmark onDark />
+        <Logo onDark />
         <ThemedText type="small" themeColor="onFooterMuted">
           © {new Date().getFullYear()} Portofino Pizzeria · Essen
         </ThemedText>
@@ -987,18 +987,21 @@ function DatenschutzLink({ onDark = false }: { onDark?: boolean }) {
   );
 }
 
-/** The restaurant's own logo, rendered from `assets/sources/Logo.pdf`. Its white halo carries
- *  it on both the white header and the dark footer, so one image serves both; the footer
- *  only draws it larger. */
-function Wordmark({ onDark = false }: { onDark?: boolean }) {
+/** The restaurant's own logo, rendered from the monorepo's `assets/sources/Logo.pdf` (outside
+ *  this repo). Its white halo carries it on both the white header and the dark footer, so one
+ *  image serves both; the footer only draws it larger. The heading semantics sit on the wrapper:
+ *  on iOS expo-image's native view is not an accessibility element, so a label on it is never
+ *  announced. */
+function Logo({ onDark = false }: { onDark?: boolean }) {
   return (
-    <Image
-      source={require('../../assets/images/logo.png')}
-      accessibilityRole="header"
-      accessibilityLabel="Portofino Pizzeria"
-      contentFit="contain"
-      style={onDark ? styles.logoFooter : styles.logoHeader}
-    />
+    <View accessible accessibilityRole="header" accessibilityLabel="Portofino Pizzeria">
+      <Image
+        source={require('../../assets/images/logo.png')}
+        accessible={false}
+        contentFit="contain"
+        style={onDark ? styles.logoFooter : styles.logoHeader}
+      />
+    </View>
   );
 }
 
@@ -1147,8 +1150,10 @@ const styles = StyleSheet.create({
   footer: { paddingTop: Spacing.xxxl },
   footerInner: { gap: Spacing.lg },
   /** `assets/images/logo.png` is 800×358. */
-  logoHeader: { height: 40, aspectRatio: 800 / 358 },
-  logoFooter: { height: 64, aspectRatio: 800 / 358 },
+  // `alignSelf` keeps web from stretching the box to the column width (it then ignores
+  // `aspectRatio` and centres the logo); native derives the width from the ratio either way.
+  logoHeader: { height: 40, aspectRatio: 800 / 358, alignSelf: 'flex-start' },
+  logoFooter: { height: 64, aspectRatio: 800 / 358, alignSelf: 'flex-start' },
 
   // --- header & cart ---
   headerCart: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 44, paddingHorizontal: Spacing.xs },
