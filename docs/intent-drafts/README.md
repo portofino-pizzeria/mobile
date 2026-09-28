@@ -6,6 +6,20 @@ they disagree, the served one wins and this copy is stale. Read it with
 `/policy get domain_spec visual-system` from a session bound to the `pizzeria`
 tenant, or at `/admin/coord/prompt-documents`.
 
+## 2026-09-28 — the wordmark is now a logo image, not text (NOT YET APPLIED)
+
+| File | Document | Operation |
+|---|---|---|
+| `domain_spec--visual-system--APPEND-logo-replaces-wordmark.md` | `domain_spec/visual-system` | correction (the REPLACE body's text wordmark is stale after PR #56), **not yet written** |
+
+Post-merge follow-up for PR [#56](https://github.com/portofino-pizzeria/mobile/pull/56),
+which swapped the gold serif `Wordmark` component for a real logo image. No
+plan file drove #56, and this session held no `pizzeria`-bound coord
+credential to write the served document directly (coord's write door was
+unreachable at the time). Until it is applied, the served
+`domain_spec/visual-system` still describes a text wordmark that no longer
+exists in code.
+
 ## 2026-09-20 — the saved-details declaration was wrong in two ways (APPLIED)
 
 | File | Document | Operation |
