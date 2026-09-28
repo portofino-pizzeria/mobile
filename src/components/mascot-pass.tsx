@@ -78,6 +78,7 @@ export function MascotPass({ id, animation, stopAt, bottom, repeat = true, trigg
   const offLeft = -width;
 
   const lottie = useRef<LottieView>(null);
+  const walkStarted = useRef(false);
   const x = useSharedValue(offLeft);
   const phase = useRef<'idle' | 'in' | 'gag' | 'out'>('idle');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,9 +93,24 @@ export function MascotPass({ id, animation, stopAt, bottom, repeat = true, trigg
   // matching `loop` prop. On web the player's `play(start, end)` only selects
   // the segment, so it also needs a `resume()` to start.
   useEffect(() => {
-    if (!cue || !ready) return;
+    if (!cue || !ready) return undefined;
     lottie.current?.play(cue.segment[0], cue.segment[1]);
     if (Platform.OS === 'web') lottie.current?.resume();
+    // The web player can silently drop that call: dotlottie-web's
+    // setSegment() is a no-op until its wasm core has finished loading, and
+    // the position slide (driven separately by Reanimated) runs regardless —
+    // so a cold first load shows the mascot floating in, frozen. A loop that
+    // truly started fires onAnimationLoop well within one walk cycle; if it
+    // hasn't by then, reissue the play once.
+    if (Platform.OS !== 'web' || !cue.loop) return undefined;
+    walkStarted.current = false;
+    const confirm = setTimeout(() => {
+      if (!walkStarted.current) {
+        lottie.current?.play(cue.segment[0], cue.segment[1]);
+        lottie.current?.resume();
+      }
+    }, Mascot.walkConfirmMs);
+    return () => clearTimeout(confirm);
   }, [cue, ready]);
 
   const stop = useCallback(() => {
@@ -229,6 +245,9 @@ export function MascotPass({ id, animation, stopAt, bottom, repeat = true, trigg
             loop={cue?.loop ?? false}
             progress={reduceMotion && Platform.OS !== 'web' ? animation.stillFrame / animation.gag[1] : undefined}
             onAnimationLoaded={() => setLoaded(true)}
+            onAnimationLoop={() => {
+              walkStarted.current = true;
+            }}
             onAnimationFinish={onFinish}
           />
         </BridgeButton>

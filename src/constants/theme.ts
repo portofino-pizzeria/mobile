@@ -166,6 +166,12 @@ export const Mascot = {
   stageBusyRetryMs: 8_000,
   /** Pause between reaching a section and its own mascot walking on. */
   triggerDelayMs: 250,
+  /** Web only: the walk segment is 144 frames at 60fps (see mascots.ts), so a
+   *  play() call that actually took effect loops within 2.4s. If it hasn't by
+   *  this deadline, MascotPass reissues it once — covers dotlottie-web's
+   *  setSegment() silently no-oping when the first play() lands before its
+   *  wasm core has finished loading. */
+  walkConfirmMs: 2600,
 } as const;
 
 /** `max-w-4xl` — the content column cap on wide screens (tablet, web). The
