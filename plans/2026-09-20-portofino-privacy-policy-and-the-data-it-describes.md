@@ -1,13 +1,31 @@
 # Portofino — the privacy policy (Datenschutzerklärung), and fixing the four things it would otherwise have to confess (2026-09-20)
 
-> **Status: IN PROGRESS 2026-09-26 — Phase 5/6 UI Bridge gates PASS (run below, with the `forget` fix it forced); Phases 1-4 MERGED; Phase 1's mobile half,**
-> **5 and 6 MERGED via [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35)**
-> **(admin/privacy.tsx bugfixed by an independent review in**
-> **[mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36));**
-> **Phase 5's § 25 TDDDG sentence added by the #36 post-merge follow-up**
-> **([mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43)) now that**
-> **the intent correction is applied (v6); what remains is operator- and**
-> **owner-held (below) — everything buildable by an agent has landed or is in the train.**
+> **Status: SHIPPED 2026-09-28, for everything an agent can build.** All six
+> phases are **MERGED** — verified by reading merge state for every PR named in
+> this document, not assumed from an earlier snapshot (`mobile#35`, `#36`,
+> `#43`, `#44`, `backend#26`, `infra#10` all confirmed `MERGED`; see the table
+> below). Phase 5/6 UI Bridge gates PASS (run below, with the `forget` fix it
+> forced). Phase 5's § 25 TDDDG sentence, added by the #36 post-merge follow-up
+> ([mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43)), is in the
+> shipped text now that the intent correction is applied (v6). The last owed
+> **technical** item — the App Runner log groups' retention — was verified done
+> against the live account on 2026-09-26
+> ([mobile#51](https://github.com/portofino-pizzeria/mobile/pull/51), this
+> document's own post-merge follow-up): all six groups at 14 days, expiry
+> working, and `terraform plan` from infra#12's head reports no changes. infra#12
+> itself (the one-character tag fix, already applied to production) remains open
+> pending coord's own merge train — that is coord's merge queue, not agent work
+> left undone here. **What remains past this point is entirely owner- and
+> operator-held** (see "Owed" below): the owner's legal facts and their tax
+> advisor's retention-period sign-off; the operator's AVV, the AWS/Stripe DPA
+> acceptance, a lawyer's review of the German text, and a decision on
+> pre-migration DB snapshot retention. None of it is agent-actionable, and this
+> post-merge follow-up found no unwired code, dead exports, or missing
+> integration points to fix — `admin/privacy.tsx`'s three UI Bridge actions
+> (`searchByPhone`, `openExtract`, `forget`) are fully wired to
+> `adminPrivacyApi`, and the `datenschutz.tsx` page's only "gap" is the
+> deliberate `wird ergänzt` marker D1 designed for the still-missing owner
+> facts.
 >
 > | Phase | State | Where |
 > |---|---|---|
@@ -15,7 +33,7 @@
 > | 1 — the thin mobile half (`my-orders.ts`) | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `src/lib/my-orders.ts`, `api.ts` (token round-trip), `checkout.tsx`, `order/[id].tsx` (the `customerRedacted` third branch) |
 > | 2 — retention and erasure mechanics | **MERGED** | backend#26 |
 > | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
-> | 3 — log retention (infra half) | **MERGED and APPLIED** | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15`. Applied 2026-09-25 from [infra#12](https://github.com/portofino-pizzeria/infra/pull/12), which fixes a tag value CloudWatch rejected (a comma). #12 is still open, so `master` lags production by that one character until it lands. All six log groups are at 14 days; see "Log groups — done" below |
+> | 3 — log retention (infra half) | **MERGED and APPLIED**; verification **MERGED** [mobile#51](https://github.com/portofino-pizzeria/mobile/pull/51) | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15`. Applied 2026-09-25 from [infra#12](https://github.com/portofino-pizzeria/infra/pull/12), which fixes a tag value CloudWatch rejected (a comma). #12 is still open, so `master` lags production by that one character until it lands — coord's merge train, not agent work owed. All six log groups are at 14 days, verified again 2026-09-26; see "Log groups — done" below |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
 > | 5 — the page, its text, the intent correction | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it merged in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) (2026-09-25) |
 > | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up [mobile#44](https://github.com/portofino-pizzeria/mobile/pull/44) routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
