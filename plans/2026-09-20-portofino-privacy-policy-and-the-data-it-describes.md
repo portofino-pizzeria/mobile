@@ -1,10 +1,10 @@
 # Portofino — the privacy policy (Datenschutzerklärung), and fixing the four things it would otherwise have to confess (2026-09-20)
 
 > **Status: SHIPPED 2026-09-28, for everything an agent can build.** All six
-> phases are **MERGED** — verified by reading merge state for every PR named in
-> this document, not assumed from an earlier snapshot (`mobile#35`, `#36`,
-> `#43`, `#44`, `backend#26`, `infra#10` all confirmed `MERGED`; see the table
-> below). Phase 5/6 UI Bridge gates PASS (run below, with the `forget` fix it
+> phases are **MERGED** — verified live (`gh pr view` state/mergedAt) for each
+> phase-landing PR this status line and the table below cite (`mobile#35`,
+> `#36`, `#43`, `#44`, `backend#26`, `infra#10`), not assumed from an earlier
+> snapshot. Phase 5/6 UI Bridge gates PASS (run below, with the `forget` fix it
 > forced). Phase 5's § 25 TDDDG sentence, added by the #36 post-merge follow-up
 > ([mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43)), is in the
 > shipped text now that the intent correction is applied (v6). The last owed
