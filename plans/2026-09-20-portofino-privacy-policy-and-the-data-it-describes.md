@@ -13,9 +13,10 @@
 > ([mobile#51](https://github.com/portofino-pizzeria/mobile/pull/51), this
 > document's own post-merge follow-up): all six groups at 14 days, expiry
 > working, and `terraform plan` from infra#12's head reports no changes. infra#12
-> itself (the one-character tag fix, already applied to production) remains open
-> pending coord's own merge train — that is coord's merge queue, not agent work
-> left undone here. **What remains past this point is entirely owner- and
+> itself (the one-character tag fix, already applied to production) **merged
+> 2026-09-29** as `634d315`, after its escalate-path hold was cleared with an
+> evidence bundle submitted under a Portofino-tenant credential (evidence ref
+> `174093a2`), so `master` now matches production. **What remains past this point is entirely owner- and
 > operator-held** (see "Owed" below): the owner's legal facts and their tax
 > advisor's retention-period sign-off; the operator's AVV, the AWS/Stripe DPA
 > acceptance, a lawyer's review of the German text, and a decision on
@@ -33,7 +34,7 @@
 > | 1 — the thin mobile half (`my-orders.ts`) | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `src/lib/my-orders.ts`, `api.ts` (token round-trip), `checkout.tsx`, `order/[id].tsx` (the `customerRedacted` third branch) |
 > | 2 — retention and erasure mechanics | **MERGED** | backend#26 |
 > | 3 — log minimisation (backend half) | **MERGED** | backend#26 |
-> | 3 — log retention (infra half) | **MERGED and APPLIED**; verification **MERGED** [mobile#51](https://github.com/portofino-pizzeria/mobile/pull/51) | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15`. Applied 2026-09-25 from [infra#12](https://github.com/portofino-pizzeria/infra/pull/12), which fixes a tag value CloudWatch rejected (a comma). #12 is still open, so `master` lags production by that one character until it lands — coord's merge train, not agent work owed. All six log groups are at 14 days, verified again 2026-09-26; see "Log groups — done" below |
+> | 3 — log retention (infra half) | **MERGED and APPLIED**; verification **MERGED** [mobile#51](https://github.com/portofino-pizzeria/mobile/pull/51) | [infra#10](https://github.com/portofino-pizzeria/infra/pull/10), `4d03a15`. Applied 2026-09-25 from [infra#12](https://github.com/portofino-pizzeria/infra/pull/12), which fixes a tag value CloudWatch rejected (a comma). #12 **merged 2026-09-29** (`634d315` on `master`), so `master` matches production. All six log groups are at 14 days, verified again 2026-09-26; see "Log groups — done" below |
 > | 4 — the data-subject endpoints | **MERGED** | backend#26 — `src/routes/admin-privacy.ts`, `src/lib/personal-data.ts` |
 > | 5 — the page, its text, the intent correction | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/datenschutz.tsx`. Intent correction applied to `domain_spec/menu` v5 → v6 (finding `1a13c188`, recorded by `50aae84`); the § 25 TDDDG paragraph that waited on it merged in [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) (2026-09-25) |
 > | 6 — the admin section | **MERGED** | [mobile#35](https://github.com/portofino-pizzeria/mobile/pull/35) — `mobile/src/app/admin/privacy.tsx`, `adminPrivacyApi` in `lib/admin.ts`; two bugs (a lost erasure message, a 401 not re-prompting for the owner password) fixed by [mobile#36](https://github.com/portofino-pizzeria/mobile/pull/36); its post-merge follow-up [mobile#43](https://github.com/portofino-pizzeria/mobile/pull/43) makes the UI Bridge `forget` / `openExtract` actions throw on failure instead of reporting `{ erased: true }` on a 409 (the Phase 6 gate's Bridge run relies on them); its own post-merge follow-up [mobile#44](https://github.com/portofino-pizzeria/mobile/pull/44) routes `searchByPhone` through the screen's search, so a Bridge search clears the previous extract, re-prompts on a revoked token and throws on failure, as the button does |
@@ -183,8 +184,9 @@
 >   lines, which carry an IP address on every request, therefore age out by
 >   **2026-10-05**, 14 days after that deploy. No action is needed for that.
 > - `terraform plan` (1.15.8) from the infra#12 head `634d315` reports **No
->   changes**. A plan from `master` would try to restore the rejected comma, so
->   **do not apply from `master` until infra#12 lands**.
+>   changes**. ~~Do not apply from `master` until infra#12 lands~~ — **it landed
+>   2026-09-29 and `master` is that same commit**, so applying from `master` is
+>   safe again.
 > - Still true: replacing the App Runner service creates two new groups under a
 >   new service id, and those need the same import (`infra/README.md`).
 >
