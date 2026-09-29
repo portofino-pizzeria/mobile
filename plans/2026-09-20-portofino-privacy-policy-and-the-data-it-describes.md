@@ -190,7 +190,14 @@
 > - Still true: replacing the App Runner service creates two new groups under a
 >   new service id, and those need the same import (`infra/README.md`).
 >
-> **Coord: no work unit exists, and none was created.** The only live
+> **Coord: backfilled 2026-09-29.** An operator pair code gave this box a pizzeria-tenant
+> credential. The work unit is now registered (`170d56a5`) with 11 PR citations and all six
+> phases declared. Coord derives it `shipped` (phases_remaining `[]`). A `status` finding
+> (topic `portofino-privacy`) lists what is still owner- and operator-held. No gates were ever
+> registered for this plan, so there are no gate attestations to backfill. What follows is the
+> original 2026-09-20 note, kept as history.
+>
+> ~~**Coord: no work unit exists, and none was created.**~~ The only live
 > credential on this box is bound to tenant `c231d9da-…`
 > (`~/.qontinui/machine.json`), not Portofino `7ac125b6-391b-4d64-8493-27305b25c5b9`.
 > `GET /coord/work-units?slug=…` answers `tenant_not_resolved` and
@@ -777,7 +784,9 @@ D5's screen. **Also depends on mobile#32.**
   applies so D2 section 4 can name it.
 - **A lawyer's or a service's review of the German text** before cutover, and of
   every characterisation D2's warning block lists as owed.
-- **A pizzeria-tenant credential, for coord as well as for intent.** Attempted
+- ~~**A pizzeria-tenant credential, for coord as well as for intent.**~~ **Done
+  2026-09-29:** a pair code was redeemed, and the work unit and finding were backfilled
+  (see the status block). Attempted
   2026-09-20 and refused: the device JWT on this box carries
   `active_tenant_id: c231d9da-…`, not Portofino
   `7ac125b6-391b-4d64-8493-27305b25c5b9`, so `GET /coord/work-units?slug=…`
