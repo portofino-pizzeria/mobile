@@ -1,13 +1,16 @@
-### CORRECTION (2026-09-28) — the text wordmark the REPLACE body describes no longer exists in the app
+### CORRECTION (2026-09-28, applied 2026-09-29) — the text wordmark the REPLACE body describes no longer exists in the app
 
-**Not yet written to the served document.** This session has no verified
-`pizzeria`-bound credential and coord's write door was unreachable at the time
-of this commit (see the accompanying PR body). The served `domain_spec/visual-system`
-still carries the text it read before PR
-[#56](https://github.com/portofino-pizzeria/mobile/pull/56); a future session
-holding a pizzeria-bound credential should paste this at
-`/admin/coord/prompt-documents` (or the coord write route) and record the
-applied version bump here, the way the 2026-09-20 saved-details correction did.
+**Applied to `domain_spec/visual-system` v3 → v4, announced by finding
+`94870bab-7f0b-413d-8f88-05fb9f36d5fa`.** Drafted 2026-09-28 with no verified
+`pizzeria`-bound credential (coord's write door was down); applied 2026-09-29
+from a session that minted one via `POST /agents/credential
+{device_id, tenant_id}` and confirmed the acting tenant with
+`coord_query_identity` first. Landed as a plain append below the
+`# SUPERSESSION (2026-09-14)` heading a peer wrote the same day — see this
+folder's `README.md` 2026-09-14 entry for why that whole-body replace also
+turned out to be unwritten, and why it landed as an append instead of a
+literal replace. The served document carries the full text; this is the
+working copy.
 
 `domain_spec--visual-system--REPLACE.md` (the current served body, as far as
 this repo's copy of it is concerned) describes the wordmark as **text**:
