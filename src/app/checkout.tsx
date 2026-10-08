@@ -29,6 +29,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { closedReason, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError, errorReason, type PaymentProviders } from '@/lib/api';
+import { deliveryAreaGap } from '@/lib/delivery-area';
 import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
 import { saveOrderToken } from '@/lib/my-orders';
@@ -251,6 +252,11 @@ function orderGap(
   if (clean(phone).length > MAX_LENGTH.phone) return 'Die Telefonnummer ist zu lang.';
   if (fulfilment === 'delivery' && clean(address).length > MAX_LENGTH.address) {
     return 'Die Lieferadresse ist zu lang.';
+  }
+  // The owner's delivery area, as the order route enforces it.
+  if (fulfilment === 'delivery') {
+    const outside = deliveryAreaGap(shop?.deliveryPostcodes, clean(address));
+    if (outside) return outside;
   }
   if (notes.trim().length > MAX_LENGTH.notes) return 'Der Hinweis ist zu lang.';
   return null;
@@ -786,7 +792,7 @@ export default function CheckoutScreen() {
             uiLabel="Adresse"
             value={fields.address}
             onChangeText={(value) => update('address', value)}
-            placeholder="Straße, Hausnummer, Ort"
+            placeholder="Straße Nr., PLZ Ort"
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
@@ -927,6 +933,16 @@ export default function CheckoutScreen() {
               Datenschutz
             </ThemedText>
           </BridgeButton>
+          <BridgeButton
+            uiId="checkout-agb"
+            uiLabel="AGB & Widerruf"
+            role="link"
+            style={styles.forget}
+            onPress={() => router.push('/agb')}>
+            <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+              AGB & Widerruf
+            </ThemedText>
+          </BridgeButton>
         </View>
       </ScrollView>
 
@@ -958,9 +974,29 @@ export default function CheckoutScreen() {
             <ThemedText type="price">{formatEUR(total)}</ThemedText>
           </View>
         ) : null}
+        {cart.count > 0 ? (
+          <View style={styles.termsNotice}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Es gelten unsere{' '}
+            </ThemedText>
+            <BridgeButton
+              uiId="checkout-terms-notice"
+              uiLabel="AGB & Widerruf lesen"
+              role="link"
+              style={styles.termsLink}
+              onPress={() => router.push('/agb')}>
+              <ThemedText type="small" themeColor="brandText" style={styles.forgetText}>
+                AGB
+              </ThemedText>
+            </BridgeButton>
+            <ThemedText type="small" themeColor="textSecondary">
+              . Für zubereitete Speisen besteht kein Widerrufsrecht.
+            </ThemedText>
+          </View>
+        ) : null}
         <PayButton
           uiId="pay-stripe"
-          uiLabel="Mit Karte bezahlen (Stripe)"
+          uiLabel="Zahlungspflichtig bestellen – mit Karte"
           disabled={payDisabled}
           style={[styles.payBtn, { backgroundColor: '#635bff', opacity: payDimmed('stripe') ? 0.5 : 1 }]}
           onTap={() => pay('stripe')}
@@ -969,14 +1005,14 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#ffffff" />
           ) : (
             <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
-              Mit Karte bezahlen (Stripe)
+              Zahlungspflichtig bestellen – mit Karte
             </ThemedText>
           )}
         </PayButton>
         {paypalPayable ? (
           <PayButton
             uiId="pay-paypal"
-            uiLabel="Mit PayPal bezahlen"
+            uiLabel="Zahlungspflichtig bestellen – mit PayPal"
             disabled={payDisabled}
             style={[styles.payBtn, { backgroundColor: '#ffc439', opacity: payDimmed('paypal') ? 0.5 : 1 }]}
             onTap={() => pay('paypal')}
@@ -985,7 +1021,7 @@ export default function CheckoutScreen() {
               <ActivityIndicator color="#003087" />
             ) : (
               <ThemedText type="smallBold" style={{ color: '#003087' }}>
-                Mit PayPal bezahlen
+                Zahlungspflichtig bestellen – mit PayPal
               </ThemedText>
             )}
           </PayButton>
@@ -1075,4 +1111,8 @@ const styles = StyleSheet.create({
   orderSummary: { borderRadius: Radius.card, padding: Spacing.lg, gap: Spacing.sm },
   orderTotals: { paddingTop: Spacing.md, gap: Spacing.xs },
   legalLinks: { flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap' },
+  // The terms are pointed out where the order is placed, not only in a link
+  // list above the fold (§ 305 Abs. 2 BGB).
+  termsNotice: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  termsLink: { minHeight: 44, justifyContent: 'center' },
 });

@@ -432,6 +432,7 @@ export default function MenuScreen() {
         <View style={styles.legalLinks}>
           <ImpressumLink />
           <DatenschutzLink />
+          <AgbLink />
         </View>
       </ThemedView>
     );
@@ -820,6 +821,7 @@ export default function MenuScreen() {
         <View style={styles.legalLinks}>
           <ImpressumLink onDark />
           <DatenschutzLink onDark />
+          <AgbLink onDark />
         </View>
       </View>
     </View>,
@@ -961,6 +963,27 @@ function ImpressumLink({ onDark = false }: { onDark?: boolean }) {
         themeColor={onDark ? 'onFooterMuted' : 'brandText'}
         style={styles.linkText}>
         Impressum
+      </ThemedText>
+    </BridgeButton>
+  );
+}
+
+/** The link to the terms of sale and withdrawal notice, beside the other two
+ *  legal links everywhere they appear. */
+function AgbLink({ onDark = false }: { onDark?: boolean }) {
+  const router = useRouter();
+  return (
+    <BridgeButton
+      uiId="menu-agb"
+      uiLabel="AGB & Widerruf"
+      role="link"
+      style={styles.link}
+      onPress={() => router.push('/agb')}>
+      <ThemedText
+        type="small"
+        themeColor={onDark ? 'onFooterMuted' : 'brandText'}
+        style={styles.linkText}>
+        AGB & Widerruf
       </ThemedText>
     </BridgeButton>
   );
