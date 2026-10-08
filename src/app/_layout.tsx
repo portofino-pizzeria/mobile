@@ -60,6 +60,7 @@ export default function RootLayout() {
               <Stack.Screen name="kitchen" options={{ title: 'Küche' }} />
               <Stack.Screen name="impressum" options={{ title: 'Impressum' }} />
               <Stack.Screen name="datenschutz" options={{ title: 'Datenschutz' }} />
+              <Stack.Screen name="agb" options={{ title: 'AGB & Widerruf' }} />
               <Stack.Screen name="admin/index" options={{ title: 'Verwaltung' }} />
               <Stack.Screen name="admin/restaurant" options={{ title: 'Restaurant & Öffnungszeiten' }} />
               <Stack.Screen name="admin/privacy" options={{ title: 'Datenauskunft / Löschung' }} />
