@@ -61,7 +61,7 @@ import type { AdminShop, AdminSpecialDay, ShopDayHours, ShopPreview, ShopStatus 
 
 // --- Drafts -----------------------------------------------------------------
 
-type Section = 'special' | 'hours' | 'profile' | 'legal';
+type Section = 'special' | 'hours' | 'profile' | 'area' | 'legal';
 
 interface ProfileForm {
   name: string;
@@ -127,6 +127,24 @@ function hoursFromShop(shop: AdminShop): ShopHoursDraft {
     holidayClose: shop.profile.holidayClose,
     ruhetagBeatsHoliday: shop.profile.ruhetagBeatsHoliday,
   };
+}
+
+/** The stored delivery area as the owner edits it. */
+function areaFromShop(shop: AdminShop): string {
+  return (shop.profile.deliveryPostcodes ?? []).join(', ');
+}
+
+/** Whether the draft names a different set of postcodes than the stored one
+ *  (order, spacing and repeats do not count as a change). */
+function areaChanged(draft: string, shop: AdminShop): boolean {
+  const norm = (codes: string[]) => [...new Set(codes)].sort().join(',');
+  return norm(postcodesFromText(draft)) !== norm(shop.profile.deliveryPostcodes ?? []);
+}
+
+/** The owner's text back to a list: split on commas, semicolons and spaces.
+ *  The server validates each entry and names the first one that is wrong. */
+function postcodesFromText(text: string): string[] {
+  return text.split(/[\s,;]+/).filter(Boolean);
 }
 
 function profileFromShop(shop: AdminShop): ProfileForm {
@@ -245,6 +263,9 @@ export default function AdminRestaurantScreen() {
   const [hours, setHours, hoursRef] = useLatest<ShopHoursDraft | null>(null);
   const [profile, setProfile, profileRef] = useLatest<ProfileForm | null>(null);
   const [profileReview, setProfileReview] = useState(false);
+  /** The delivery-area draft as the owner types it: postcodes separated by
+   *  commas or spaces. */
+  const [area, setArea, areaRef] = useLatest<string | null>(null);
   const [legal, setLegal, legalRef] = useLatest<LegalForm | null>(null);
   const [dayForm, setDayForm] = useState<DayForm | null>(null);
   const [vacation, setVacation] = useState<VacationForm | null>(null);
@@ -262,13 +283,14 @@ export default function AdminRestaurantScreen() {
         setProfile(profileFromShop(next));
         setProfileReview(false);
       }
+      if (sections.includes('area')) setArea(areaFromShop(next));
       if (sections.includes('legal')) setLegal(legalFromShop(next));
       if (sections.includes('special')) {
         setDayForm(null);
         setVacation(null);
       }
     },
-    [setHours, setProfile, setLegal],
+    [setHours, setProfile, setArea, setLegal],
   );
 
   const load = useCallback(async (): Promise<AdminShop | null> => {
@@ -276,7 +298,7 @@ export default function AdminRestaurantScreen() {
     try {
       const next = await adminShopApi.get();
       setShopState(next);
-      resetDrafts(next, ['special', 'hours', 'profile', 'legal']);
+      resetDrafts(next, ['special', 'hours', 'profile', 'area', 'legal']);
       setNeedsToken(false);
       setLoadError(null);
       setConflict(null);
@@ -575,6 +597,16 @@ export default function AdminRestaurantScreen() {
     return write('profile', (v) => adminShopApi.saveProfile(trimmed, v), 'Adresse und Telefon gespeichert.');
   }
 
+  function saveArea() {
+    const draft = areaRef.current;
+    if (draft === null) return Promise.reject(new Error('Das Liefergebiet ist noch nicht geladen.'));
+    return write(
+      'area',
+      (v) => adminShopApi.saveDeliveryArea(postcodesFromText(draft), v),
+      'Liefergebiet gespeichert.',
+    );
+  }
+
   function saveLegal() {
     const form = legalRef.current;
     if (!form) return Promise.reject(new Error('Das Impressum ist noch nicht geladen.'));
@@ -637,6 +669,7 @@ export default function AdminRestaurantScreen() {
     saveVacation,
     saveHours,
     saveProfile,
+    saveArea,
     saveLegal,
   };
   const bridgeRef = useRef(bridge);
@@ -820,10 +853,11 @@ export default function AdminRestaurantScreen() {
         id: 'save',
         label: 'Save one part of the restaurant facts',
         description:
-          'Params: { section: "hours" | "profile" | "legal", confirmAllClosed?: boolean, ' +
+          'Params: { section: "hours" | "profile" | "area" | "legal", confirmAllClosed?: boolean, ' +
           'confirmed?: boolean, ...fields }. "hours" saves the current Öffnungszeiten draft ' +
           '(confirmAllClosed is needed when every day is a Ruhetag). "profile" takes optional ' +
-          '{ name, street, postalCode, city, phoneDisplay } over the current draft. "legal" ' +
+          '{ name, street, postalCode, city, phoneDisplay } over the current draft. "area" ' +
+          'takes { postcodes: string[] } ([] = deliver anywhere). "legal" ' +
           'takes optional { legalOwnerName, legalForm, email, vatId, registerCourt, ' +
           'registerNumber } and requires confirmed: true. Returns { version }.',
         handler: async (params) => {
@@ -844,6 +878,10 @@ export default function AdminRestaurantScreen() {
               phoneDisplay: str('phoneDisplay') ?? cur.phoneDisplay,
             });
             next = await b.saveProfile();
+          } else if (p.section === 'area') {
+            if (!Array.isArray(p.postcodes)) throw new Error('save: area needs postcodes: string[].');
+            setArea((p.postcodes as unknown[]).map(String).join(', '));
+            next = await b.saveArea();
           } else if (p.section === 'legal') {
             const cur = legalRef.current;
             if (!cur) throw new Error('save: nothing is loaded yet.');
@@ -861,7 +899,7 @@ export default function AdminRestaurantScreen() {
             });
             next = await b.saveLegal();
           } else {
-            throw new Error('save: section must be "hours", "profile" or "legal".');
+            throw new Error('save: section must be "hours", "profile", "area" or "legal".');
           }
           return { version: next.version };
         },
@@ -1399,6 +1437,47 @@ export default function AdminRestaurantScreen() {
             onPress={() => openLink(`tel:${shop.profile.phoneE164}`)}
           />
         </SectionCard>
+
+        {/* Liefergebiet ---------------------------------------------------- */}
+        {/* Hidden against an API that predates the area: its save route would 404. */}
+        {area !== null && shop.profile.deliveryPostcodes !== undefined ? (
+          <SectionCard title="Liefergebiet">
+            <ThemedText type="small" themeColor="textSecondary">
+              Die Postleitzahlen, in die Sie liefern. Eine Lieferung an eine andere Postleitzahl
+              wird beim Bestellen abgelehnt, mit dem Hinweis auf Abholung. Leer lassen = überall
+              hin liefern.
+            </ThemedText>
+            <AdminField
+              uiId="shop-area-postcodes"
+              label="Postleitzahlen"
+              hint="Mit Komma oder Leerzeichen getrennt, z. B. „45219, 45239“."
+              value={area}
+              onChangeText={setArea}
+            />
+            {sectionError.area ? (
+              <Notice tone="error" title="Nicht gespeichert">
+                <ThemedText type="small" themeColor="textSecondary">
+                  {sectionError.area}
+                </ThemedText>
+              </Notice>
+            ) : null}
+            <AdminButton
+              uiId="shop-area-save"
+              title="Liefergebiet speichern"
+              tone="primary"
+              busy={busy === 'area'}
+              disabled={!areaChanged(area, shop)}
+              onPress={() => quiet(saveArea())}
+            />
+            {areaChanged(area, shop) ? (
+              <AdminButton
+                uiId="shop-area-reset"
+                title="Änderungen verwerfen"
+                onPress={() => setArea(areaFromShop(shop))}
+              />
+            ) : null}
+          </SectionCard>
+        ) : null}
 
         {/* 4. Impressum ---------------------------------------------------- */}
         <SectionCard title="Impressum">

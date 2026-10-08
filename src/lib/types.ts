@@ -272,6 +272,9 @@ export interface ShopInfo {
   timeZone: string;
   hours: { days: string; hours: string }[];
   deliveryUntil: string;
+  /** The postcodes delivered to; empty or absent = no restriction. The order
+   *  route enforces the same list (see `deliveryAreaGap`). */
+  deliveryPostcodes?: string[];
   status: ShopStatus;
   /** The dates in the next 30 days (today included) whose hours a special day
    *  decided, in date order. Absent from an older API. */
@@ -318,6 +321,8 @@ export interface AdminShopProfile {
   holidayOpen: string;
   holidayClose: string;
   ruhetagBeatsHoliday: boolean;
+  /** The postcodes delivered to; empty = no restriction. Absent from an older API. */
+  deliveryPostcodes?: string[];
 }
 
 export interface AdminShopLegal {

@@ -4,9 +4,8 @@
 // it must move with the code it describes:
 // - the delivery fee is read from `DELIVERY_FEE_CENTS` (lib/fees.ts), which
 //   mirrors the backend's `config.deliveryFeeCents`;
-// - there is no minimum order and no delivery-area check in the order route,
-//   so this page promises neither — it says what happens when an address
-//   cannot be served;
+// - there is no minimum order; the delivery area is the owner's postcode list
+//   (`deliveryPostcodes`, enforced by the order route), named here when set;
 // - cancelling an order on /kitchen does NOT refund it: the owner refunds in
 //   the Stripe dashboard. The refund promised below is the owner's to keep.
 // The shop's identity (name, address, phone) comes from `GET /api/shop` like
@@ -128,10 +127,17 @@ export default function AgbScreen() {
         </Section>
 
         <Section title="4. Lieferung und Abholung">
+          {shop?.deliveryPostcodes && shop.deliveryPostcodes.length > 0 ? (
+            <ThemedText type="small">
+              Wir liefern in die Postleitzahlen {shop.deliveryPostcodes.join(', ')}. Eine
+              Lieferung an eine Adresse außerhalb dieser Postleitzahlen kannst du nicht bestellen;
+              Abholung ist immer möglich.
+            </ThemedText>
+          ) : null}
           <ThemedText type="small">
-            Wir liefern an die Adresse, die du bei der Bestellung angibst. Liegt sie außerhalb des
-            Gebiets, in das wir liefern können, melden wir uns telefonisch bei dir; können wir
-            nicht liefern, stornieren wir die Bestellung und erstatten dir den vollen Betrag.
+            Wir liefern an die Adresse, die du bei der Bestellung angibst. Können wir an sie doch
+            nicht liefern, melden wir uns telefonisch bei dir; geht es nicht, stornieren wir die
+            Bestellung und erstatten dir den vollen Betrag.
           </ThemedText>
           <ThemedText type="small">
             Angegebene Liefer- und Abholzeiten sind ungefähre Angaben. Bitte sei unter der

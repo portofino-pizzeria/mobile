@@ -29,6 +29,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { closedReason, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, ApiError, errorReason, type PaymentProviders } from '@/lib/api';
+import { deliveryAreaGap } from '@/lib/delivery-area';
 import { deliveryFeeFor } from '@/lib/fees';
 import { formatEUR } from '@/lib/format';
 import { saveOrderToken } from '@/lib/my-orders';
@@ -251,6 +252,11 @@ function orderGap(
   if (clean(phone).length > MAX_LENGTH.phone) return 'Die Telefonnummer ist zu lang.';
   if (fulfilment === 'delivery' && clean(address).length > MAX_LENGTH.address) {
     return 'Die Lieferadresse ist zu lang.';
+  }
+  // The owner's delivery area, as the order route enforces it.
+  if (fulfilment === 'delivery') {
+    const outside = deliveryAreaGap(shop?.deliveryPostcodes, clean(address));
+    if (outside) return outside;
   }
   if (notes.trim().length > MAX_LENGTH.notes) return 'Der Hinweis ist zu lang.';
   return null;
@@ -786,7 +792,7 @@ export default function CheckoutScreen() {
             uiLabel="Adresse"
             value={fields.address}
             onChangeText={(value) => update('address', value)}
-            placeholder="Straße, Hausnummer, Ort"
+            placeholder="Straße Nr., PLZ Ort"
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, borderColor: theme.backgroundSelected }]}
           />
