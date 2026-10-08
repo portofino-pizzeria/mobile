@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
-import { addDays, formatDayShort } from '@/lib/shop-dates';
+import { addDays, berlinToday, formatDayShort } from '@/lib/shop-dates';
 import type { Fulfilment, ShopInfo } from '@/lib/types';
 
 /** How often the open/closed status is read again while a screen is open. A
@@ -20,10 +20,25 @@ export interface ShopState {
   unavailable: boolean;
 }
 
+/**
+ * Re-renders the caller once per refresh interval, so text that depends on
+ * today's date ("ab heute" / "ab morgen", see `nextDayLabel`) turns over at
+ * midnight even when nothing else on the screen changes.
+ */
+export function useMinuteTick(): void {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
+}
+
 /** The shop's details and live status from `GET /api/shop`, kept fresh. */
 export function useShop(): ShopState {
   const [shop, setShop] = useState<ShopInfo | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  // Even while every read fails, the date-relative text still turns over.
+  useMinuteTick();
 
   useEffect(() => {
     let active = true;
@@ -49,13 +64,34 @@ export function useShop(): ShopState {
   return { shop, gating: unavailable ? null : shop, unavailable };
 }
 
+/**
+ * The day a closed shop reopens, as read after "ab": `heute`, `morgen`, the
+ * weekday up to six days out, then the weekday with its date (the server's own
+ * rule for its refusal sentence, `next.label`).
+ *
+ * Worked out HERE, from `next.date` against today's Berlin date, rather than
+ * read from `next.label`: a status still on screen after midnight (a refresh
+ * that keeps failing, an admin page left open) would otherwise say "morgen"
+ * about today.
+ */
+export function nextDayLabel(next: { date: string; weekday: string }): string {
+  const today = berlinToday();
+  if (next.date === today) return 'heute';
+  if (next.date === addDays(today, 1)) return 'morgen';
+  // A date already past (a status that kept failing to refresh) or a week or
+  // more away: the bare weekday would be ambiguous, so it carries the date.
+  if (next.date > today && next.date < addDays(today, 7)) return next.weekday;
+  const [, mm, dd] = next.date.split('-');
+  return `${next.weekday}, ${dd}.${mm}.`;
+}
+
 /** The German sentence for an order kind that is not taken now, or null. The
  *  same wording the order route refuses with, so the diner reads one message
  *  whether the button or the server stopped them. */
 export function closedReason(shop: ShopInfo, mode: Fulfilment): string | null {
   const s = shop.status[mode];
   if (s.available) return null;
-  const when = s.next ? ` Wieder möglich ab ${s.next.weekday}, ${s.next.time} Uhr.` : '';
+  const when = s.next ? ` Wieder möglich ab ${nextDayLabel(s.next)}, ${s.next.time} Uhr.` : '';
   if (mode === 'delivery' && shop.status.pickup.available) {
     // The day's own delivery close (a special day can end delivery early),
     // as the server's refusal names it; the regular one only from an older API.

@@ -207,7 +207,10 @@ export interface ShopModeStatus {
   /** While available: when it stops being taken today (`HH:MM`). */
   until?: string;
   /** While not available: when it is next taken. */
-  next?: { date: string; weekday: string; time: string };
+  /** `label`: the server's "ab heute / morgen / …" for its own refusal
+   *  sentence, absent from an older API. Screens use `nextDayLabel`, which
+   *  works the same thing out against today's date. */
+  next?: { date: string; weekday: string; label?: string; time: string };
 }
 
 /** One date's hours as the server resolves them (weekly hours, NRW public

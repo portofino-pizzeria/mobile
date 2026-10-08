@@ -30,6 +30,7 @@ import { BridgeButton } from '@/components/bridge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
+import { nextDayLabel, useMinuteTick } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import {
   AdminApiError,
@@ -197,7 +198,7 @@ function statusSentence(status: ShopStatus): string {
   }
   if (pickup.available) return `Jetzt nur Abholung · bis ${pickup.until} Uhr`;
   if (pickup.next) {
-    return `Geschlossen · Bestellungen wieder ab ${pickup.next.weekday}, ${pickup.next.time} Uhr`;
+    return `Geschlossen · Bestellungen wieder ab ${nextDayLabel(pickup.next)}, ${pickup.next.time} Uhr`;
   }
   return 'Geschlossen';
 }
@@ -1941,6 +1942,9 @@ function DayEditor({
 }
 
 function PreviewCard({ preview, error }: { preview: ShopPreview | null; error: string | null }) {
+  // "ab heute" / "ab morgen" is relative to today: a page left open overnight
+  // must not keep yesterday's word.
+  useMinuteTick();
   const theme = useTheme();
   return (
     <View style={[styles.preview, { borderColor: theme.brand, backgroundColor: theme.background }]}>

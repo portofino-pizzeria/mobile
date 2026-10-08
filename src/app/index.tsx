@@ -21,7 +21,7 @@ import { MascotPass } from '@/components/mascot-pass';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
-import { upcomingSpecialDay, useShop } from '@/hooks/use-shop';
+import { nextDayLabel, upcomingSpecialDay, useShop } from '@/hooks/use-shop';
 import { useTheme } from '@/hooks/use-theme';
 import { api, errorReason } from '@/lib/api';
 import {
@@ -934,7 +934,7 @@ function OpenStatus({ shop }: { shop: NonNullable<ReturnType<typeof useShop>['sh
     : pickup.available
       ? `Jetzt nur Abholung · bis ${pickup.until} Uhr`
       : pickup.next
-        ? `Geschlossen · Bestellungen wieder ab ${pickup.next.weekday}, ${pickup.next.time} Uhr`
+        ? `Geschlossen · Bestellungen wieder ab ${nextDayLabel(pickup.next)}, ${pickup.next.time} Uhr`
         : 'Geschlossen';
   return (
     <View aria-live="polite" style={[styles.status, { backgroundColor: theme.background }]}>
