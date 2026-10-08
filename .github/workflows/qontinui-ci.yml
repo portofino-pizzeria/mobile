@@ -59,6 +59,27 @@ jobs:
           persist-credentials: false
       - name: Asset manifest drift
         run: python3 scripts/check-assets.py --menu backend/data/menu.json
+      # The icon, the adaptive icon and the splash mark are DERIVED from the
+      # mascot sheet by `scripts/derive-icon.py`, which records the crop box.
+      # This re-derives them and compares PIXELS, so an icon replaced by hand —
+      # the way an icon is usually replaced — reds here instead of quietly
+      # becoming the one file nobody can reproduce.
+      #
+      # It needs its own Python, and that is not fussiness: `check-assets.py`
+      # runs on the runner's system interpreter because it is stdlib-only,
+      # while this step installs. Ubuntu 24.04 marks its system Python
+      # EXTERNALLY-MANAGED, so `pip install` into it fails outright. The
+      # versions are pinned exactly because the check compares a Lanczos
+      # resample pixel for pixel: a floor like `pillow>=11` lets a future
+      # release red this on an unrelated PR, indistinguishably from the
+      # hand-edit it exists to catch.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the icon derivation's dependencies
+        run: python -m pip install --quiet pillow==12.1.1 numpy==2.5.3
+      - name: Icon drift
+        run: python scripts/derive-icon.py --check
       # Still a no-op: package.json defines no `test` script. Left in place so
       # the step exists the day one is added.
       - name: Test
