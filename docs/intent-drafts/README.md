@@ -6,6 +6,22 @@ they disagree, the served one wins and this copy is stale. Read it with
 `/policy get domain_spec visual-system` from a session bound to the `pizzeria`
 tenant, or at `/admin/coord/prompt-documents`.
 
+## 2026-08-28 — the original intent seeds (moved here 2026-11-06)
+
+| File | Note |
+|---|---|
+| `2026-08-28-portofino-audience-profile-hungry-diner.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-audience-profile-owner-operator.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-decision-record-build-the-permanent-thing.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-decision-record-webview-handoff-is-temporary.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-domain-spec-menu.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-product-intent-non-goals.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-product-intent-open-questions.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-product-intent-vision.md` | original 2026-08-28 seed |
+| `2026-08-28-portofino-success-metric-commission-paid.md` | original 2026-08-28 seed |
+
+These are the first drafts of the pizzeria tenant's intent documents: the vision, non-goals, open questions, both audience profiles, two decision records, the menu domain spec and the commission success metric. They were written 2026-08-28 in `qontinui-dev-notes/prompts/`. On 2026-11-06 they were moved here byte for byte, at the operator's instruction that only qontinui documents stay in qontinui. The served documents have changed since then; the standing rule at the top of this file applies.
+
 ## 2026-09-29 — the wordmark is now a logo image, not text (APPLIED)
 
 | File | Document | Operation |
