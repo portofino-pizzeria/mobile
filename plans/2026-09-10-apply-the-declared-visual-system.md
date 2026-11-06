@@ -251,23 +251,37 @@ see a clipped price.
 
 ### S6 — The app's icon and splash are still Expo's own artwork `INSPECTED`
 
-`assets/images/splash-icon.png` is **byte-identical** to
-`assets/images/expo-logo.png` (sha256 `27b060a757a29038…`; the duplicate was
-removed as unreferenced by the 2026-09-12 follow-up — the digest still verifies
-against `splash-icon.png`), and
-`assets/images/icon.png` is the Expo chevron on Expo blue. `app.json` sets the
-splash background to `#208AEF` and the adaptive-icon background to `#E6F4FE`.
+**What this said, and why it is no longer true.** `assets/images/icon.png` was
+the Expo chevron on Expo blue and `splash-icon.png` was byte-identical to
+`expo-logo.png`; `app.json` set the splash background to `#208AEF` and the
+adaptive-icon background to `#E6F4FE`. The first thing a diner saw — the tile
+on their home screen next to Lieferando's — was the Expo scaffold's logo, and
+`initiative/current-initiative` mechanism #3 is *earns a recommendation*, so
+this was the single loudest signal that the app was unfinished.
 
-So the first thing a diner sees when the app launches — and the tile sitting on
-their home screen next to Lieferando's — is the Expo scaffold's logo. No
-palette change reaches this; it needs a mark. `initiative/current-initiative`
-mechanism #3 is *earns a recommendation*, and this is the single loudest signal
-that the app is unfinished.
+It was reported and NOT fixed, deliberately: `domain_spec/visual-system`
+declares a palette and a type system, says nothing about a logo, and inventing
+one is authoring brand. Recolouring the template artwork would have been worse
+— it would have made Expo's chevron look deliberate.
 
-**Reported, not fixed.** `domain_spec/visual-system` declares a palette and a
-type system and says nothing about a logo, and inventing one is authoring
-brand. Recolouring the template artwork to brand red would be worse — it would
-make Expo's chevron look deliberate.
+**Closed 2026-09-29** — and the tag stays `INSPECTED`, because that is what it
+was: this section was reached by reading `app.json` and comparing digests, and
+the change that closes it was verified the same way plus against `expo
+prebuild`'s generated resources. Nothing here was driven on a device. In a
+document whose whole framing is what driving found versus what reading found,
+promoting it to `OPERATED` would claim a provenance it does not have.
+
+The operator chose concept 4 of the mascot sheet, the
+delivery pizza with the cap and the box, which is the decision this section was
+waiting for. Every icon surface is now derived from
+`design/sources/pizza-character.png` by `scripts/derive-icon.py`, a committed
+re-runnable step that records its crop box — the rule
+`domain_spec/imagery-and-iconography` already states for the menu — and both
+workflows re-derive and compare pixels, so a hand-replaced icon reds CI.
+
+The digest this section used to quote (`27b060a757a29038…`, verifying
+`splash-icon.png` against `expo-logo.png`) no longer resolves, and should not
+be re-measured: the file it identified was replaced, which is the point.
 
 ### S7 — Two dead text roles carrying an undeclared colour `INSPECTED`
 
