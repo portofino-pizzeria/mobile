@@ -200,6 +200,14 @@ export const adminShopApi = {
     });
   },
 
+  /** The postcodes delivery orders are taken for; [] lifts the restriction. */
+  async saveDeliveryArea(postcodes: string[], version: number): Promise<AdminShop> {
+    return areq<AdminShop>('/api/admin/shop/delivery-area', {
+      method: 'PUT',
+      body: JSON.stringify({ postcodes, version }),
+    });
+  },
+
   /** Only ever sent with the owner's "korrekt und vollständig" confirmation. */
   async saveLegal(draft: ShopLegalDraft, version: number): Promise<AdminShop> {
     return areq<AdminShop>('/api/admin/shop/legal', {
