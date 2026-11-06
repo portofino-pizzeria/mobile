@@ -1,122 +1,73 @@
 # Plan: Portofino — Real Menu Domain and Owner Editor
 
-> **Status: SHIPPED 2026-08-29.** All four phases are live in
-> `/d/portofino-pizzeria`. **backend** (`master`, no remote): `8b64d20` variant /
-> category / allergen domain model · `28afbc1` the captured menu · `e2a5363`
-> vitest on real Postgres · `cf64126` the real-menu loader · `d1a3ee1` the
-> owner's editor API · `74551c7` + `b3ef367` ordering fixes. **mobile**
-> (`feat/kitchen-dashboard`, **not pushed**): `0af41b4` mirrored types ·
-> `9e0490f` German-first variant client · `1ef5049` the editor UI · `7f6b74b`
-> bridge text-input fix · `e61b9ea` German a11y labels. **qontinui-dev-notes**:
-> `074fba02` the re-derivation report (pushed).
-> The real menu is live — **138 items, 208 priced variants, 16 categories, 19
-> allergen codes, 100% observed**. 85 backend tests green; both typechecks and
-> mobile lint clean; all four phase gates verified on a native Android dev build
-> driven over UI Bridge (a groß Margherita ordered through `addToCart` reached
-> `paid` at 790 cents, not 490).
-> **Phase 1 falsified the plan's central premise** — there is no SPA, and the
-> three "uncapturable" categories are simply EMPTY on the owner's own site. See
-> "Phase 1 falsified this plan's central premise" for that finding and the four
-> coordinator decisions taken on it. **Open items are listed under "What did NOT
-> ship"** below — coord was unreachable for this entire run, so no gate was
-> registered and none of this is being watched.
-> History: DRAFT 2026-08-28; VETTED 2026-08-29 (4 defects, 4 auto-fixed); that
-> vet audited the code citations only — the intent-corpus citations remain
-> unverified against coord, and this run did not clear that either.
-> Resolved-Divergence: 2026-08-31 — folded 1 superseded copy at rung R1 (lineage). This body is `origin/main` blob `575310c0cdea9c00f150eea17d883de24a6c9bb7` at commit `6ad68deb`.
-> Superseded bodies: `1374534e32924c9c1d3bf6b27a1993a608fc0d4a` (introduced 10d558e9; held by 28 checkouts).
-> Recover any of them with `git cat-file -p <blob-sha>` in `qontinui-dev-notes`.
-> Decided by: `git merge-base --is-ancestor <introducing-commit> 6ad68deb` holds for every superseded copy — same lineage, this body is the descendant. No content was read or weighed.
+> **Status: IN PROGRESS 2026-09-05.** All four phases are WRITTEN and VERIFIED;
+> the backend half is LANDED and the client half is now PROPOSED but not merged.
+> Phase tasks: 4. Re-vetted 2026-09-05 (`/vet-imp`, unattended sweep) — defects
+> found 0, and this is the first vet that audited the plan against the
+> **implemented** code rather than against the pre-implementation tree.
+> History: authored DRAFT 2026-08-28; VETTED 2026-08-29 (defects found 4,
+> auto-fixed 4) — that vet audited every code citation against
+> `/d/portofino-pizzeria` and did NOT verify the intent-corpus citations
+> against coord (see "What this vet could NOT check"), a caveat this run
+> carries forward unchanged; IN PROGRESS 2026-08-29 by session `ab51df46`.
+> Resolved-Divergence: 2026-11-06 — two copies had diverged. This body is the later qontinui-dev-notes copy
+> (blob `524f09c4`, re-vetted 2026-09-05 against the implemented code). It supersedes this repo's 2026-09-01
+> body (blob `15a61d5f`, commit `febdac5`), which stays recoverable with `git cat-file -p 15a61d5f`. The file
+> now lives only here; it was removed from qontinui-dev-notes.
 
+> ### Delivery state, measured 2026-09-05
 >
-> ---
-> **The `qontinui-dev-notes` copy of this stem is a RECONSTRUCTION, and its own
-> stamp and provenance record are preserved below and in the section that
-> follows this block.** It was re-derived on 2026-08-29 because the authoring
-> session could not find this document — the very file you are reading. That
-> makes it independent corroboration of
-> `[[2026-08-21-consolidate-the-two-plan-corpora]]`'s thesis rather than a
-> competing account, so it is kept rather than merged away. The body below is
-> the original and is SHIPPED; the reconstruction's re-derived body is not
-> reproduced, because a reconstruction of a document is superseded by the
-> document.
+> **The three repos now have GitHub remotes** under the `portofino-pizzeria`
+> org — `backend` (private), `mobile` (public), `infra` (private). That retires
+> the plan's first Risk ("the backend and infra repos have no git remote") as a
+> matter of fact; it was fixed outside this plan, and the code no longer lives
+> on one disk.
 >
-> **Status: DRAFT (RECONSTRUCTED) 2026-08-29.** This document is a
-> reconstruction, not the original. Coord holds work unit
-> `2efc80ab-5604-4b3e-8de3-8bd4f7ec96c9` (slug
-> `2026-08-28-portofino-real-menu-domain-and-owner-editor`, title "Portofino -
-> Real Menu Domain and Owner Editor", created 2026-08-28T21:46Z, status
-> `vetted_unattested` as of 22:39Z) — but **the plan body it refers to exists
-> nowhere**. It was re-derived on 2026-08-29 from the operator-ratified
-> Portofino intent corpus in `qontinui-dev-notes/prompts/` and from the actual
-> `portofino-pizzeria/mobile` source. **Do not treat this body as vetted**: the
-> vet that produced `vetted_unattested` was performed against a document no
-> longer readable, so this text has not been reviewed by anyone. It needs a
-> real `/vet-plan` pass by a peer session before implementation. See
-> "Provenance — why this document is a reconstruction" below.
-> **Phase 0 is a blocker and is unresolved.**
-
-## Provenance — why this document is a reconstruction
-
-`/implement-plan D:/qontinui-root/plans/2026-08-28-portofino-real-menu-domain-and-owner-editor.md`
-was invoked on 2026-08-29 and the file did not exist. It exists in no readable
-durable store:
-
-| Store | Probe | Result |
-|---|---|---|
-| `$QONTINUI_PLANS_DIR` | env | **unset** |
-| `<workspace-root>/plans` (the documented fallback) | `ls /d/qontinui-root/plans` | **directory does not exist** |
-| `qontinui-dev-notes/plans/` | working tree + `git ls-tree -r origin/main` + `git log --all` | absent (only the three 2026-06 portofino plans) |
-| Plan library (production, via runner `GET :9876/plan-library/search`) | `?kind=plan` | **2 artifacts total**, neither portofino — the body sync is off and the write door reports `writeEnabled: false` |
-| Local plan cache `C:/claude/plan-corpus-cache/` | `ls` | only `PLANS-CACHE.state.json`; no index, no bodies → **UNKNOWN, not empty** |
-| coord | `coord_work_unit_list`, `coord_work_unit_list_citations` | work unit present, 0 citations; coord never stores plan bodies |
-| disk | `find` over `D:/qontinui-root`, `D:/pizzeria`, `D:/claude`, `D:/tmp`, `D:/qontinui_parent`, `D:/qontinui-worktrees`, `C:/Users/jspin/Documents` | no match |
-
-**The defect this exposes.** A plan can reach `vetted` in coord with its body
-persisted nowhere, silently. Both durable sinks were unavailable at the same
-time and neither failure was surfaced to the authoring session:
-
-1. `$QONTINUI_PLANS_DIR` is unset **and** the documented `<workspace-root>/plans`
-   fallback directory does not exist on this machine, so a filesystem write had
-   no target.
-2. The runner's plan-library write door is disabled — `QONTINUI_PLAN_LIBRARY_WRITE`
-   is not set, so `POST :9876/plan-library/artifacts` 403s. This is precisely
-   the plan-capture protocol the session briefing instructs every session to
-   use.
-
-Coord's work-unit row survived because it goes over a different transport. The
-result is a *bodyless vetted plan*: the operational layer says work is ready to
-dispatch, and the document layer holds nothing. This should be fixed
-independently of Portofino — see "Follow-up: close the durability hole".
-
----
-
-## What did NOT ship (read before trusting the stamp)
-
-1. **coord was unreachable for the whole run**, root-caused: the primary runner
-   is down and the supervisor **refuses to restart it** — slot 0 holds an exe
-   built from a foreign agent-worktree tree, and recovery needs
-   `POST :9875/runner/fix-and-rebuild`, a full rebuild of the live tree into the
-   managed slots. That is fleet-infra surgery and was deliberately not run as a
-   side effect of this plan. Consequences: no phase claims, no `device_status`,
-   no edit-effect loop, and **no gate registered for anything below** — nothing
-   here is being watched. Re-register once the runner is rebuilt.
-2. **`mobile` is committed but NOT pushed**, and it sits on the pre-existing
-   `feat/kitchen-dashboard` branch rather than a branch of this plan's own.
-   `backend` and `infra` still have **no git remote at all** — the plan's own
-   first Risk, unchanged: the service holding payments and allergens exists on
-   one disk. This should be fixed before the editor takes real traffic.
-3. **The dataset is faithful to the site as of 2026-08-29, not to the site
-   today.** The menu is somebody else's document and changes without telling us.
-4. **Open questions 1–5 remain operator calls**, and #1 has been *dissolved
-   rather than answered* (see the falsification section). The
-   "Corrections to the intent corpus" section is still unactioned — an agent
-   cannot write those documents.
-5. **Phase 3's gate text is stale.** It asks for "the web build renders all 14
-   categories" *and* "a UI-Bridge-driven order" — but this app's bridge server is
-   gated `__DEV__ && Platform.OS !== 'web'`, so those are two different targets,
-   and the API now serves **16** categories of which **13** render. Verification
-   targeted native and checked the shipped behaviour, not the stale wording.
+> | Half | Where it is | Landed? |
+> |---|---|---|
+> | Backend Phases 1-4 | `portofino-pizzeria/backend@master`, `8b64d204`…`9a32f361` | **YES** — `master` is the default branch. Landed as direct pushes, so **no PR exists to cite.** |
+> | Client Phases 2-4 | `portofino-pizzeria/mobile@feat/kitchen-dashboard`, `0af41b46`…`2a38b80a` | **NO** — 9 commits ahead of `main`, and until today carried **no pull request in any state**. Now proposed as **portofino-pizzeria/mobile#4**. |
+>
+> **Verification run on this box (Linux, 2026-09-05):**
+>
+> - `backend`: `npm run typecheck` clean; `npm test` **85/85 green** against a
+>   throwaway `postgres:16` container, with `drizzle/0000`–`0002` re-applied from
+>   zero — so "the migration applies on a fresh Postgres" is measured, not
+>   asserted. `test/orders.test.ts` covers the Phase 2 gate directly ("prices a
+>   groß variant at the groß price", "rejects an unknown variantId", "rejects a
+>   line with no variantId at the zod door", "keeps two sizes of the same item as
+>   two distinct lines").
+> - `mobile`: `npx tsc --noEmit` clean; `npm run lint` (`expo lint`) clean.
+> - `data/menu.json`: **16 categories, 138 items, 208 variants, a 19-code
+>   legend, and ZERO unresolved codes** — `d = Senf`, `i = Erdnüsse` are both
+>   resolved, exactly as the Phase 1 write-up claims. 110 items carry a number
+>   and 28 do not, matching decision 3 above. The 138 matches the sitemap count
+>   the plan cites, so coverage is still proven rather than asserted.
+> - Both vet-added breakages are fixed in code: `mobile/src/state/cart.tsx`
+>   keys a line on `(itemId, variantId)` through `cartLineKey` and computes the
+>   subtotal off `variant.price`; the UI Bridge `addToCart` action takes
+>   `{ itemId, variantId? }` and **refuses** a multi-variant item with no
+>   `variantId` rather than picking one. The Phase 3 gate note that called the
+>   bridge half unsatisfiable is therefore satisfied *in code*.
+> - Phase 4's "a typecheck is not a gate for a legal surface" is met: the
+>   backend now has vitest with a real migrated-Postgres fixture and
+>   **41 `admin-menu` tests**, standing up the harness the plan's second Risk
+>   said did not exist.
+>
+> **NOT verified — say so rather than implying it was.** UI Bridge live
+> verification was unavailable in this session, so the two driven halves of the
+> Phase 3 gate — a bridge-driven order of a groß pizza reaching `paid`, and an
+> airplane-mode load showing the cached menu — remain **UNKNOWN**. The code
+> paths exist and typecheck; nobody has driven them. The intent-corpus citations
+> are still unverified against coord for the third run in a row: this session's
+> coord identity resolves to tenant `c231d9da` (`personal-jspinak`), not the
+> Portofino tenant `7ac125b6`, so the wall the original author hit has not moved.
+>
+> **No citation was recorded in coord, deliberately.** The backend half landed
+> with no PR at all, and the client half's only PR (`mobile#4`) is OPEN — citing
+> an open PR pins the work unit *out* of `shipped`, and no single PR delivers the
+> whole plan. Cite `mobile#4` once it merges, and only alongside evidence for the
+> backend half.
 
 > **Repo(s):** `portofino-pizzeria` — `backend/`, `mobile/` (three sibling git
 > repos under `/d/portofino-pizzeria`, no monorepo root; `infra/` is untouched
